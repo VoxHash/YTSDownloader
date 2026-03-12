@@ -1,0 +1,5 @@
+yt-dlp==2026.3.3
+numpy==2.4.3
+moviepy==2.2.1
+pillow==11.3.0
+PyQt6==6.10.2

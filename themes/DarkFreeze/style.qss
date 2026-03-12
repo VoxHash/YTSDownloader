@@ -1,0 +1,113 @@
+/* pydracula.qss */
+* {
+    background-color: #282a36;
+    color: #f8f8f2;
+    border: none;
+    padding: 5px;
+}
+
+QPushButton {
+    background-color: #44475a;
+    border-radius: 5px;
+    padding: 10px;
+    color: #f8f8f2;
+}
+
+QPushButton:hover {
+    background-color: #6272a4;
+    color: #50fa7b;  /* Change the text color to a light green */
+}
+
+QComboBox {
+    background-color: #44475a;
+    border-radius: 5px;
+    color: #f8f8f2;
+}
+
+QSpinBox {
+    background-color: #44475a;
+    border-radius: 5px;
+    color: #f8f8f2;
+}
+
+QLineEdit {
+    background-color: #44475a;
+    border-radius: 5px;
+    color: #f8f8f2;
+}
+
+QTextEdit {
+    background-color: #44475a;
+    border-radius: 5px;
+    padding: 10px;
+    color: #f8f8f2;
+}
+
+QLabel {
+    color: #f8f8f2;
+    font-size: 14px;
+}
+
+QFrame {
+    background-color: #282a36;
+    border: 1px solid #44475a;
+    border-radius: 5px;
+}
+
+QTabBar::tab {
+    background: #44475a;
+    color: #f8f8f2;
+    padding: 10px;
+    border-radius: 5px;
+    margin-left: 10px;
+    margin-bottom: 10px;
+}
+
+QTabBar::tab:hover {
+    background-color: #6272a4;
+    color: #50fa7b;  /* Change the text color to a light green */
+}
+
+QTabBar::tab:selected {
+    background: #6272a4;
+    color: #50fa7b;
+}
+
+QTabWidget::pane {
+    border: 1px solid #44475a;
+    border-radius: 5px;
+    padding: 10px;
+}
+
+/* Custom Title Bar Styles */
+QWidget#CustomTitleBar {
+    background-color: #44475a;
+    border-bottom: 1px solid #44475a;
+}
+
+QLabel#iconLabel {
+    border: none;
+}
+
+QPushButton#minimizeButton, QPushButton#maximizeButton, QPushButton#closeButton {
+    background: #44475a;
+    border: none;
+    color: #f8f8f2;
+}
+
+QPushButton#minimizeButton:hover, QPushButton#maximizeButton:hover, QPushButton#closeButton:hover {
+    background-color: #6272a4;
+    color: #50fa7b;  /* Change the text color to a light green */
+}
+
+QPushButton#minimizeButton {
+    border-radius: 0;
+}
+
+QPushButton#maximizeButton {
+    border-radius: 0;
+}
+
+QPushButton#closeButton {
+    border-radius: 0;
+}
