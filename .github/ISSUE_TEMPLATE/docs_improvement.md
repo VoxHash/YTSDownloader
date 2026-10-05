@@ -1,11 +1,15 @@
 ---
 name: Docs improvement
-about: Help make our docs better
+about: Improve YTSDownloader documentation
+title: "[docs] "
 labels: documentation
 ---
 
-**Page/section** (link or path)
+**Page / file**
+Example: `docs/getting-started.md` or `README.md`
 
-**What's unclear or missing?**
+**What is unclear or wrong?**
 
-**Proposed change**
+**Suggested change**
+
+**Additional context**

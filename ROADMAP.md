@@ -1,16 +1,26 @@
 # Roadmap
 
-## Milestone 1: Stability and Reliability
-- Harden extractor error handling across supported platforms.
-- Improve runtime dependency detection (JS runtime and ffmpeg).
-- Reduce shutdown/logging edge-case errors in GUI close flow.
+Current product baseline: **v0.1.0** — PyQt6 multi-platform downloader with optional watermarking via yt-dlp + moviepy.
 
-## Milestone 2: Creator Workflow Improvements
-- Add reusable watermark/export presets.
-- Improve batch progress visibility and per-item status reporting.
-- Expand configuration UX for authentication and runtime options.
+## Now (v0.1.x)
 
-## Milestone 3: Insight and Scale
-- Add download analytics dashboard in-app.
-- Add safer retry strategies for temporary extractor/network failures.
-- Prepare plugin-oriented architecture notes for future extensibility.
+- Keep extractor auth guidance accurate for YouTube bot checks (cookies / JS runtime).
+- Improve startup messaging when `ffmpeg` or the configured JS runtime is missing.
+- Reduce GUI shutdown / logging-handler edge cases on close.
+
+## Next
+
+- Reusable watermark and export presets.
+- Clearer per-item batch progress and failure reporting.
+- Safer retries for temporary network/extractor failures.
+
+## Later
+
+- Lightweight download analytics (success/error counts, timing).
+- Optional settings UI for auth and runtime options currently limited to `config.ini`.
+- Packaging notes for Windows / macOS / Linux distributables.
+
+## Out of Scope (for now)
+
+- Cloud sync or hosted download services.
+- Automated end-to-end CI GUI tests (manual smoke tests remain the validation path).

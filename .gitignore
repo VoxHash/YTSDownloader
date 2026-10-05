@@ -37,7 +37,7 @@ cython_debug/
 env/
 venv/
 ENV/
-.venv
+.venv/
 
 # Testing
 /coverage
@@ -138,3 +138,6 @@ config.ini.local
 *.bak
 *.backup
 *.old
+.mypy_cache/
+.ruff_cache/
+.specstory/

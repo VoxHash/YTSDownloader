@@ -1,15 +1,34 @@
 # Configuration
 
-Settings are defined in `config.ini`.
+Settings live in `config.ini` under the `[SETTINGS]` section.
 
-## `SETTINGS` Keys
-- `THEME`: Name of the folder under `themes/` (example: `DarkFreeze`).
-- `COUNT_TIMER_ONGOING`: Refresh interval used by the UI.
-- `COOKIES_FROM_BROWSER`: Browser source for yt-dlp cookies (optional).
-- `COOKIES_FILE`: Cookie file path for authenticated access (optional).
-- `JS_RUNTIME`: JavaScript runtime name for yt-dlp extraction (example: `node`).
-- `JS_RUNTIME_PATH`: Absolute path to the runtime binary (optional but recommended).
+## Keys
 
-## Notes
-- If YouTube requests bot verification, set `COOKIES_FROM_BROWSER` or `COOKIES_FILE`.
-- Keep `JS_RUNTIME` and `JS_RUNTIME_PATH` valid to avoid missing-format extraction warnings.
+| Setting | Description | Default | Example |
+| --- | --- | --- | --- |
+| `THEME` | Theme directory under `themes/` | `DarkFreeze` | `DarkFreeze` |
+| `COUNT_TIMER_ONGOING` | Pause (seconds) between downloads | `2` | `2` |
+| `COOKIES_FROM_BROWSER` | Browser cookies for yt-dlp | empty | `chrome` |
+| `COOKIES_FILE` | Cookie file path | empty | `/path/to/cookies.txt` |
+| `JS_RUNTIME` | JavaScript runtime name | `node` | `node` |
+| `JS_RUNTIME_PATH` | Absolute path to runtime binary | empty | `/usr/bin/node` |
+
+## Environment variables / secrets
+
+This project does **not** require cloud API keys.
+
+Sensitive local inputs:
+
+- Browser cookie profiles referenced by `COOKIES_FROM_BROWSER`
+- Exported `cookies.txt` / `cookies.json` (ignored by git)
+- Optional local override file `config.ini.local` (ignored by git)
+
+## Authentication tips
+
+1. Prefer `COOKIES_FROM_BROWSER = chrome` (or `firefox`, `edge`, `brave`, `opera`) when the browser is logged in.
+2. Otherwise export cookies to a file and set `COOKIES_FILE`.
+3. Keep `JS_RUNTIME = node` and set `JS_RUNTIME_PATH` only when `node` is not on `PATH`.
+
+## Themes
+
+Create `themes/MyTheme/style.qss` (and optional `images/`), then set `THEME = MyTheme`.
