@@ -84,24 +84,42 @@ Do **not** assume a frozen build is self-sufficient without documenting those PA
 
 ### Shared recipe (run on the target OS)
 
+Helpers (same flags; post-copy `config.ini` + `themes/` next to the binary for cwd loading):
+
+| OS | Command |
+| --- | --- |
+| Linux / macOS | `./scripts/build_pyinstaller.sh` |
+| Windows | `.\scripts\build_pyinstaller.ps1` |
+
 From the repo root, with the project venv already holding `requirements.txt`:
 
 ```bash
-.venv/bin/python -m pip install -U "pyinstaller>=6.11"
+# Linux / macOS (fish-safe — no activate required)
 ./scripts/build_pyinstaller.sh
+# optional offscreen start smoke:
+SMOKE=1 ./scripts/build_pyinstaller.sh
 ```
 
-Fish-safe (no `source` of bash activate scripts):
-
-```fish
-.venv/bin/python -m pip install -U "pyinstaller>=6.11"
-./scripts/build_pyinstaller.sh
+```powershell
+# Windows PowerShell
+.\scripts\build_pyinstaller.ps1
 ```
 
-Manual equivalent (same flags the script uses):
+Override the interpreter when you are not using `.venv` (CI / custom envs):
 
 ```bash
-.venv/bin/pyinstaller \
+YTS_PYTHON="$(command -v python)" ./scripts/build_pyinstaller.sh
+```
+
+```powershell
+$env:YTS_PYTHON = (Get-Command python).Source
+.\scripts\build_pyinstaller.ps1
+```
+
+Manual equivalent (same flags the Linux/macOS script uses):
+
+```bash
+.venv/bin/python -m PyInstaller \
   --noconfirm --clean \
   --windowed --name YTSDownloader --onedir \
   --paths . \
@@ -115,12 +133,12 @@ Manual equivalent (same flags the script uses):
   --add-data "$(pwd)/config.ini:." \
   --specpath build --workpath build/pyi --distpath dist \
   main.py
+# then copy config.ini + themes/ into dist/YTSDownloader/ (scripts do this)
 ```
 
 Use absolute paths for `--add-data` when `--specpath` is outside the repo root layout (PyInstaller resolves relative sources against the spec directory). PyQt6 widgets/core/gui are collected by PyInstaller’s built-in hooks — avoid `--collect-all PyQt6` (it pulls unused QML/3D plugins and balloons the tree).
 
-
-Output: `dist/YTSDownloader/` (executable + `_internal/` on recent PyInstaller). The helper also copies `config.ini` and `themes/` next to the binary because the Suite loads those paths from the **process cwd**. **Ship the whole folder**; do not move the binary alone.
+Output: `dist/YTSDownloader/` (executable + `_internal/` on recent PyInstaller). **Ship the whole folder**; do not move the binary alone. `build/` and `dist/` stay gitignored.
 
 Launch from that folder (writable cwd for `.ytsdownloader/` queue state):
 
@@ -131,49 +149,59 @@ cd dist/YTSDownloader
 QT_QPA_PLATFORM=offscreen timeout 8 ./YTSDownloader
 ```
 
+```powershell
+cd dist\YTSDownloader
+.\YTSDownloader.exe
+```
+
 ### Linux
 
-1. Build on the **oldest glibc** you intend to support (or a manylinux-style container). Newer hosts can fail with `GLIBC_x.y not found` on older distros.
+1. Prefer `./scripts/build_pyinstaller.sh` on the **oldest glibc** you intend to support (or a manylinux-style container). Newer hosts can fail with `GLIBC_x.y not found` on older distros.
 2. Preserve **symlinks** when copying or archiving PyInstaller 6+ trees (`cp -a`, `tar`, or `zip -y`).
 3. Optional packaging of the folder: AppImage / `.tar.gz` / Briefcase `system_runtime_requires` including `ffmpeg`.
 4. Metadata bridge still needs `dbus-send` or `busctl` on the user machine when that feature is used.
+5. Optional manual GitHub Actions freeze: **Actions → Freeze (manual) → Run workflow** (`.github/workflows/freeze.yml`, `workflow_dispatch` only, Ubuntu artifact). Not a required PR check. If the run stays **Queued**, hosted runners may be unavailable for the org — freeze locally instead.
 
 ### macOS
 
-1. Build on the macOS / arch you target (Intel vs Apple Silicon are separate builds unless you explicitly produce a universal workflow).
-2. After `onedir`, wrap with PyInstaller `BUNDLE` or Briefcase for a `.app`, then **codesign** and **notarize** before wide distribution (Apple requirements change; follow current Apple + Briefcase docs).
-3. Users still need Homebrew (or equivalent) `ffmpeg` / `ffprobe` on `PATH` unless you legally redistribute binaries and point the app at them.
-
-Example Homebrew deps on the **build** and **run** machines:
+1. Use the same bash helper on the Mac you will ship for (Intel vs Apple Silicon are separate builds unless you explicitly produce a universal workflow):
 
 ```bash
 brew install python ffmpeg
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/pip install -r requirements.txt
+./scripts/build_pyinstaller.sh
+# optional:
+SMOKE=1 ./scripts/build_pyinstaller.sh
 ```
+
+2. After `onedir`, wrap with PyInstaller `BUNDLE` or Briefcase for a `.app`, then **codesign** and **notarize** before wide distribution (Apple requirements change; follow current Apple + Briefcase docs).
+3. Users still need Homebrew (or equivalent) `ffmpeg` / `ffprobe` on `PATH` unless you legally redistribute binaries and point the app at them.
+4. There is **no** macOS job in the optional `freeze.yml` workflow yet — treat GitHub macOS freeze as out of scope until a local Apple Silicon / Intel freeze is green and signing secrets exist.
 
 ### Windows
 
 1. Build on Windows with the same Python major/minor you validate in CI/manual smoke.
-2. Prefer `onedir`; zip the folder or wrap with Inno Setup / Briefcase MSI for Start Menu shortcuts.
+2. Prefer `.\scripts\build_pyinstaller.ps1` (`onedir`); zip the folder or wrap with Inno Setup / Briefcase MSI for Start Menu shortcuts.
 3. Install [FFmpeg builds](https://ffmpeg.org/download.html) and ensure `ffmpeg.exe` / `ffprobe.exe` are on user `PATH`.
-4. PowerShell (venv without bash activate):
+4. PowerShell (venv without Activate.ps1):
 
 ```powershell
-$Root = (Get-Location).Path
-.\.venv\Scripts\python.exe -m pip install -U "pyinstaller>=6.11"
-.\.venv\Scripts\pyinstaller.exe --noconfirm --clean --windowed --name YTSDownloader --onedir `
-  --paths $Root --collect-all yt_dlp --collect-all imageio_ffmpeg `
-  --collect-all moviepy --collect-submodules ytscore --collect-submodules ytsgui `
-  --hidden-import PIL --add-data "$Root\themes;themes" --add-data "$Root\config.ini;." `
-  --specpath build --workpath build\pyi --distpath dist main.py
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\scripts\build_pyinstaller.ps1
 ```
 
-(`;` in `--add-data` remains valid on Windows; PyInstaller 6+ also accepts `source:dest`. Prefer absolute source paths when using `--specpath build`.)
+(`;` in `--add-data` remains valid on Windows; the `.ps1` helper uses absolute sources and copies `config.ini` / `themes/` into `dist\YTSDownloader\`.)
 
+5. No Windows matrix job is claimed in CI; freeze on a real Windows machine (or a trusted self-hosted runner) before publishing `.zip` / MSI.
 
 ### What not to automate yet
 
 - **Unit / offscreen Suite smoke** already runs on GitHub Actions (`.github/workflows/ci.yml`) with `QT_QPA_PLATFORM=offscreen` — that is not a freeze matrix.
-- No cross-OS **PyInstaller freeze** CI matrix is claimed in-repo: freezing PyQt6 + yt-dlp needs per-OS runners, signing secrets, and ffmpeg on those images. Add freeze CI only after a green manual freeze on each platform.
+- **Full cross-OS freeze CI** (required PR matrix on ubuntu + windows + macos) stays out of scope until each OS has a green **manual** freeze and runner capacity is reliable. The optional `freeze.yml` is Ubuntu-only, `workflow_dispatch` only, and best-effort.
 - Do not bundle GPL UI or extractor sources into this MIT tree; ship yt-dlp as its upstream package inside the freeze only.
 
 ### Checklist before you publish a build
@@ -182,3 +210,4 @@ $Root = (Get-Location).Path
 - [ ] Suite window opens; theme loads (`themes/SuiteDark`)
 - [ ] One short download + optional watermark completes
 - [ ] Cookies / Node notes documented for end users when platforms require them
+- [ ] Built with `scripts/build_pyinstaller.sh` or `scripts/build_pyinstaller.ps1` on that OS

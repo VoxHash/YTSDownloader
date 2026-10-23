@@ -26,7 +26,12 @@ Not yet. Launch with `python main.py`. Related notes are in [cli.md](cli.md).
 
 ## How do I build a Windows / macOS / Linux distributable?
 
-Use **PyInstaller `onedir`** on each target OS (no cross-compile). Keep **ffmpeg** and **ffprobe** on the end-user `PATH`. See [Installation → Packaging](installation.md#packaging-windows--macos--linux-distributables) and `./scripts/build_pyinstaller.sh`.
+Use **PyInstaller `onedir`** on each target OS (no cross-compile). Keep **ffmpeg** and **ffprobe** on the end-user `PATH`.
+
+- Linux / macOS: `./scripts/build_pyinstaller.sh` (optional `SMOKE=1`)
+- Windows: `.\scripts\build_pyinstaller.ps1`
+
+See [Installation → Packaging](installation.md#packaging-windows--macos--linux-distributables). A full required cross-OS freeze CI matrix is out of scope; optional Ubuntu freeze is Actions → **Freeze (manual)** only.
 
 ## Can a browser extension download for me?
 

@@ -1,16 +1,31 @@
 #!/usr/bin/env bash
 # Freeze YTSDownloader (PyQt6 Suite) with PyInstaller onedir.
-# Run on the target OS — PyInstaller does not cross-compile.
+# Run on the target OS (Linux or macOS) — PyInstaller does not cross-compile.
 # Fish-safe: invoke as ./scripts/build_pyinstaller.sh (no venv activate required).
+# Optional: YTS_PYTHON=/path/to/python  (defaults to .venv/bin/python)
+# Optional: SMOKE=1  — after freeze, run an offscreen launch smoke (needs Qt plugins).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-PY="${ROOT}/.venv/bin/python"
-if [[ ! -x "$PY" ]]; then
-  echo "error: missing $PY — create the venv and install requirements.txt first" >&2
-  exit 1
+if [[ -n "${YTS_PYTHON:-}" ]]; then
+  PY="$YTS_PYTHON"
+  if [[ ! -x "$PY" ]]; then
+    if command -v "$PY" >/dev/null 2>&1; then
+      PY="$(command -v "$PY")"
+    else
+      echo "error: YTS_PYTHON=$YTS_PYTHON is not executable and not on PATH" >&2
+      exit 1
+    fi
+  fi
+else
+  PY="$ROOT/.venv/bin/python"
+  if [[ ! -x "$PY" ]]; then
+    echo "error: missing $PY — create the venv and install requirements.txt first" >&2
+    echo "  or set YTS_PYTHON to an interpreter that already has requirements.txt installed" >&2
+    exit 1
+  fi
 fi
 
 if [[ ! -f "$ROOT/main.py" || ! -f "$ROOT/config.ini" || ! -d "$ROOT/themes" ]]; then
@@ -53,3 +68,15 @@ echo
 echo "Built: $OUT/"
 echo "Ship the entire folder. Runtime still needs ffmpeg and ffprobe on PATH."
 echo "Try:  cd dist/YTSDownloader && ./YTSDownloader"
+
+if [[ "${SMOKE:-0}" == "1" ]]; then
+  echo
+  echo "SMOKE=1: offscreen launch (8s timeout)…"
+  (
+    cd "$OUT"
+    # Windowed freezes still accept QT_QPA_PLATFORM for a brief start smoke.
+    QT_QPA_PLATFORM=offscreen timeout 8 ./YTSDownloader || true
+  )
+  echo "Smoke finished (timeout/exit expected; binary must exist and start)."
+  test -x "$OUT/YTSDownloader"
+fi

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-23
+
+### Added
+- `scripts/build_pyinstaller.ps1` — Windows PowerShell freeze helper (same onedir flags as the bash script; copies `config.ini` / `themes/` next to the binary).
+- Optional GitHub Actions **Freeze (manual)** workflow (`.github/workflows/freeze.yml`): `workflow_dispatch` only, Ubuntu onedir + artifact; not a required PR check.
+- Packaging docs: consistent Linux / macOS / Windows recipes, `YTS_PYTHON` / `SMOKE=1` notes, checklist item for helper scripts.
+
+### Changed
+- `scripts/build_pyinstaller.sh` accepts `YTS_PYTHON` and optional `SMOKE=1` offscreen launch smoke (Linux/macOS).
+- Roadmap: manual per-OS freeze path marked done under Now; **required** cross-OS freeze CI matrix stays out of scope.
+
 ## [0.4.1] - 2026-10-23
 
 ### Added
@@ -162,7 +173,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.3...v0.3.4
