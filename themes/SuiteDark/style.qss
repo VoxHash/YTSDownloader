@@ -186,3 +186,20 @@ QLabel#dropZoneHint {
     border: none;
     font-size: 12px;
 }
+
+QFrame#failureTriagePanel {
+    background-color: #181818;
+    border: 1px solid #282828;
+    border-radius: 8px;
+}
+QLabel#triageTitle {
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    border: none;
+}
+QLabel#triageCategory {
+    color: #1db954;
+    font-weight: 600;
+    border: none;
+}

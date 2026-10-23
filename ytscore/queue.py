@@ -131,6 +131,11 @@ class DownloadQueue:
         with self._lock:
             return self._jobs.get(job_id)
 
+    @property
+    def is_running(self) -> bool:
+        with self._lock:
+            return self._running
+
     def apply_export_options(
         self,
         job_ids: Optional[List[str]],
@@ -177,6 +182,48 @@ class DownloadQueue:
                 if jid not in self._jobs:
                     self._futures.pop(jid, None)
         return removed
+
+    def retry_jobs(
+        self,
+        job_ids: Optional[List[str]] = None,
+        *,
+        only_states: Optional[List[JobState]] = None,
+    ) -> int:
+        """
+        Re-queue jobs for another attempt.
+
+        Resets state/progress/error/message/path while preserving URL, title,
+        media, search query, and export options. Default eligible states are
+        FAILED and CANCELLED. If the queue is running, jobs are submitted.
+        Returns how many jobs were re-queued.
+        """
+        eligible = set(only_states or (JobState.FAILED, JobState.CANCELLED))
+        touched: List[QueueJob] = []
+        with self._lock:
+            if job_ids is None:
+                targets = [self._jobs[i] for i in self._order]
+            else:
+                targets = [self._jobs[i] for i in job_ids if i in self._jobs]
+            for job in targets:
+                if job.state not in eligible:
+                    continue
+                # Drop any stale future handle (terminal jobs should already be idle).
+                self._futures.pop(job.id, None)
+                job.state = JobState.QUEUED
+                job.progress = 0.0
+                job.error = None
+                job.path = None
+                job.message = "Queued for retry"
+                touched.append(job)
+        for job in touched:
+            self._emit(job)
+            if self._running:
+                self._submit(job)
+        return len(touched)
+
+    def retry_failed(self) -> int:
+        """Re-queue every FAILED job. Returns how many were re-queued."""
+        return self.retry_jobs(None, only_states=[JobState.FAILED])
 
     def restore_jobs(self, jobs: List[QueueJob]) -> None:
         """Replace queue contents with restored jobs (caller applies remap rules)."""

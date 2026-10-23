@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-23
+
+### Added
+- Queue **Failure triage** panel: select a row to see classified error category (rate limit / auth / network / unavailable / format / unknown) and full detail.
+- **Retry selected** and **Retry failed** actions re-queue jobs cleanly (reset state/progress/error; preserve URL, title, media, and export options).
+- `ytscore.triage` classifiers and `DownloadQueue.retry_jobs` / `retry_failed` helpers with unit / offscreen Suite smoke tests.
+
+### Changed
+- SuiteDark styles for the triage panel; Queue hint documents triage + retry.
+
 ## [0.3.0] - 2026-10-23
 
 ### Added

@@ -33,6 +33,7 @@ from PyQt6.QtWidgets import (
     QSpinBox,
     QDoubleSpinBox,
     QScrollArea,
+    QSplitter,
 )
 
 from ytscore.cache import title_cache
@@ -53,6 +54,11 @@ from ytscore.presets import (
 from ytscore.queue import DownloadQueue, QueueJob, JobState
 from ytscore.resolvers import resolve_url, resolve_many, auth_probe, detect_platform
 from ytscore.settings import Settings, load_settings, save_settings, DEFAULT_CONFIG_PATH
+from ytscore.triage import (
+    category_label,
+    classify_failure,
+    failure_detail_text,
+)
 from ytscore.util import extract_urls
 from ytscore import spotify_bridge
 from ytsgui.styles import load_stylesheet
@@ -370,7 +376,7 @@ class SuiteWindow(QMainWindow):
         hint = QLabel(
             "Concurrent workers, per-item progress, automatic retries. "
             "Queue is saved locally and restored on startup (pending items stay paused — press Start). "
-            "Apply an export preset to selected rows or all queued items."
+            "Select a failed row for triage detail, then Retry selected / Retry failed."
         )
         hint.setObjectName("pageHint")
         hint.setWordWrap(True)
@@ -418,6 +424,9 @@ class SuiteWindow(QMainWindow):
         preset_row.addStretch(1)
         layout.addLayout(preset_row)
 
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.setChildrenCollapsible(False)
+
         self.queue_table = QTableWidget(0, 6)
         self.queue_table.setHorizontalHeaderLabels(
             ["#", "Title / URL", "State", "Export", "Progress", "Message"]
@@ -427,7 +436,51 @@ class SuiteWindow(QMainWindow):
         self.queue_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.queue_table.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.queue_table.verticalHeader().setVisible(False)
-        layout.addWidget(self.queue_table, stretch=1)
+        self.queue_table.itemSelectionChanged.connect(self._refresh_failure_triage)
+        splitter.addWidget(self.queue_table)
+
+        triage = QFrame()
+        triage.setObjectName("failureTriagePanel")
+        triage_layout = QVBoxLayout(triage)
+        triage_layout.setContentsMargins(12, 10, 12, 10)
+        triage_layout.setSpacing(6)
+
+        triage_header = QHBoxLayout()
+        triage_title = QLabel("Failure triage")
+        triage_title.setObjectName("triageTitle")
+        triage_header.addWidget(triage_title)
+        self.triage_category = QLabel("Category: —")
+        self.triage_category.setObjectName("triageCategory")
+        triage_header.addWidget(self.triage_category)
+        triage_header.addStretch(1)
+        triage_layout.addLayout(triage_header)
+
+        self.triage_detail = QPlainTextEdit()
+        self.triage_detail.setReadOnly(True)
+        self.triage_detail.setPlaceholderText(
+            "Select a failed (or cancelled) queue row to inspect error detail."
+        )
+        self.triage_detail.setMaximumBlockCount(200)
+        self.triage_detail.setMinimumHeight(96)
+        triage_layout.addWidget(self.triage_detail)
+
+        triage_actions = QHBoxLayout()
+        retry_sel = QPushButton("Retry selected")
+        retry_sel.clicked.connect(self._retry_selected_jobs)
+        retry_failed = QPushButton("Retry failed")
+        retry_failed.setStyleSheet(
+            "QPushButton { background: transparent; color: #fff; border: 1px solid #727272; border-radius: 20px; }"
+        )
+        retry_failed.clicked.connect(self._retry_failed_jobs)
+        triage_actions.addWidget(retry_sel)
+        triage_actions.addWidget(retry_failed)
+        triage_actions.addStretch(1)
+        triage_layout.addLayout(triage_actions)
+        splitter.addWidget(triage)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([420, 180])
+        layout.addWidget(splitter, stretch=1)
 
         self.overall_progress = QProgressBar()
         self.overall_progress.setValue(0)
@@ -451,6 +504,7 @@ class SuiteWindow(QMainWindow):
         row.addWidget(clear)
         row.addStretch(1)
         layout.addLayout(row)
+        self._refresh_failure_triage()
         return page
 
     # ----- link grabber -----
@@ -775,6 +829,87 @@ class SuiteWindow(QMainWindow):
                     seen.add(jid)
                     break
         return ids
+
+    def _refresh_failure_triage(self) -> None:
+        if not hasattr(self, "triage_detail"):
+            return
+        ids = self._selected_queue_job_ids()
+        if not ids or not self.queue:
+            self.triage_category.setText("Category: —")
+            self.triage_detail.setPlainText("")
+            return
+        # Prefer the first selected failed/cancelled job; else first selection.
+        jobs = [self.queue.get(jid) for jid in ids]
+        jobs = [j for j in jobs if j is not None]
+        if not jobs:
+            self.triage_category.setText("Category: —")
+            self.triage_detail.setPlainText("")
+            return
+        preferred = next(
+            (j for j in jobs if j.state in (JobState.FAILED, JobState.CANCELLED)),
+            jobs[0],
+        )
+        raw = (preferred.error or preferred.message or "").strip()
+        if preferred.state == JobState.FAILED or preferred.error:
+            cat = classify_failure(raw)
+            self.triage_category.setText(f"Category: {category_label(cat)}")
+        elif preferred.state == JobState.CANCELLED:
+            self.triage_category.setText("Category: Cancelled")
+        else:
+            self.triage_category.setText(f"Category: — ({preferred.state.value})")
+        self.triage_detail.setPlainText(
+            failure_detail_text(
+                title=preferred.title or "",
+                url=preferred.url or "",
+                state=preferred.state.value,
+                error=preferred.error,
+                message=preferred.message or "",
+            )
+        )
+
+    def _retry_selected_jobs(self) -> None:
+        if not self.queue:
+            QMessageBox.information(self, "Queue", "Queue is empty.")
+            return
+        ids = self._selected_queue_job_ids()
+        if not ids:
+            QMessageBox.information(self, "Retry", "Select one or more failed / cancelled rows.")
+            return
+        n = self.queue.retry_jobs(ids)
+        self._persist_queue_now()
+        self._refresh_failure_triage()
+        self._update_overall()
+        if n == 0:
+            QMessageBox.information(
+                self,
+                "Retry",
+                "No selected items were failed or cancelled.",
+            )
+            return
+        if self.queue.is_running:
+            self._refresh_status(f"Re-queued {n} selected item(s) for retry")
+        else:
+            self._refresh_status(
+                f"Re-queued {n} selected item(s) — press Start to download"
+            )
+
+    def _retry_failed_jobs(self) -> None:
+        if not self.queue:
+            QMessageBox.information(self, "Queue", "Queue is empty.")
+            return
+        n = self.queue.retry_failed()
+        self._persist_queue_now()
+        self._refresh_failure_triage()
+        self._update_overall()
+        if n == 0:
+            QMessageBox.information(self, "Retry", "No failed items to retry.")
+            return
+        if self.queue.is_running:
+            self._refresh_status(f"Re-queued {n} failed item(s)")
+        else:
+            self._refresh_status(
+                f"Re-queued {n} failed item(s) — press Start to download"
+            )
 
     def _apply_preset_to_jobs(self, job_ids: Optional[List[str]], *, only_queued: bool) -> None:
         if not self.queue:
@@ -1107,6 +1242,7 @@ class SuiteWindow(QMainWindow):
         for job in self.queue.jobs():
             self._upsert_job_row(job)
         self._apply_queue_filters()
+        self._refresh_failure_triage()
         self._update_overall()
         self._persist_queue_now()
 
@@ -1115,6 +1251,9 @@ class SuiteWindow(QMainWindow):
         self._update_overall()
         self.cache_label.setText(title_cache.status_text())
         self._schedule_persist()
+        selected = self._selected_queue_job_ids()
+        if job.id in selected or job.state == JobState.FAILED:
+            self._refresh_failure_triage()
 
     def _upsert_job_row(self, job: QueueJob) -> None:
         row = self._job_rows.get(job.id)

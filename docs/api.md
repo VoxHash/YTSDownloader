@@ -9,8 +9,9 @@
 | `load_settings` / `save_settings` / `Settings` | Load/save `config.ini` (pace, backoff, workers, cookies) |
 | `apply_auth_opts` | Attach cookies / JS runtime options for yt-dlp |
 | `compute_backoff_seconds` / `is_rate_limited` | Retry delay and rate-limit detection |
+| `classify_failure` / `failure_detail_text` | Coarse failure categories for Queue triage |
 | `resolve_url` / `resolve_many` | Expand playlist / channel / profile URLs |
-| `DownloadQueue` | Concurrent workers with start-slot pacing and retries |
+| `DownloadQueue` | Concurrent workers with start-slot pacing, retries, and `retry_jobs` / `retry_failed` |
 | `download_item` | Single URL download with exponential backoff retries |
 | `SuiteWindow` (`ytsgui`) | Suite sidebar UI |
 

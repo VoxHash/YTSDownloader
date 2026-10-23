@@ -22,10 +22,11 @@ Optional activation: bash/zsh `source .venv/bin/activate`, fish `source .venv/bi
 3. **Resolve & Queue**, then open **Queue** and press **Start** (or use **Start Queue** on Download).
 4. Filter the queue by **State** and/or **Search** (title, URL, message, export label).
 5. Optionally pick a preset on Queue and **Apply to selected** rows or **Apply to queued** items (metadata-bridge search-audio jobs are left unchanged).
-6. Use **Link Grabber** to paste many URLs (one per line); enqueue uses the Download page preset.
-7. Use **Metadata Bridge** while a desktop music client is playing to queue a matching public-host audio download.
-8. Use **Settings** to edit and **Save** `config.ini` (cookies, pace, backoff, workers, formats); most knobs apply without restarting the app.
-9. Watch per-item progress on the Queue page (Export column shows audio / video / video+wm).
+6. When items fail, select a row in the **Failure triage** panel to see the classified category and full error; use **Retry selected** or **Retry failed** (preserves URL / export options; press **Start** if the queue is paused).
+7. Use **Link Grabber** to paste many URLs (one per line); enqueue uses the Download page preset.
+8. Use **Metadata Bridge** while a desktop music client is playing to queue a matching public-host audio download.
+9. Use **Settings** to edit and **Save** `config.ini` (cookies, pace, backoff, workers, formats); most knobs apply without restarting the app.
+10. Watch per-item progress on the Queue page (Export column shows audio / video / video+wm).
 
 ## Queue persistence
 

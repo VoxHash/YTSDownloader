@@ -14,12 +14,14 @@ Apply a transparent PNG watermark during export.
 3. Select an output folder and browse to your PNG under **Watermark PNG**.
 4. Paste a direct video URL → **Resolve & Queue** → **Start Queue**.
 5. Or enqueue first, then on **Queue** use **Apply to selected** / **Apply to queued** with the Watermark preset.
+6. If an item fails (missing ffmpeg, bad PNG path, etc.), open **Failure triage**, confirm the category, then **Retry selected** after fixing the cause.
 
 ## Expected result
 
 - Temporary download is processed through moviepy
 - Final file is written with the watermark composite
 - Progress label reports success per item
+- Failed rows show a format / ffmpeg category in triage when applicable
 
 ## Notes
 
