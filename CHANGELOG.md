@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-23
+
+### Added
+- Modular core package (`ytscore`): settings, resolvers, concurrent download queue with retries, downloader, watermark, metadata bridge.
+- Suite GUI (`ytsgui`): sidebar navigation, download page, queue table, link grabber, metadata bridge, settings overview.
+- SuiteDark theme with dark hierarchy and queue-focused layout.
+- Metadata bridge reads the local music desktop session (MPRIS on Linux) and queues matching public-host audio downloads.
+- Config knobs: `MAX_WORKERS`, `MAX_RETRIES`, `AUDIO_FORMAT`, `VIDEO_FORMAT`, `DEFAULT_OUTPUT`.
+- `python main.py --legacy` keeps the classic tabbed window.
+
+### Changed
+- Default entrypoint launches the Suite UI.
+- Default theme set to `SuiteDark`.
+- Architecture docs updated for the modular layout.
+
 ## [0.1.0] - 2026-10-05
 
 ### Added
@@ -27,5 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/VoxHash/YTSDownloader/releases/tag/v0.1.0

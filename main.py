@@ -54,6 +54,7 @@ def parse_cookies_from_browser(value):
 
 def with_auth_opts(ydl_opts):
     ydl_opts["no_color"] = True
+    ydl_opts.setdefault("remote_components", {"ejs:github"})
     if js_runtime:
         if js_runtime_path:
             ydl_opts["js_runtimes"] = {js_runtime: {"path": js_runtime_path}}
@@ -657,13 +658,17 @@ class MainWindow(QMainWindow):
         self.oldPosition = event.globalPosition().toPoint()
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    def cleanup_log_handlers():
-        for handler in list(logger.handlers):
-            if isinstance(handler, TextEditLogger):
-                logger.removeHandler(handler)
-                handler.close()
-    app.aboutToQuit.connect(cleanup_log_handlers)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
+    # Default: modern Suite UI. Pass --legacy for the classic tabbed window.
+    if "--legacy" in sys.argv:
+        app = QApplication(sys.argv)
+        def cleanup_log_handlers():
+            for handler in list(logger.handlers):
+                if isinstance(handler, TextEditLogger):
+                    logger.removeHandler(handler)
+                    handler.close()
+        app.aboutToQuit.connect(cleanup_log_handlers)
+        window = MainWindow()
+        window.show()
+        sys.exit(app.exec())
+    from ytsgui.app import run_suite
+    sys.exit(run_suite())

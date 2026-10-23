@@ -1,26 +1,29 @@
 # Roadmap
 
-Current product baseline: **v0.1.0** — PyQt6 multi-platform downloader with optional watermarking via yt-dlp + moviepy.
+Current product baseline: **v0.2.0** — modular download suite (PyQt6 + yt-dlp) with concurrent queue, link grabber, and local metadata bridge.
 
-## Now (v0.1.x)
+## Now (v0.2.x)
 
-- Keep extractor auth guidance accurate for YouTube bot checks (cookies / JS runtime).
-- Improve startup messaging when `ffmpeg` or the configured JS runtime is missing.
-- Reduce GUI shutdown / logging-handler edge cases on close.
+- Suite UI polish: filters on the queue table, drag-and-drop URL drop zone.
+- Stronger playlist pacing and rate-limit backoff defaults.
+- Persist queue state across restarts (local JSON).
+- Settings page write-back to `config.ini` (today: reload-only).
 
 ## Next
 
-- Reusable watermark and export presets.
-- Clearer per-item batch progress and failure reporting.
-- Safer retries for temporary network/extractor failures.
+- Batch export presets (audio-only / video+audio / watermark profiles).
+- Per-item failure triage panel with one-click retry.
+- Browser media extractor companion notes (extension handoff — desktop remains the downloader).
+- Optional analytics counters (success / error / timing) in the status bar.
 
 ## Later
 
-- Lightweight download analytics (success/error counts, timing).
-- Optional settings UI for auth and runtime options currently limited to `config.ini`.
+- Profiled hot-path helpers only if ffmpeg spawn cost shows up in real workloads (keep Python orchestration).
 - Packaging notes for Windows / macOS / Linux distributables.
+- Deeper social profile crawl modes behind cookie auth (legally constrained surfaces only).
 
 ## Out of Scope (for now)
 
 - Cloud sync or hosted download services.
-- Automated end-to-end CI GUI tests (manual smoke tests remain the validation path).
+- Copying GPL UI or extractor code into this MIT tree.
+- Automated end-to-end CI GUI tests (manual / scripted smoke tests remain the validation path).

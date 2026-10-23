@@ -1,0 +1,604 @@
+"""Suite main window: sidebar navigation, queue, download, metadata bridge."""
+
+from __future__ import annotations
+
+import logging
+import os
+from typing import Optional
+
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
+from PyQt6.QtWidgets import (
+    QMainWindow,
+    QWidget,
+    QHBoxLayout,
+    QVBoxLayout,
+    QLabel,
+    QPushButton,
+    QStackedWidget,
+    QLineEdit,
+    QFileDialog,
+    QProgressBar,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QTextEdit,
+    QMessageBox,
+    QRadioButton,
+    QButtonGroup,
+    QStatusBar,
+    QComboBox,
+    QPlainTextEdit,
+    QFormLayout,
+)
+
+from ytscore.cache import title_cache
+from ytscore.queue import DownloadQueue, QueueJob, JobState
+from ytscore.resolvers import resolve_url, resolve_many, auth_probe, detect_platform
+from ytscore.settings import Settings, load_settings
+from ytscore import spotify_bridge
+from ytsgui.styles import load_stylesheet
+
+
+class QueueBridge(QObject):
+    job_updated = pyqtSignal(object)
+
+
+class SuiteWindow(QMainWindow):
+    def __init__(self, settings: Optional[Settings] = None) -> None:
+        super().__init__()
+        self.settings = settings or load_settings()
+        self.setWindowTitle("YTSDownloader")
+        self.resize(1120, 720)
+        self.setStyleSheet(load_stylesheet(self.settings.theme))
+
+        self.queue: Optional[DownloadQueue] = None
+        self._bridge = QueueBridge()
+        self._bridge.job_updated.connect(self._on_job_updated)
+        self._job_rows = {}
+
+        root = QWidget()
+        root.setObjectName("centralRoot")
+        self.setCentralWidget(root)
+        layout = QHBoxLayout(root)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self.sidebar = self._build_sidebar()
+        layout.addWidget(self.sidebar)
+
+        self.stack = QStackedWidget()
+        self.stack.setObjectName("contentPane")
+        layout.addWidget(self.stack, stretch=1)
+
+        self.page_download = self._build_download_page()
+        self.page_queue = self._build_queue_page()
+        self.page_grabber = self._build_grabber_page()
+        self.page_spotify = self._build_spotify_page()
+        self.page_settings = self._build_settings_page()
+
+        for page in (
+            self.page_download,
+            self.page_queue,
+            self.page_grabber,
+            self.page_spotify,
+            self.page_settings,
+        ):
+            self.stack.addWidget(page)
+
+        self.status = QStatusBar()
+        self.setStatusBar(self.status)
+        self._refresh_status("Ready")
+
+        self._nav_buttons[0].setChecked(True)
+        self._set_page(0)
+
+        self._spotify_timer = QTimer(self)
+        self._spotify_timer.setInterval(2000)
+        self._spotify_timer.timeout.connect(self._poll_spotify_session)
+        self._spotify_timer.start()
+        self._poll_spotify_session()
+
+    # ----- sidebar -----
+    def _build_sidebar(self) -> QWidget:
+        side = QWidget()
+        side.setObjectName("sidebar")
+        side.setFixedWidth(220)
+        v = QVBoxLayout(side)
+        v.setContentsMargins(8, 8, 8, 8)
+        brand = QLabel("YTSDownloader")
+        brand.setObjectName("brandTitle")
+        sub = QLabel("VoxHash Suite")
+        sub.setObjectName("brandSub")
+        v.addWidget(brand)
+        v.addWidget(sub)
+
+        self._nav_buttons = []
+        labels = ["Download", "Queue", "Link Grabber", "Metadata Bridge", "Settings"]
+        for i, text in enumerate(labels):
+            btn = QPushButton(text)
+            btn.setCheckable(True)
+            btn.setAutoExclusive(True)
+            btn.setProperty("class", "navBtn")
+            btn.setStyleSheet("")  # use QSS via class — PyQt needs setProperty + polish
+            btn.setObjectName("navBtn")
+            btn.setProperty("class", "navBtn")
+            btn.setStyleSheet(
+                "QPushButton { text-align: left; padding: 10px 16px; border: none; "
+                "border-radius: 4px; background: transparent; color: #b3b3b3; font-weight: 600; }"
+                "QPushButton:hover { color: #fff; background: #181818; }"
+                "QPushButton:checked { color: #fff; background: #282828; }"
+            )
+            btn.clicked.connect(lambda checked, idx=i: self._set_page(idx))
+            v.addWidget(btn)
+            self._nav_buttons.append(btn)
+        v.addStretch(1)
+        return side
+
+    def _set_page(self, index: int) -> None:
+        self.stack.setCurrentIndex(index)
+        for i, btn in enumerate(self._nav_buttons):
+            btn.setChecked(i == index)
+
+    # ----- download page -----
+    def _build_download_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(28, 24, 28, 24)
+        title = QLabel("Download")
+        title.setObjectName("pageTitle")
+        hint = QLabel(
+            "Paste a video, playlist, channel, or profile URL. "
+            "Uses Brave cookies from config when set."
+        )
+        hint.setObjectName("pageHint")
+        hint.setWordWrap(True)
+        layout.addWidget(title)
+        layout.addWidget(hint)
+
+        form = QFormLayout()
+        self.url_edit = QLineEdit()
+        self.url_edit.setPlaceholderText("https://…")
+        self.out_edit = QLineEdit(self.settings.default_output or os.path.expanduser("~/Downloads/YTSDownloader"))
+        out_btn = QPushButton("Browse")
+        out_btn.setProperty("class", "secondary")
+        out_btn.setStyleSheet(
+            "QPushButton { background: transparent; color: #fff; border: 1px solid #727272; border-radius: 20px; }"
+        )
+        out_btn.clicked.connect(self._browse_out)
+        out_row = QHBoxLayout()
+        out_row.addWidget(self.out_edit, stretch=1)
+        out_row.addWidget(out_btn)
+
+        self.wm_edit = QLineEdit()
+        wm_btn = QPushButton("Browse")
+        wm_btn.setStyleSheet(
+            "QPushButton { background: transparent; color: #fff; border: 1px solid #727272; border-radius: 20px; }"
+        )
+        wm_btn.clicked.connect(self._browse_wm)
+        wm_row = QHBoxLayout()
+        wm_row.addWidget(self.wm_edit, stretch=1)
+        wm_row.addWidget(wm_btn)
+
+        self.media_video = QRadioButton("Video")
+        self.media_audio = QRadioButton("Audio")
+        self.media_video.setChecked(True)
+        media_group = QButtonGroup(page)
+        media_group.addButton(self.media_video)
+        media_group.addButton(self.media_audio)
+        media_row = QHBoxLayout()
+        media_row.addWidget(self.media_video)
+        media_row.addWidget(self.media_audio)
+        media_row.addStretch(1)
+
+        self.format_combo = QComboBox()
+        self.format_combo.addItems(["mp4", "webm", "mkv"])
+
+        form.addRow("URL", self.url_edit)
+        form.addRow("Output", out_row)
+        form.addRow("Watermark PNG", wm_row)
+        form.addRow("Media", media_row)
+        form.addRow("Container", self.format_combo)
+        layout.addLayout(form)
+
+        actions = QHBoxLayout()
+        resolve_btn = QPushButton("Resolve & Queue")
+        resolve_btn.clicked.connect(self._resolve_and_queue)
+        auth_btn = QPushButton("Check Auth")
+        auth_btn.setStyleSheet(
+            "QPushButton { background: transparent; color: #fff; border: 1px solid #727272; border-radius: 20px; }"
+        )
+        auth_btn.clicked.connect(self._check_auth)
+        start_btn = QPushButton("Start Queue")
+        start_btn.clicked.connect(self._start_queue)
+        actions.addWidget(resolve_btn)
+        actions.addWidget(auth_btn)
+        actions.addWidget(start_btn)
+        actions.addStretch(1)
+        layout.addLayout(actions)
+
+        self.download_log = QTextEdit()
+        self.download_log.setReadOnly(True)
+        layout.addWidget(self.download_log, stretch=1)
+        self.cache_label = QLabel(title_cache.status_text())
+        layout.addWidget(self.cache_label)
+        return page
+
+    # ----- queue page -----
+    def _build_queue_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(28, 24, 28, 24)
+        title = QLabel("Queue")
+        title.setObjectName("pageTitle")
+        layout.addWidget(title)
+        hint = QLabel("Concurrent workers, per-item progress, automatic retries.")
+        hint.setObjectName("pageHint")
+        layout.addWidget(hint)
+
+        self.queue_table = QTableWidget(0, 5)
+        self.queue_table.setHorizontalHeaderLabels(["#", "Title / URL", "State", "Progress", "Message"])
+        self.queue_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.queue_table.setAlternatingRowColors(True)
+        self.queue_table.verticalHeader().setVisible(False)
+        layout.addWidget(self.queue_table, stretch=1)
+
+        self.overall_progress = QProgressBar()
+        self.overall_progress.setValue(0)
+        layout.addWidget(self.overall_progress)
+
+        row = QHBoxLayout()
+        start = QPushButton("Start")
+        start.clicked.connect(self._start_queue)
+        stop = QPushButton("Stop")
+        stop.setStyleSheet(
+            "QPushButton { background: transparent; color: #fff; border: 1px solid #727272; border-radius: 20px; }"
+        )
+        stop.clicked.connect(self._stop_queue)
+        clear = QPushButton("Clear Finished")
+        clear.setStyleSheet(
+            "QPushButton { background: transparent; color: #fff; border: 1px solid #727272; border-radius: 20px; }"
+        )
+        clear.clicked.connect(self._clear_finished)
+        row.addWidget(start)
+        row.addWidget(stop)
+        row.addWidget(clear)
+        row.addStretch(1)
+        layout.addLayout(row)
+        return page
+
+    # ----- link grabber -----
+    def _build_grabber_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(28, 24, 28, 24)
+        title = QLabel("Link Grabber")
+        title.setObjectName("pageTitle")
+        layout.addWidget(title)
+        hint = QLabel("Paste many URLs (one per line). Filters empty lines and comments.")
+        hint.setObjectName("pageHint")
+        layout.addWidget(hint)
+        self.grabber_text = QPlainTextEdit()
+        self.grabber_text.setPlaceholderText("https://…\nhttps://…")
+        layout.addWidget(self.grabber_text, stretch=1)
+        btn = QPushButton("Resolve All → Queue")
+        btn.clicked.connect(self._grabber_queue)
+        layout.addWidget(btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        return page
+
+    # ----- spotify / metadata bridge -----
+    def _build_spotify_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(28, 24, 28, 24)
+        title = QLabel("Metadata Bridge")
+        title.setObjectName("pageTitle")
+        layout.addWidget(title)
+        hint = QLabel(
+            "Uses the open Spotify desktop session (MPRIS) or a catalog URL. "
+            "Matches public media hosts and queues audio downloads — does not rip Spotify streams."
+        )
+        hint.setObjectName("pageHint")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        self.spotify_status = QLabel("Session: checking…")
+        layout.addWidget(self.spotify_status)
+        self.spotify_now = QLabel("Now playing: —")
+        self.spotify_now.setWordWrap(True)
+        layout.addWidget(self.spotify_now)
+
+        form = QFormLayout()
+        self.spotify_url = QLineEdit()
+        self.spotify_url.setPlaceholderText("https://open.spotify.com/track/… or playlist/album")
+        form.addRow("Catalog URL", self.spotify_url)
+        layout.addLayout(form)
+
+        row = QHBoxLayout()
+        capture = QPushButton("Queue Now Playing")
+        capture.clicked.connect(self._queue_now_playing)
+        resolve = QPushButton("Resolve URL → Queue")
+        resolve.clicked.connect(self._queue_spotify_url)
+        row.addWidget(capture)
+        row.addWidget(resolve)
+        row.addStretch(1)
+        layout.addLayout(row)
+
+        self.spotify_log = QTextEdit()
+        self.spotify_log.setReadOnly(True)
+        layout.addWidget(self.spotify_log, stretch=1)
+        return page
+
+    # ----- settings -----
+    def _build_settings_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(28, 24, 28, 24)
+        title = QLabel("Settings")
+        title.setObjectName("pageTitle")
+        layout.addWidget(title)
+        hint = QLabel("Values loaded from config.ini (edit file to persist).")
+        hint.setObjectName("pageHint")
+        layout.addWidget(hint)
+        info = QTextEdit()
+        info.setReadOnly(True)
+        info.setPlainText(
+            f"Theme: {self.settings.theme}\n"
+            f"Cookies from browser: {self.settings.cookies_from_browser or '(none)'}\n"
+            f"Cookies file: {self.settings.cookies_file or '(none)'}\n"
+            f"JS runtime: {self.settings.js_runtime or '(none)'}\n"
+            f"Max workers: {self.settings.max_workers}\n"
+            f"Max retries: {self.settings.max_retries}\n"
+            f"Pace (s): {self.settings.pace_seconds}\n"
+            f"Audio format: {self.settings.audio_format}\n"
+            f"Video format: {self.settings.video_format_pref}\n"
+        )
+        layout.addWidget(info)
+        reload_btn = QPushButton("Reload config.ini")
+        reload_btn.clicked.connect(self._reload_settings)
+        layout.addWidget(reload_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        layout.addStretch(1)
+        return page
+
+    # ----- helpers -----
+    def _browse_out(self) -> None:
+        folder = QFileDialog.getExistingDirectory(self, "Select output folder")
+        if folder:
+            self.out_edit.setText(folder)
+
+    def _browse_wm(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Watermark PNG", "", "PNG (*.png)")
+        if path:
+            self.wm_edit.setText(path)
+
+    def _ensure_queue(self) -> DownloadQueue:
+        out = self.out_edit.text().strip() or os.path.expanduser("~/Downloads/YTSDownloader")
+        os.makedirs(out, exist_ok=True)
+        if self.queue is None or self.queue.output_dir != out:
+            if self.queue:
+                self.queue.stop()
+            self.queue = DownloadQueue(
+                settings=self.settings,
+                output_dir=out,
+                watermark_path=self.wm_edit.text().strip(),
+                output_format=self.format_combo.currentText(),
+            )
+            self.queue.add_listener(lambda job: self._bridge.job_updated.emit(job))
+        else:
+            self.queue.watermark_path = self.wm_edit.text().strip()
+            self.queue.output_format = self.format_combo.currentText()
+            self.queue.settings = self.settings
+        return self.queue
+
+    def _resolve_and_queue(self) -> None:
+        url = self.url_edit.text().strip()
+        if not url:
+            QMessageBox.warning(self, "Input", "Enter a URL.")
+            return
+        out = self.out_edit.text().strip()
+        if not out:
+            QMessageBox.warning(self, "Input", "Choose an output folder.")
+            return
+        self.download_log.append(f"Resolving {url} ({detect_platform(url)})…")
+        try:
+            links = resolve_url(url, self.settings)
+        except Exception as exc:
+            self.download_log.append(f"Resolve failed: {exc}")
+            QMessageBox.warning(self, "Resolve", str(exc))
+            return
+        if not links:
+            QMessageBox.information(self, "Resolve", "No media links found.")
+            return
+        title_cache.reset_stats()
+        q = self._ensure_queue()
+        media = "audio" if self.media_audio.isChecked() else "video"
+        for link in links:
+            q.add(link, media=media)
+        self.cache_label.setText(title_cache.status_text())
+        self.download_log.append(f"Queued {len(links)} item(s). Open Queue and press Start.")
+        self._set_page(1)
+        self._nav_buttons[1].setChecked(True)
+        self._refresh_status(f"Queued {len(links)} item(s)")
+
+    def _grabber_queue(self) -> None:
+        lines = self.grabber_text.toPlainText().splitlines()
+        urls = [ln.strip() for ln in lines if ln.strip() and not ln.strip().startswith("#")]
+        if not urls:
+            QMessageBox.warning(self, "Grabber", "Paste at least one URL.")
+            return
+        self._refresh_status(f"Resolving {len(urls)} line(s)…")
+        try:
+            links = resolve_many(urls, self.settings)
+        except Exception as exc:
+            QMessageBox.warning(self, "Grabber", str(exc))
+            return
+        q = self._ensure_queue()
+        media = "audio" if self.media_audio.isChecked() else "video"
+        q.add_many(links, media=media)
+        self._set_page(1)
+        self._nav_buttons[1].setChecked(True)
+        self._refresh_status(f"Queued {len(links)} from grabber")
+
+    def _check_auth(self) -> None:
+        url = self.url_edit.text().strip()
+        if not url:
+            QMessageBox.warning(self, "Auth", "Enter a URL first.")
+            return
+        try:
+            auth_probe(url, self.settings)
+            QMessageBox.information(self, "Auth", "Authentication / runtime check passed.")
+            self.download_log.append("Auth check passed.")
+        except Exception as exc:
+            QMessageBox.warning(
+                self,
+                "Auth",
+                f"Check failed:\n{exc}\n\n"
+                "Set COOKIES_FROM_BROWSER or COOKIES_FILE in config.ini and retry.",
+            )
+            self.download_log.append(f"Auth check failed: {exc}")
+
+    def _start_queue(self) -> None:
+        q = self._ensure_queue()
+        if not q.jobs():
+            QMessageBox.information(self, "Queue", "Queue is empty.")
+            return
+        q.start()
+        self._refresh_status("Queue running")
+        self._set_page(1)
+        self._nav_buttons[1].setChecked(True)
+
+    def _stop_queue(self) -> None:
+        if self.queue:
+            self.queue.stop()
+            self._refresh_status("Queue stopped")
+
+    def _clear_finished(self) -> None:
+        if not self.queue:
+            return
+        # Soft clear: remove DONE/FAILED from table mapping; keep engine jobs for simplicity
+        keep = []
+        for jid, row in list(self._job_rows.items()):
+            item_state = self.queue_table.item(row, 2)
+            state = item_state.text() if item_state else ""
+            if state in (JobState.DONE.value, JobState.FAILED.value, JobState.CANCELLED.value):
+                pass
+            else:
+                keep.append((jid, row))
+        self.queue_table.setRowCount(0)
+        self._job_rows.clear()
+        if self.queue:
+            for job in self.queue.jobs():
+                if job.state in (JobState.QUEUED, JobState.RUNNING):
+                    self._upsert_job_row(job)
+        self._update_overall()
+
+    def _on_job_updated(self, job: QueueJob) -> None:
+        self._upsert_job_row(job)
+        self._update_overall()
+        self.cache_label.setText(title_cache.status_text())
+
+    def _upsert_job_row(self, job: QueueJob) -> None:
+        row = self._job_rows.get(job.id)
+        if row is None:
+            row = self.queue_table.rowCount()
+            self.queue_table.insertRow(row)
+            self._job_rows[job.id] = row
+        self.queue_table.setItem(row, 0, QTableWidgetItem(str(job.index or "")))
+        self.queue_table.setItem(row, 1, QTableWidgetItem(job.title or job.url))
+        self.queue_table.setItem(row, 2, QTableWidgetItem(job.state.value))
+        self.queue_table.setItem(row, 3, QTableWidgetItem(f"{job.progress:.0f}%"))
+        self.queue_table.setItem(row, 4, QTableWidgetItem(job.message or job.error or ""))
+
+    def _update_overall(self) -> None:
+        if not self.queue:
+            self.overall_progress.setValue(0)
+            return
+        jobs = self.queue.jobs()
+        if not jobs:
+            self.overall_progress.setValue(0)
+            return
+        avg = sum(j.progress for j in jobs) / len(jobs)
+        self.overall_progress.setValue(int(avg))
+        done = sum(1 for j in jobs if j.state == JobState.DONE)
+        failed = sum(1 for j in jobs if j.state == JobState.FAILED)
+        self._refresh_status(f"Queue: {done}/{len(jobs)} done, {failed} failed")
+
+    def _poll_spotify_session(self) -> None:
+        try:
+            track = spotify_bridge.read_now_playing()
+            self.spotify_status.setText("Session: connected (MPRIS)")
+            artists = ", ".join(track.artists) if track.artists else "—"
+            self.spotify_now.setText(
+                f"Now playing: {track.title} — {artists}\n{track.spotify_url}"
+            )
+        except Exception as exc:
+            self.spotify_status.setText(f"Session: offline ({exc})")
+            self.spotify_now.setText("Now playing: —")
+
+    def _queue_now_playing(self) -> None:
+        try:
+            track = spotify_bridge.read_now_playing()
+        except Exception as exc:
+            QMessageBox.warning(self, "Metadata Bridge", str(exc))
+            return
+        q = self._ensure_queue()
+        query = track.search_query
+        job = q.add(
+            track.spotify_url or query,
+            media="search_audio",
+            title=query,
+            search_query=query,
+        )
+        self.spotify_log.append(f"Queued now playing: {query} [{job.id[:8]}]")
+        self._set_page(1)
+        self._nav_buttons[1].setChecked(True)
+        self._start_queue()
+
+    def _queue_spotify_url(self) -> None:
+        url = self.spotify_url.text().strip()
+        if not url:
+            QMessageBox.warning(self, "Metadata Bridge", "Enter a catalog URL.")
+            return
+        tracks = spotify_bridge.resolve_spotify_entries(url, self.settings)
+        if not tracks:
+            # Fallback: treat now-playing query if URL is current track
+            try:
+                now = spotify_bridge.read_now_playing()
+                if now.spotify_url and now.spotify_url.rstrip("/") == url.rstrip("/"):
+                    tracks = [now]
+            except Exception:
+                pass
+        if not tracks:
+            QMessageBox.information(
+                self,
+                "Metadata Bridge",
+                "Could not resolve catalog entries. Play the track in Spotify "
+                "and use Queue Now Playing, or paste a track URL while it is playing.",
+            )
+            return
+        q = self._ensure_queue()
+        for t in tracks:
+            query = t.search_query
+            q.add(
+                t.spotify_url or query,
+                media="search_audio",
+                title=query,
+                search_query=query,
+            )
+        self.spotify_log.append(f"Queued {len(tracks)} track(s) from catalog URL.")
+        self._set_page(1)
+        self._nav_buttons[1].setChecked(True)
+
+    def _reload_settings(self) -> None:
+        self.settings = load_settings()
+        self.setStyleSheet(load_stylesheet(self.settings.theme))
+        self._refresh_status("Config reloaded")
+        QMessageBox.information(self, "Settings", "config.ini reloaded.")
+
+    def _refresh_status(self, text: str) -> None:
+        self.status.showMessage(text)
+
+    def closeEvent(self, event) -> None:  # noqa: N802
+        self._spotify_timer.stop()
+        if self.queue:
+            self.queue.stop()
+        super().closeEvent(event)

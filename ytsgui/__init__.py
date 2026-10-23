@@ -1,0 +1,1 @@
+"""YTSDownloader desktop GUI (Suite)."""
