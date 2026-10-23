@@ -11,7 +11,10 @@
 | `SessionAnalytics` / `format_duration` | Local session success / error / timing counters (no network) |
 | `compute_backoff_seconds` / `is_rate_limited` | Retry delay and rate-limit detection |
 | `classify_failure` / `failure_detail_text` | Coarse failure categories for Queue triage |
-| `parse_companion_payload` / `consume_companion_inbox` | Browser companion local inbox (URLs only; desktop downloads) |
+| `parse_companion_payload` / `consume_companion_inbox` | Browser companion local inbox (URLs only; desktop downloads; optional Go/Ruby helpers) |
+| `normalize_urls` / `normalize_paths` | Batch URL/path normalize (optional Rust `yts-normalize`) |
+| `apply_process_priority` | Optional nice / idle I/O (optional C/`zig cc` `yts-prio`) |
+| `native_status` / `find_binary` | Discover optional sidecars under `native/bin` or `YTS_NATIVE_DIR` |
 | `resolve_url` / `resolve_many` | Expand playlist / channel / profile URLs (shallow) |
 | `crawl_profile` / `crawl_many` / `CrawlMode` | Cookie-gated profile crawl (shallow / deep / videos / shorts / posts) with limit + pacing |
 | `DownloadQueue` | Concurrent workers with start-slot pacing, retries, `retry_jobs` / `retry_failed`, `remove_jobs` / `clear_all` / `force_download` |

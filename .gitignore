@@ -125,6 +125,15 @@ push-all.sh
 cookies.txt
 cookies.json
 
+# Native sidecars (built by scripts/build_natives.sh)
+native/bin/
+native/rust/**/target/
+native/zig/**/.zig-cache/
+native/zig/**/.zig-global-cache/
+native/go/**/yts-inbox
+!native/go/**/*.go
+!native/go/**/go.mod
+
 # Project specific
 output_folder/
 *.mp4

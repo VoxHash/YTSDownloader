@@ -30,6 +30,10 @@ class Settings:
     backoff_max: float = 90.0
     # Local session counters in the Suite status bar (no network telemetry).
     show_status_analytics: bool = True
+    # Desktop coexistence: lower CPU nice and/or idle I/O when the queue starts.
+    # nice 0 = leave CPU priority alone; idle_io defaults on for Linux disk politeness.
+    process_nice: int = 0
+    process_idle_io: bool = True
 
     def cookies_tuple(self) -> Optional[Tuple[str, ...]]:
         parts = [p.strip() for p in self.cookies_from_browser.split(":") if p.strip()]
@@ -70,6 +74,8 @@ def load_settings(path: str = DEFAULT_CONFIG_PATH) -> Settings:
         backoff_factor=max(1.0, float(s.get("BACKOFF_FACTOR", "2"))),
         backoff_max=max(0.0, float(s.get("BACKOFF_MAX", "90"))),
         show_status_analytics=_as_bool(s.get("SHOW_STATUS_ANALYTICS", "true"), True),
+        process_nice=max(0, min(19, int(s.get("PROCESS_NICE", "0")))),
+        process_idle_io=_as_bool(s.get("PROCESS_IDLE_IO", "true"), True),
     )
 
 
@@ -101,6 +107,8 @@ def save_settings(settings: Settings, path: str = DEFAULT_CONFIG_PATH) -> None:
     s["SHOW_STATUS_ANALYTICS"] = (
         "true" if bool(settings.show_status_analytics) else "false"
     )
+    s["PROCESS_NICE"] = str(max(0, min(19, int(settings.process_nice))))
+    s["PROCESS_IDLE_IO"] = "true" if bool(settings.process_idle_io) else "false"
 
     abs_path = os.path.abspath(path)
     directory = os.path.dirname(abs_path) or "."

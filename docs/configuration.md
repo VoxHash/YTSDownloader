@@ -25,8 +25,12 @@ Open **Settings** in the Suite sidebar to edit the keys below. **Save to config.
 | `VIDEO_FORMAT` | yt-dlp format expression | `bestvideo+bestaudio/best` | `best` |
 | `DEFAULT_OUTPUT` | Default output folder | empty | `/home/you/Videos` |
 | `SHOW_STATUS_ANALYTICS` | Show local session OK / Err / Last / Avg counters in the Suite status bar | `true` | `false` |
+| `PROCESS_NICE` | CPU nice applied on **Start Queue** (`0` = leave priority alone) | `0` | `5` |
+| `PROCESS_IDLE_IO` | Linux idle I/O class on **Start Queue** (yields disk to interactive apps) | `true` | `false` |
 
 Status analytics are **local and session-scoped** only. Nothing is sent over the network.
+
+Optional native helpers (`YTS_USE_NATIVE`, `YTS_NATIVE_DIR`) are documented in [Installation → Native sidecars](installation.md#optional-native-sidecars).
 
 ## Environment variables / secrets
 

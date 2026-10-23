@@ -1,0 +1,20 @@
+[package]
+name = "yts-normalize"
+version = "0.5.0"
+edition = "2021"
+description = "Batch URL/path normalize sidecar for YTSDownloader (stdin/stdout JSON)"
+license = "MIT"
+publish = false
+
+[[bin]]
+name = "yts-normalize"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = "1"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true

@@ -20,24 +20,39 @@ main.py ──► ytsgui (Suite UI)          [--legacy ► classic tabs]
 
 ## Language choice
 
-Downloads are network-bound. The suite stays on **Python + PyQt6 + yt-dlp** so extractor maintenance stays with yt-dlp and the GUI remains one process. A Rust/Go rewrite is deferred unless profiling shows a clear CPU bottleneck (unlikely for typical I/O-heavy downloads).
+Downloads are network-bound. The suite stays on **Python + PyQt6 + yt-dlp** so extractor maintenance stays with yt-dlp and the GUI remains one process.
+
+### Optional native sidecars (v0.5.0)
+
+Focused helpers reduce GIL/disk contention without rewriting the download path. Missing binaries fail soft to Python.
+
+| Language | Binary / script | Role | Fallback |
+| --- | --- | --- | --- |
+| **Rust** | `yts-normalize` | Batch URL/path normalize + dedupe (stdin/stdout JSON) | `ytscore.normalize` Python |
+| **C** (or **`zig cc`**) | `yts-prio` | Optional `nice` + Linux idle I/O on Start Queue | `os.nice` / `ionice` CLI |
+| **Go** | `yts-inbox` | Concurrent companion inbox consume (parallel file reads) | `ytscore.companion` Python |
+| **Ruby** | `yts_json_filter.rb` | Optional companion JSON/NDJSON filter | Python `parse_companion_payload` |
+
+Build: `./scripts/build_natives.sh` → `native/bin/` (or `YTS_NATIVE_DIR`). Disable: `YTS_USE_NATIVE=0`. See [Installation → Native sidecars](installation.md#optional-native-sidecars).
+
+Pure-Zig `build-exe` for `yts-prio` is deferred (Zig 0.17 Io/`@cImport` churn); `zig cc` on the C sources is the Zig toolchain path today. Cross-process Rust slot brokers and native watermark preprocess stay deferred (downloads I/O-bound; ffmpeg encode ≫ spawn).
 
 ### ffmpeg / moviepy profiling (v0.3.3 gate)
 
-Conditional milestone: add focused hot-path helpers **only if** ffmpeg **process spawn** is a meaningful share of wall time on realistic Suite jobs — keep Python orchestration either way.
-
-Local measurements (`.venv/bin/python`, system ffmpeg, Suite `ytscore.watermark.add_watermark`, repo `watermark.png`):
+Local measurements (`.venv/bin/python`, system ffmpeg, Suite `ytscore.watermark.add_watermark`):
 
 | Workload | Wall (approx.) | Notes |
 | --- | --- | --- |
 | `ffmpeg -version` spawn | ~33 ms mean | Process start baseline |
 | Direct single-ffmpeg overlay (2s / 15s synth) | ~0.11 s / ~0.45 s | One filtergraph encode |
-| moviepy watermark (2s / 15s synth) | ~0.26 s / ~2.9 s | ~6–8 imageio-ffmpeg Popens; spawn estimate ≪ encode time on 15s |
-| Live short-URL download attempt | ~20 s | Extract/auth retries; no watermark reached |
+| moviepy watermark (2s / 15s synth) | ~0.26 s / ~2.9 s | encode-dominated |
+| Live short-URL download attempt | ~20 s | Extract/auth retries |
 
-**Result:** spawn is not the bottleneck; network/extract and (when watermarking) re-encode dominate. No native helpers or process-reuse shipped. moviepy remains slower than a single ffmpeg filtergraph because it re-encodes frame-by-frame — that is encode cost, not spawn cost.
+**Result:** spawn is not the bottleneck; network/extract and (when watermarking) re-encode dominate. Native work targets batch normalize, inbox I/O, and desktop-friendly priority — not ffmpeg rewrite.
 
-**Revisit when:** watermark-only batches of long local files become the primary workload and fresh profiles show process start (not libx264 / Python frames) dominating samples, or redundant per-job ffmpeg probes multiply well beyond a handful of spawns.
+### Normalize micro-measure (v0.5.0)
+
+Local 10 000-URL batch (5 000 unique × 2): Python fallback ~26 ms; Rust sidecar ~18 ms (same output). Gains matter most for large paste / companion dumps, not single-URL downloads.
 
 ## Layers
 
@@ -107,4 +122,5 @@ Rules:
 - **Python packages**: yt-dlp, PyQt6, moviepy, Pillow, numpy
 - **System**: ffmpeg + ffprobe (mux/encode / probe), optional Node.js for extractor JS challenges
 - **Optional**: session bus tools (`dbus-send` / `busctl`) for the metadata bridge on Linux
-- **Distributables**: freeze with PyInstaller `onedir` per OS; ffmpeg/ffprobe remain external — see [Installation → Packaging](installation.md#packaging-windows--macos--linux-distributables)
+- **Optional natives**: Rust / C (or `zig cc`) / Go / Ruby sidecars under `native/` — see [Installation → Native sidecars](installation.md#optional-native-sidecars)
+- **Distributables**: freeze with PyInstaller `onedir` per OS; ffmpeg/ffprobe remain external; optionally copy `native/bin/` next to the freeze — see [Installation → Packaging](installation.md#packaging-windows--macos--linux-distributables)

@@ -12,6 +12,8 @@ from typing import Callable, Dict, List, Optional, Set
 
 from ytscore.backoff import compute_backoff_seconds
 from ytscore.downloader import download_item, search_and_download_audio
+from ytscore.normalize import normalize_urls
+from ytscore.process_prio import apply_process_priority
 from ytscore.settings import Settings
 
 
@@ -119,6 +121,8 @@ class DownloadQueue:
         watermark_path: Optional[str] = None,
         output_format: Optional[str] = None,
     ) -> List[QueueJob]:
+        # Batch normalize/dedupe (Rust sidecar when present) before enqueue.
+        cleaned = normalize_urls(urls)
         return [
             self.add(
                 u,
@@ -126,7 +130,7 @@ class DownloadQueue:
                 watermark_path=watermark_path,
                 output_format=output_format,
             )
-            for u in urls
+            for u in cleaned
         ]
 
     def get(self, job_id: str) -> Optional[QueueJob]:
@@ -332,6 +336,14 @@ class DownloadQueue:
             self._futures.clear()
 
     def start(self) -> None:
+        # Optional desktop-friendly I/O / nice (native yts-prio or Python fallback).
+        try:
+            apply_process_priority(
+                nice=int(getattr(self.settings, "process_nice", 0) or 0),
+                idle_io=bool(getattr(self.settings, "process_idle_io", False)),
+            )
+        except Exception:
+            pass
         with self._lock:
             if not self._running or self._executor is None:
                 self._running = True

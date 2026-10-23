@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-23
+
+### Added
+- Optional **native sidecars** with Python fallbacks: Rust `yts-normalize` (batch URL/path normalize), C/`zig cc` `yts-prio` (nice + Linux idle I/O), Go `yts-inbox` (concurrent companion inbox), Ruby `yts_json_filter.rb` (companion JSON filter).
+- `scripts/build_natives.sh`, `ytscore.native_bridge` / `normalize` / `process_prio`, Settings keys `PROCESS_NICE` / `PROCESS_IDLE_IO`, env `YTS_USE_NATIVE` / `YTS_NATIVE_DIR`.
+- Unit tests for IPC discovery, fallbacks, and offscreen Suite without natives (`tests/test_native_bridge.py`).
+- Docs: architecture language map, installation native build/packaging notes; ROADMAP **Platforms** (Android / GrapheneOS, Meta Quest 3) and deferred native items.
+
+### Changed
+- `DownloadQueue.add_many` batch-normalizes URLs; `start` may apply desktop-friendly process priority.
+- Companion inbox prefers Go consume when built; structured payloads may use Ruby filter first.
+
 ## [0.4.5] - 2026-10-23
 
 ### Added
@@ -204,7 +216,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.5...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.5...v0.5.0
 [0.4.5]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.2...v0.4.3

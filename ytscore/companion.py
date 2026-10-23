@@ -8,6 +8,12 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
+from ytscore.native_bridge import (
+    BIN_INBOX,
+    find_binary,
+    run_ndjson_argv,
+    run_ruby_filter,
+)
 from ytscore.persist import DEFAULT_STATE_DIR
 from ytscore.util import extract_urls
 
@@ -93,6 +99,17 @@ def _items_from_list(values: Sequence[Any]) -> List[CompanionItem]:
     return out
 
 
+def _items_from_native_dicts(rows: Sequence[Dict[str, Any]]) -> List[CompanionItem]:
+    out: List[CompanionItem] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        item = _item_from_mapping(row)
+        if item:
+            out.append(item)
+    return out
+
+
 def parse_companion_payload(text: str) -> List[CompanionItem]:
     """
     Parse companion handoff text into unique CompanionItem entries.
@@ -102,11 +119,22 @@ def parse_companion_payload(text: str) -> List[CompanionItem]:
     - JSON object: ``{"url": "..."}`` or ``{"urls": [...]}`` / ``{"items": [...]}``
     - JSON array of URLs or objects
     - Free text: any http(s) URLs (same rules as paste / drop)
+
+    Optional Ruby ``yts_json_filter.rb`` may pre-filter structured payloads;
+    Python parsing remains the source of truth on failure or when Ruby is absent.
     """
     if not text or not text.strip():
         return []
 
     stripped = text.strip()
+    # Optional Ruby helper for large JSON / NDJSON dumps (fail soft).
+    if stripped[:1] in ("{", "[") or "\n{" in stripped:
+        ruby_rows = run_ruby_filter(text)
+        if ruby_rows is not None:
+            ruby_items = _dedupe(_items_from_native_dicts(ruby_rows))
+            if ruby_items:
+                return ruby_items
+
     items: List[CompanionItem] = []
 
     # Prefer structured JSON when the whole payload is one value.
@@ -236,19 +264,10 @@ def _list_inbox_files(inbox_dir: str) -> List[str]:
     return out
 
 
-def consume_companion_inbox(
-    *,
-    inbox_dir: Optional[str] = None,
-    jsonl_path: Optional[str] = None,
+def _consume_companion_inbox_python(
+    directory: str,
+    path: str,
 ) -> List[CompanionItem]:
-    """
-    Read pending companion payloads, then clear/archive them.
-
-    - Files under ``inbox_dir`` are renamed to ``*.processed`` after a successful read.
-    - The append JSONL file (if present and non-empty) is truncated after read.
-    """
-    directory = inbox_dir if inbox_dir is not None else default_inbox_dir()
-    path = jsonl_path if jsonl_path is not None else default_inbox_jsonl_path()
     collected: List[CompanionItem] = []
 
     for file_path in _list_inbox_files(directory):
@@ -278,3 +297,29 @@ def consume_companion_inbox(
                 pass
 
     return _dedupe(collected)
+
+
+def consume_companion_inbox(
+    *,
+    inbox_dir: Optional[str] = None,
+    jsonl_path: Optional[str] = None,
+) -> List[CompanionItem]:
+    """
+    Read pending companion payloads, then clear/archive them.
+
+    - Files under ``inbox_dir`` are renamed to ``*.processed`` after a successful read.
+    - The append JSONL file (if present and non-empty) is truncated after read.
+    - Optional Go ``yts-inbox`` sidecar reads drop files concurrently (outside the
+      GIL); Python fallback is used when the binary is missing or fails.
+    """
+    directory = inbox_dir if inbox_dir is not None else default_inbox_dir()
+    path = jsonl_path if jsonl_path is not None else default_inbox_jsonl_path()
+
+    binary = find_binary(BIN_INBOX)
+    if binary:
+        argv = ["consume", "--inbox", directory or "", "--jsonl", path or ""]
+        rows = run_ndjson_argv(binary, argv)
+        if rows is not None:
+            return _dedupe(_items_from_native_dicts(rows))
+
+    return _consume_companion_inbox_python(directory, path)

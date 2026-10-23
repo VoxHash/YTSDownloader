@@ -722,6 +722,16 @@ class SuiteWindow(QMainWindow):
         self.settings_show_analytics.setToolTip(
             "Local session success / error / timing counters only — nothing is sent over the network."
         )
+        self.settings_process_nice = QSpinBox()
+        self.settings_process_nice.setRange(0, 19)
+        self.settings_process_nice.setToolTip(
+            "CPU nice when Start Queue runs (0 = unchanged). Higher = more polite to other apps."
+        )
+        self.settings_process_idle_io = QCheckBox("Idle I/O priority on Start Queue")
+        self.settings_process_idle_io.setToolTip(
+            "Linux ionice idle class so downloads yield disk bandwidth to interactive apps. "
+            "Uses native yts-prio when built; otherwise ionice CLI / no-op."
+        )
 
         form.addRow("Theme", self.settings_theme)
         form.addRow("Cookies from browser", self.settings_cookies_browser)
@@ -738,6 +748,8 @@ class SuiteWindow(QMainWindow):
         form.addRow("Video format", self.settings_video_format)
         form.addRow("Default output", out_row)
         form.addRow("Status analytics", self.settings_show_analytics)
+        form.addRow("Process nice", self.settings_process_nice)
+        form.addRow("Disk priority", self.settings_process_idle_io)
 
         scroll.setWidget(form_host)
         layout.addWidget(scroll, stretch=1)
@@ -791,6 +803,8 @@ class SuiteWindow(QMainWindow):
         )
         self.settings_default_output.setText(settings.default_output or "")
         self.settings_show_analytics.setChecked(bool(settings.show_status_analytics))
+        self.settings_process_nice.setValue(max(0, min(19, int(settings.process_nice))))
+        self.settings_process_idle_io.setChecked(bool(settings.process_idle_io))
 
     def _settings_from_form(self) -> Settings:
         return Settings(
@@ -811,6 +825,8 @@ class SuiteWindow(QMainWindow):
             ),
             default_output=self.settings_default_output.text().strip(),
             show_status_analytics=self.settings_show_analytics.isChecked(),
+            process_nice=int(self.settings_process_nice.value()),
+            process_idle_io=self.settings_process_idle_io.isChecked(),
         )
 
     def _browse_cookies_file(self) -> None:

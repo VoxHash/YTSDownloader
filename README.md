@@ -2,7 +2,7 @@
 
 > Multi-platform download suite for video/audio from YouTube, Instagram, Facebook, TikTok, and related hosts — with a concurrent queue, link grabber, optional watermarking, and a local metadata bridge for music-session matching. Built with PyQt6.
 
-[![Version](https://img.shields.io/badge/version-0.4.5-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
+[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
 [![CI](https://github.com/VoxHash/YTSDownloader/actions/workflows/ci.yml/badge.svg)](https://github.com/VoxHash/YTSDownloader/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org/)
@@ -19,6 +19,8 @@
 - **Multi-platform**: YouTube (channels / videos / Shorts / playlists), Instagram, Facebook, TikTok
 - **Profile crawl modes**: Shallow or deep (multi-tab / videos / shorts / posts) behind cookie auth; paced enumeration into the queue
 - **Concurrent queue**: Worker limit, retries, playlist start-slot pacing, rate-limit backoff
+- **Optional natives**: Rust / C (`zig cc`) / Go / Ruby helpers for normalize, priority, and companion inbox — Python fallback if missing (`./scripts/build_natives.sh`)
+- **Desktop-friendly load**: Optional idle I/O + nice on Start Queue so downloads yield to other apps
 - **Queue persistence**: Local JSON under `.ytsdownloader/` survives restarts (pending items stay paused until Start)
 - **Export presets**: Audio only, Video + audio, Watermark (and Custom); apply on enqueue or batch to selected / queued items
 - **Link grabber**: Paste many URLs; resolve and enqueue in batch
@@ -80,6 +82,11 @@ Edit in **Settings** (Save to `config.ini`) or edit the file directly:
 | `AUDIO_FORMAT` | Audio extract format | `m4a` |
 | `VIDEO_FORMAT` | yt-dlp format expression | `bestvideo+bestaudio/best` |
 | `DEFAULT_OUTPUT` | Default output folder | empty |
+| `PROCESS_NICE` | CPU nice on Start Queue (`0` = unchanged) | `0` |
+| `PROCESS_IDLE_IO` | Linux idle I/O priority on Start Queue | `true` |
+| `SHOW_STATUS_ANALYTICS` | Status-bar local session counters | `true` |
+
+Optional natives: build with `./scripts/build_natives.sh` (see [docs/installation.md](docs/installation.md#optional-native-sidecars)). Disable with `YTS_USE_NATIVE=0`.
 
 No cloud API keys are required. Treat cookie files as secrets.
 

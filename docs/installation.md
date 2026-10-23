@@ -81,6 +81,37 @@ Creates:
 
 Re-run the script after moving the repo (or after icon updates) so paths and icons stay correct. Personal `.desktop` / bin / icon files under `~/.local` are machine-local and are not committed.
 
+## Optional native sidecars
+
+Python + PyQt6 + yt-dlp remain the orchestration path. Optional helpers live under `native/` and install into `native/bin/` (override with `YTS_NATIVE_DIR`). If a binary is missing or fails, the Suite uses pure-Python fallbacks automatically.
+
+| Tool | Language | Purpose |
+| --- | --- | --- |
+| `yts-normalize` | Rust | Batch URL/path normalize + dedupe (JSON IPC) |
+| `yts-prio` | C (or `zig cc`) | Optional process nice + Linux idle I/O |
+| `yts-inbox` | Go | Concurrent companion inbox consume |
+| `yts_json_filter.rb` | Ruby | Optional companion JSON filter (`ruby` on `PATH`) |
+
+### Build (fish-safe)
+
+```bash
+# Toolchains as available: cargo, cc/gcc (or zig), go, ruby (script copy)
+./scripts/build_natives.sh
+# Install prefix:
+# YTS_NATIVE_DIR=/opt/yts/native ./scripts/build_natives.sh
+```
+
+Runtime knobs:
+
+| Env / config | Meaning |
+| --- | --- |
+| `YTS_USE_NATIVE=0` | Disable all native discovery |
+| `YTS_NATIVE_DIR` | Directory containing built binaries / Ruby script |
+| `PROCESS_NICE` | CPU nice on Start Queue (`0` = unchanged; Settings spinbox) |
+| `PROCESS_IDLE_IO` | Linux idle I/O class on Start Queue (default `true`) |
+
+Frozen builds: after PyInstaller, optionally copy `native/bin/` next to the executable (or set `YTS_NATIVE_DIR`). Natives are **not** required for the freeze to run.
+
 ## Packaging (Windows / macOS / Linux distributables)
 
 Ship frozen desktop builds with **PyInstaller** (`onedir`). PyInstaller has maintained PyQt6 hooks, does not cross-compile (build on each OS), and matches how most PyQt6 + heavy native-dep apps are frozen today. Prefer `onedir` over `onefile` for Qt plugin layout, faster cold start, and easier debugging.
@@ -233,3 +264,4 @@ python -m venv .venv
 - [ ] One short download + optional watermark completes
 - [ ] Cookies / Node notes documented for end users when platforms require them
 - [ ] Built with `scripts/build_pyinstaller.sh` or `scripts/build_pyinstaller.ps1` on that OS
+- [ ] Optional: `./scripts/build_natives.sh` and copy `native/bin/` beside the freeze (or document Python-only fallback)
