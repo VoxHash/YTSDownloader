@@ -2,7 +2,7 @@
 
 > Multi-platform download suite for video/audio from YouTube, Instagram, Facebook, TikTok, and related hosts — with a concurrent queue, link grabber, optional watermarking, and a local metadata bridge for music-session matching. Built with PyQt6.
 
-[![Version](https://img.shields.io/badge/version-0.3.2-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
+[![Version](https://img.shields.io/badge/version-0.3.3-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org/)
 [![PyQt6](https://img.shields.io/badge/pyqt6-6.10+-blue.svg)](https://pypi.org/project/PyQt6/)
@@ -14,6 +14,7 @@
 - **Companion inbox**: Local file handoff (`.ytsdownloader/inbox/` or `companion_inbox.jsonl`) so a browser helper can send URLs while the desktop Suite stays the downloader
 - **Queue filters**: Filter by state and search title / URL / message
 - **Failure triage**: Per-item error category + detail panel with **Retry selected** / **Retry failed**
+- **Status analytics**: Optional local session OK / Err / Last / Avg counters in the status bar (no network telemetry)
 - **Multi-platform**: YouTube (channels / videos / Shorts / playlists), Instagram, Facebook, TikTok
 - **Concurrent queue**: Worker limit, retries, playlist start-slot pacing, rate-limit backoff
 - **Queue persistence**: Local JSON under `.ytsdownloader/` survives restarts (pending items stay paused until Start)

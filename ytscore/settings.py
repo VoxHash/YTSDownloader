@@ -28,10 +28,23 @@ class Settings:
     backoff_base: float = 2.0
     backoff_factor: float = 2.0
     backoff_max: float = 90.0
+    # Local session counters in the Suite status bar (no network telemetry).
+    show_status_analytics: bool = True
 
     def cookies_tuple(self) -> Optional[Tuple[str, ...]]:
         parts = [p.strip() for p in self.cookies_from_browser.split(":") if p.strip()]
         return tuple(parts) if parts else None
+
+
+def _as_bool(value: str, default: bool = True) -> bool:
+    text = (value or "").strip().lower()
+    if not text:
+        return default
+    if text in ("1", "true", "yes", "on"):
+        return True
+    if text in ("0", "false", "no", "off"):
+        return False
+    return default
 
 
 def load_settings(path: str = DEFAULT_CONFIG_PATH) -> Settings:
@@ -56,6 +69,7 @@ def load_settings(path: str = DEFAULT_CONFIG_PATH) -> Settings:
         backoff_base=max(0.0, float(s.get("BACKOFF_BASE", "2"))),
         backoff_factor=max(1.0, float(s.get("BACKOFF_FACTOR", "2"))),
         backoff_max=max(0.0, float(s.get("BACKOFF_MAX", "90"))),
+        show_status_analytics=_as_bool(s.get("SHOW_STATUS_ANALYTICS", "true"), True),
     )
 
 
@@ -84,6 +98,9 @@ def save_settings(settings: Settings, path: str = DEFAULT_CONFIG_PATH) -> None:
         or "bestvideo+bestaudio/best"
     )
     s["DEFAULT_OUTPUT"] = (settings.default_output or "").strip()
+    s["SHOW_STATUS_ANALYTICS"] = (
+        "true" if bool(settings.show_status_analytics) else "false"
+    )
 
     abs_path = os.path.abspath(path)
     directory = os.path.dirname(abs_path) or "."

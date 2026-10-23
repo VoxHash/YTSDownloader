@@ -4,7 +4,7 @@ Settings live in `config.ini` under the `[SETTINGS]` section.
 
 ## Suite Settings UI
 
-Open **Settings** in the Suite sidebar to edit the keys below. **Save to config.ini** writes atomically and applies into the running app (pace, backoff, cookies, JS runtime, formats, retries, default output). **Max workers** is picked up on the next **Start Queue**. **Reload config.ini** re-reads the file into the form and runtime.
+Open **Settings** in the Suite sidebar to edit the keys below. **Save to config.ini** writes atomically and applies into the running app (pace, backoff, cookies, JS runtime, formats, retries, default output, status analytics). **Max workers** is picked up on the next **Start Queue**. **Reload config.ini** re-reads the file into the form and runtime.
 
 ## Keys
 
@@ -24,6 +24,9 @@ Open **Settings** in the Suite sidebar to edit the keys below. **Save to config.
 | `AUDIO_FORMAT` | Preferred audio extract format | `m4a` | `mp3` |
 | `VIDEO_FORMAT` | yt-dlp format expression | `bestvideo+bestaudio/best` | `best` |
 | `DEFAULT_OUTPUT` | Default output folder | empty | `/home/you/Videos` |
+| `SHOW_STATUS_ANALYTICS` | Show local session OK / Err / Last / Avg counters in the Suite status bar | `true` | `false` |
+
+Status analytics are **local and session-scoped** only. Nothing is sent over the network.
 
 ## Environment variables / secrets
 

@@ -26,6 +26,7 @@ class SettingsRoundTripTests(unittest.TestCase):
             backoff_base=1.5,
             backoff_factor=3.0,
             backoff_max=60.0,
+            show_status_analytics=False,
         )
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "config.ini")
@@ -45,6 +46,7 @@ class SettingsRoundTripTests(unittest.TestCase):
             self.assertEqual(loaded.backoff_base, 1.5)
             self.assertEqual(loaded.backoff_factor, 3.0)
             self.assertEqual(loaded.backoff_max, 60.0)
+            self.assertFalse(loaded.show_status_analytics)
 
     def test_atomic_replace_preserves_brave_default(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -26,8 +26,8 @@ Optional activation: bash/zsh `source .venv/bin/activate`, fish `source .venv/bi
 7. Use **Link Grabber** to paste many URLs (one per line); enqueue uses the Download page preset.
 8. Optional: a browser companion (or script) can drop URLs into `.ytsdownloader/inbox/` or append NDJSON to `.ytsdownloader/companion_inbox.jsonl` while the Suite is open — the desktop app remains the downloader (see [Architecture](architecture.md#browser-companion-handoff-contract)).
 9. Use **Metadata Bridge** while a desktop music client is playing to queue a matching public-host audio download.
-10. Use **Settings** to edit and **Save** `config.ini` (cookies, pace, backoff, workers, formats); most knobs apply without restarting the app.
-11. Watch per-item progress on the Queue page (Export column shows audio / video / video+wm).
+10. Use **Settings** to edit and **Save** `config.ini` (cookies, pace, backoff, workers, formats, status analytics); most knobs apply without restarting the app.
+11. Watch per-item progress on the Queue page (Export column shows audio / video / video+wm). With **Show analytics in status bar** enabled (default), the status bar shows local session **OK** / **Err** counts plus **Last** and **Avg** job durations — nothing is sent over the network.
 
 ## Queue persistence
 

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import os
-from typing import List, Optional
+import time
+from typing import Dict, List, Optional, Set
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject, QMimeData
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
@@ -34,8 +35,10 @@ from PyQt6.QtWidgets import (
     QDoubleSpinBox,
     QScrollArea,
     QSplitter,
+    QCheckBox,
 )
 
+from ytscore.analytics import SessionAnalytics
 from ytscore.cache import title_cache
 from ytscore.companion import (
     consume_companion_inbox,
@@ -182,6 +185,9 @@ class SuiteWindow(QMainWindow):
             inbox_dir=self._companion_inbox_dir,
             jsonl_path=self._companion_inbox_jsonl,
         )
+        self.session_analytics = SessionAnalytics()
+        self._analytics_started: Dict[str, float] = {}
+        self._analytics_counted: Set[str] = set()
 
         root = QWidget()
         root.setObjectName("centralRoot")
@@ -213,7 +219,11 @@ class SuiteWindow(QMainWindow):
             self.stack.addWidget(page)
 
         self.status = QStatusBar()
+        self.analytics_label = QLabel("")
+        self.analytics_label.setObjectName("statusAnalytics")
+        self.status.addPermanentWidget(self.analytics_label)
         self.setStatusBar(self.status)
+        self._refresh_analytics_label()
         self._refresh_status("Ready")
 
         self._nav_buttons[0].setChecked(True)
@@ -597,8 +607,9 @@ class SuiteWindow(QMainWindow):
         layout.addWidget(title)
         hint = QLabel(
             "Edit values below and Save to write config.ini. "
-            "Pace, backoff, cookies, formats, and retries apply immediately; "
-            "worker count applies on the next Start Queue."
+            "Pace, backoff, cookies, formats, retries, and status analytics "
+            "apply immediately; worker count applies on the next Start Queue. "
+            "Analytics counters are local/session only (no network telemetry)."
         )
         hint.setObjectName("pageHint")
         hint.setWordWrap(True)
@@ -662,6 +673,11 @@ class SuiteWindow(QMainWindow):
         out_browse.clicked.connect(self._browse_default_output)
         out_row.addWidget(out_browse)
 
+        self.settings_show_analytics = QCheckBox("Show analytics in status bar")
+        self.settings_show_analytics.setToolTip(
+            "Local session success / error / timing counters only — nothing is sent over the network."
+        )
+
         form.addRow("Theme", self.settings_theme)
         form.addRow("Cookies from browser", self.settings_cookies_browser)
         form.addRow("Cookies file", cookies_row)
@@ -676,6 +692,7 @@ class SuiteWindow(QMainWindow):
         form.addRow("Audio format", self.settings_audio_format)
         form.addRow("Video format", self.settings_video_format)
         form.addRow("Default output", out_row)
+        form.addRow("Status analytics", self.settings_show_analytics)
 
         scroll.setWidget(form_host)
         layout.addWidget(scroll, stretch=1)
@@ -728,6 +745,7 @@ class SuiteWindow(QMainWindow):
             settings.video_format_pref or "bestvideo+bestaudio/best"
         )
         self.settings_default_output.setText(settings.default_output or "")
+        self.settings_show_analytics.setChecked(bool(settings.show_status_analytics))
 
     def _settings_from_form(self) -> Settings:
         return Settings(
@@ -747,6 +765,7 @@ class SuiteWindow(QMainWindow):
                 self.settings_video_format.text().strip() or "bestvideo+bestaudio/best"
             ),
             default_output=self.settings_default_output.text().strip(),
+            show_status_analytics=self.settings_show_analytics.isChecked(),
         )
 
     def _browse_cookies_file(self) -> None:
@@ -776,6 +795,7 @@ class SuiteWindow(QMainWindow):
             # Only seed Download page output when empty or still matching prior default.
             if not current or current == os.path.expanduser("~/Downloads/YTSDownloader"):
                 self.out_edit.setText(default_out)
+        self._refresh_analytics_label()
 
     # ----- helpers -----
     def _browse_out(self) -> None:
@@ -1287,11 +1307,36 @@ class SuiteWindow(QMainWindow):
     def _on_job_updated(self, job: QueueJob) -> None:
         self._upsert_job_row(job)
         self._update_overall()
+        self._track_job_analytics(job)
         self.cache_label.setText(title_cache.status_text())
         self._schedule_persist()
         selected = self._selected_queue_job_ids()
         if job.id in selected or job.state == JobState.FAILED:
             self._refresh_failure_triage()
+
+    def _track_job_analytics(self, job: QueueJob) -> None:
+        """Update local session counters when a job finishes (or is re-queued)."""
+        if job.state == JobState.QUEUED:
+            self._analytics_counted.discard(job.id)
+            self._analytics_started.pop(job.id, None)
+            return
+        if job.state == JobState.RUNNING:
+            # Start timing when download work begins (after playlist pace wait).
+            if job.message.startswith("Downloading") and job.id not in self._analytics_started:
+                self._analytics_started[job.id] = time.monotonic()
+            return
+        if job.state not in (JobState.DONE, JobState.FAILED):
+            return
+        if job.id in self._analytics_counted:
+            return
+        self._analytics_counted.add(job.id)
+        started = self._analytics_started.pop(job.id, None)
+        duration = (time.monotonic() - started) if started is not None else None
+        if job.state == JobState.DONE:
+            self.session_analytics.record_success(duration)
+        else:
+            self.session_analytics.record_failure(duration)
+        self._refresh_analytics_label()
 
     def _upsert_job_row(self, job: QueueJob) -> None:
         row = self._job_rows.get(job.id)
@@ -1413,6 +1458,16 @@ class SuiteWindow(QMainWindow):
 
     def _refresh_status(self, text: str) -> None:
         self.status.showMessage(text)
+
+    def _refresh_analytics_label(self) -> None:
+        if not hasattr(self, "analytics_label"):
+            return
+        show = bool(getattr(self.settings, "show_status_analytics", True))
+        self.analytics_label.setVisible(show)
+        if show:
+            self.analytics_label.setText(self.session_analytics.format_status())
+        else:
+            self.analytics_label.setText("")
 
     def closeEvent(self, event) -> None:  # noqa: N802
         self._spotify_timer.stop()

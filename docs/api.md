@@ -6,8 +6,9 @@
 
 | Symbol | Role |
 | --- | --- |
-| `load_settings` / `save_settings` / `Settings` | Load/save `config.ini` (pace, backoff, workers, cookies) |
+| `load_settings` / `save_settings` / `Settings` | Load/save `config.ini` (pace, backoff, workers, cookies, status analytics) |
 | `apply_auth_opts` | Attach cookies / JS runtime options for yt-dlp |
+| `SessionAnalytics` / `format_duration` | Local session success / error / timing counters (no network) |
 | `compute_backoff_seconds` / `is_rate_limited` | Retry delay and rate-limit detection |
 | `classify_failure` / `failure_detail_text` | Coarse failure categories for Queue triage |
 | `parse_companion_payload` / `consume_companion_inbox` | Browser companion local inbox (URLs only; desktop downloads) |
