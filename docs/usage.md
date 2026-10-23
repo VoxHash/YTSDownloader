@@ -23,7 +23,8 @@ Optional activation: bash/zsh `source .venv/bin/activate`, fish `source .venv/bi
 4. Filter the queue by **State** and/or **Search** (title, URL, message).
 5. Use **Link Grabber** to paste many URLs (one per line).
 6. Use **Metadata Bridge** while a desktop music client is playing to queue a matching public-host audio download.
-7. Watch per-item progress on the Queue page.
+7. Use **Settings** to edit and **Save** `config.ini` (cookies, pace, backoff, workers, formats); most knobs apply without restarting the app.
+8. Watch per-item progress on the Queue page.
 
 ## Queue persistence
 

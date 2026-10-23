@@ -30,6 +30,9 @@ from PyQt6.QtWidgets import (
     QPlainTextEdit,
     QFormLayout,
     QFrame,
+    QSpinBox,
+    QDoubleSpinBox,
+    QScrollArea,
 )
 
 from ytscore.cache import title_cache
@@ -42,7 +45,7 @@ from ytscore.persist import (
 )
 from ytscore.queue import DownloadQueue, QueueJob, JobState
 from ytscore.resolvers import resolve_url, resolve_many, auth_probe, detect_platform
-from ytscore.settings import Settings, load_settings
+from ytscore.settings import Settings, load_settings, save_settings, DEFAULT_CONFIG_PATH
 from ytscore.util import extract_urls
 from ytscore import spotify_bridge
 from ytsgui.styles import load_stylesheet
@@ -135,9 +138,15 @@ class UrlDropZone(QFrame):
 
 
 class SuiteWindow(QMainWindow):
-    def __init__(self, settings: Optional[Settings] = None) -> None:
+    def __init__(
+        self,
+        settings: Optional[Settings] = None,
+        *,
+        config_path: str = DEFAULT_CONFIG_PATH,
+    ) -> None:
         super().__init__()
-        self.settings = settings or load_settings()
+        self.config_path = config_path or DEFAULT_CONFIG_PATH
+        self.settings = settings or load_settings(self.config_path)
         self.setWindowTitle("YTSDownloader")
         self.resize(1120, 720)
         self.setStyleSheet(load_stylesheet(self.settings.theme))
@@ -465,30 +474,187 @@ class SuiteWindow(QMainWindow):
         title = QLabel("Settings")
         title.setObjectName("pageTitle")
         layout.addWidget(title)
-        hint = QLabel("Values loaded from config.ini (edit file to persist).")
-        hint.setObjectName("pageHint")
-        layout.addWidget(hint)
-        info = QTextEdit()
-        info.setReadOnly(True)
-        info.setPlainText(
-            f"Theme: {self.settings.theme}\n"
-            f"Cookies from browser: {self.settings.cookies_from_browser or '(none)'}\n"
-            f"Cookies file: {self.settings.cookies_file or '(none)'}\n"
-            f"JS runtime: {self.settings.js_runtime or '(none)'}\n"
-            f"Max workers: {self.settings.max_workers}\n"
-            f"Max retries: {self.settings.max_retries}\n"
-            f"Playlist pace (s): {self.settings.pace_seconds}\n"
-            f"Backoff base / factor / max (s): "
-            f"{self.settings.backoff_base} / {self.settings.backoff_factor} / {self.settings.backoff_max}\n"
-            f"Audio format: {self.settings.audio_format}\n"
-            f"Video format: {self.settings.video_format_pref}\n"
+        hint = QLabel(
+            "Edit values below and Save to write config.ini. "
+            "Pace, backoff, cookies, formats, and retries apply immediately; "
+            "worker count applies on the next Start Queue."
         )
-        layout.addWidget(info)
+        hint.setObjectName("pageHint")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        form_host = QWidget()
+        form = QFormLayout(form_host)
+        form.setContentsMargins(0, 8, 12, 8)
+        form.setSpacing(10)
+
+        self.settings_theme = QComboBox()
+        self.settings_theme.setEditable(True)
+        for name in self._theme_names():
+            self.settings_theme.addItem(name)
+
+        self.settings_cookies_browser = QLineEdit()
+        self.settings_cookies_browser.setPlaceholderText("brave:Default")
+        self.settings_cookies_file = QLineEdit()
+        cookies_row = QHBoxLayout()
+        cookies_row.addWidget(self.settings_cookies_file, stretch=1)
+        cookies_browse = QPushButton("Browse…")
+        cookies_browse.clicked.connect(self._browse_cookies_file)
+        cookies_row.addWidget(cookies_browse)
+
+        self.settings_js_runtime = QLineEdit()
+        self.settings_js_runtime.setPlaceholderText("node")
+        self.settings_js_path = QLineEdit()
+        self.settings_js_path.setPlaceholderText("optional absolute path")
+
+        self.settings_max_workers = QSpinBox()
+        self.settings_max_workers.setRange(1, 32)
+        self.settings_max_retries = QSpinBox()
+        self.settings_max_retries.setRange(0, 20)
+
+        self.settings_pace = QDoubleSpinBox()
+        self.settings_pace.setRange(0.0, 600.0)
+        self.settings_pace.setDecimals(2)
+        self.settings_pace.setSingleStep(0.5)
+        self.settings_pace.setSuffix(" s")
+
+        self.settings_backoff_base = QDoubleSpinBox()
+        self.settings_backoff_base.setRange(0.0, 600.0)
+        self.settings_backoff_base.setDecimals(2)
+        self.settings_backoff_factor = QDoubleSpinBox()
+        self.settings_backoff_factor.setRange(1.0, 16.0)
+        self.settings_backoff_factor.setDecimals(2)
+        self.settings_backoff_max = QDoubleSpinBox()
+        self.settings_backoff_max.setRange(0.0, 3600.0)
+        self.settings_backoff_max.setDecimals(1)
+        self.settings_backoff_max.setSuffix(" s")
+
+        self.settings_audio_format = QLineEdit()
+        self.settings_video_format = QLineEdit()
+        self.settings_default_output = QLineEdit()
+        out_row = QHBoxLayout()
+        out_row.addWidget(self.settings_default_output, stretch=1)
+        out_browse = QPushButton("Browse…")
+        out_browse.clicked.connect(self._browse_default_output)
+        out_row.addWidget(out_browse)
+
+        form.addRow("Theme", self.settings_theme)
+        form.addRow("Cookies from browser", self.settings_cookies_browser)
+        form.addRow("Cookies file", cookies_row)
+        form.addRow("JS runtime", self.settings_js_runtime)
+        form.addRow("JS runtime path", self.settings_js_path)
+        form.addRow("Max workers", self.settings_max_workers)
+        form.addRow("Max retries", self.settings_max_retries)
+        form.addRow("Playlist pace", self.settings_pace)
+        form.addRow("Backoff base (s)", self.settings_backoff_base)
+        form.addRow("Backoff factor", self.settings_backoff_factor)
+        form.addRow("Backoff max", self.settings_backoff_max)
+        form.addRow("Audio format", self.settings_audio_format)
+        form.addRow("Video format", self.settings_video_format)
+        form.addRow("Default output", out_row)
+
+        scroll.setWidget(form_host)
+        layout.addWidget(scroll, stretch=1)
+
+        btn_row = QHBoxLayout()
+        save_btn = QPushButton("Save to config.ini")
+        save_btn.clicked.connect(self._save_settings)
         reload_btn = QPushButton("Reload config.ini")
         reload_btn.clicked.connect(self._reload_settings)
-        layout.addWidget(reload_btn, alignment=Qt.AlignmentFlag.AlignLeft)
-        layout.addStretch(1)
+        btn_row.addWidget(save_btn)
+        btn_row.addWidget(reload_btn)
+        btn_row.addStretch(1)
+        layout.addLayout(btn_row)
+
+        self._fill_settings_form(self.settings)
         return page
+
+    @staticmethod
+    def _theme_names() -> List[str]:
+        themes_dir = "themes"
+        names: List[str] = []
+        if os.path.isdir(themes_dir):
+            for entry in sorted(os.listdir(themes_dir)):
+                path = os.path.join(themes_dir, entry)
+                if os.path.isdir(path) and not entry.startswith("."):
+                    names.append(entry)
+        if "SuiteDark" not in names:
+            names.insert(0, "SuiteDark")
+        return names
+
+    def _fill_settings_form(self, settings: Settings) -> None:
+        theme = settings.theme or "SuiteDark"
+        idx = self.settings_theme.findText(theme)
+        if idx >= 0:
+            self.settings_theme.setCurrentIndex(idx)
+        else:
+            self.settings_theme.setEditText(theme)
+        self.settings_cookies_browser.setText(settings.cookies_from_browser or "")
+        self.settings_cookies_file.setText(settings.cookies_file or "")
+        self.settings_js_runtime.setText(settings.js_runtime or "")
+        self.settings_js_path.setText(settings.js_runtime_path or "")
+        self.settings_max_workers.setValue(max(1, int(settings.max_workers)))
+        self.settings_max_retries.setValue(max(0, int(settings.max_retries)))
+        self.settings_pace.setValue(float(settings.pace_seconds))
+        self.settings_backoff_base.setValue(float(settings.backoff_base))
+        self.settings_backoff_factor.setValue(float(settings.backoff_factor))
+        self.settings_backoff_max.setValue(float(settings.backoff_max))
+        self.settings_audio_format.setText(settings.audio_format or "m4a")
+        self.settings_video_format.setText(
+            settings.video_format_pref or "bestvideo+bestaudio/best"
+        )
+        self.settings_default_output.setText(settings.default_output or "")
+
+    def _settings_from_form(self) -> Settings:
+        return Settings(
+            theme=self.settings_theme.currentText().strip() or "SuiteDark",
+            cookies_from_browser=self.settings_cookies_browser.text().strip(),
+            cookies_file=self.settings_cookies_file.text().strip(),
+            js_runtime=self.settings_js_runtime.text().strip(),
+            js_runtime_path=self.settings_js_path.text().strip(),
+            max_workers=int(self.settings_max_workers.value()),
+            max_retries=int(self.settings_max_retries.value()),
+            pace_seconds=float(self.settings_pace.value()),
+            backoff_base=float(self.settings_backoff_base.value()),
+            backoff_factor=float(self.settings_backoff_factor.value()),
+            backoff_max=float(self.settings_backoff_max.value()),
+            audio_format=self.settings_audio_format.text().strip() or "m4a",
+            video_format_pref=(
+                self.settings_video_format.text().strip() or "bestvideo+bestaudio/best"
+            ),
+            default_output=self.settings_default_output.text().strip(),
+        )
+
+    def _browse_cookies_file(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Cookie file",
+            "",
+            "Cookies (*.txt *.json);;All files (*)",
+        )
+        if path:
+            self.settings_cookies_file.setText(path)
+
+    def _browse_default_output(self) -> None:
+        folder = QFileDialog.getExistingDirectory(self, "Default output folder")
+        if folder:
+            self.settings_default_output.setText(folder)
+
+    def _apply_settings_runtime(self, settings: Settings) -> None:
+        """Push settings into the running Suite (queue/pacing/cookies without full restart)."""
+        self.settings = settings
+        self.setStyleSheet(load_stylesheet(self.settings.theme))
+        if self.queue is not None:
+            self.queue.settings = self.settings
+        default_out = (settings.default_output or "").strip()
+        if default_out and hasattr(self, "out_edit"):
+            current = self.out_edit.text().strip()
+            # Only seed Download page output when empty or still matching prior default.
+            if not current or current == os.path.expanduser("~/Downloads/YTSDownloader"):
+                self.out_edit.setText(default_out)
 
     # ----- helpers -----
     def _browse_out(self) -> None:
@@ -825,9 +991,27 @@ class SuiteWindow(QMainWindow):
         self._set_page(1)
         self._nav_buttons[1].setChecked(True)
 
+    def _save_settings(self) -> None:
+        settings = self._settings_from_form()
+        try:
+            save_settings(settings, self.config_path)
+        except OSError as exc:
+            QMessageBox.warning(self, "Settings", f"Could not write config.ini:\n{exc}")
+            return
+        self._apply_settings_runtime(settings)
+        self._fill_settings_form(settings)
+        self._refresh_status("Settings saved to config.ini")
+        QMessageBox.information(
+            self,
+            "Settings",
+            "Saved to config.ini and applied.\n"
+            "Worker count changes take effect on the next Start Queue.",
+        )
+
     def _reload_settings(self) -> None:
-        self.settings = load_settings()
-        self.setStyleSheet(load_stylesheet(self.settings.theme))
+        self.settings = load_settings(self.config_path)
+        self._fill_settings_form(self.settings)
+        self._apply_settings_runtime(self.settings)
         self._refresh_status("Config reloaded")
         QMessageBox.information(self, "Settings", "config.ini reloaded.")
 

@@ -1,13 +1,13 @@
 # Roadmap
 
-Current product baseline: **v0.2.3** — local JSON queue persistence across Suite restarts (PyQt6 + yt-dlp).
+Current product baseline: **v0.2.4** — Suite Settings write-back to `config.ini` (PyQt6 + yt-dlp).
 
 ## Now (v0.2.x)
 
 - [x] Suite UI polish: filters on the queue table, drag-and-drop URL drop zone.
 - [x] Stronger playlist pacing and rate-limit backoff defaults.
 - [x] Persist queue state across restarts (local JSON).
-- Settings page write-back to `config.ini` (today: reload-only).
+- [x] Settings page write-back to `config.ini`.
 
 ## Next
 

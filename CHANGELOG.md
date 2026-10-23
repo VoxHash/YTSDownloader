@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-23
+
+### Added
+- Suite **Settings** form edits the real `config.ini` keys (theme, cookies, JS runtime, workers/retries, pace, backoff, formats, default output) with atomic write via `ytscore.settings.save_settings`.
+- Save applies into the running `Settings` / queue object without a full restart (pace, backoff, cookies, formats, retries); worker count takes effect on the next Start Queue.
+- Unit tests for write/read round-trip and offscreen Settings UI smoke.
+
+### Changed
+- Settings page is no longer reload-only; Reload still refreshes the form from disk.
+
 ## [0.2.3] - 2026-10-23
 
 ### Added
@@ -75,7 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.0...v0.2.1

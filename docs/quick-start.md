@@ -23,4 +23,4 @@ Then in the GUI:
 3. Leave watermark empty for a plain download, or pick a PNG.
 4. Choose WebM or MP4 and start the job.
 
-If extraction fails with a bot / login message, set `COOKIES_FROM_BROWSER` or `COOKIES_FILE` in `config.ini` and restart the app.
+If extraction fails with a bot / login message, set `COOKIES_FROM_BROWSER` or `COOKIES_FILE` in **Settings** (Save) or in `config.ini`.

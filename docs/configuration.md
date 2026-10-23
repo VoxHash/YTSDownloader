@@ -2,6 +2,10 @@
 
 Settings live in `config.ini` under the `[SETTINGS]` section.
 
+## Suite Settings UI
+
+Open **Settings** in the Suite sidebar to edit the keys below. **Save to config.ini** writes atomically and applies into the running app (pace, backoff, cookies, JS runtime, formats, retries, default output). **Max workers** is picked up on the next **Start Queue**. **Reload config.ini** re-reads the file into the form and runtime.
+
 ## Keys
 
 | Setting | Description | Default | Example |

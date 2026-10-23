@@ -6,7 +6,7 @@
 
 | Symbol | Role |
 | --- | --- |
-| `load_settings` / `Settings` | Load `config.ini` (pace, backoff, workers, cookies) |
+| `load_settings` / `save_settings` / `Settings` | Load/save `config.ini` (pace, backoff, workers, cookies) |
 | `apply_auth_opts` | Attach cookies / JS runtime options for yt-dlp |
 | `compute_backoff_seconds` / `is_rate_limited` | Retry delay and rate-limit detection |
 | `resolve_url` / `resolve_many` | Expand playlist / channel / profile URLs |

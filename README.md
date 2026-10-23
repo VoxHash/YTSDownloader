@@ -2,7 +2,7 @@
 
 > Multi-platform download suite for video/audio from YouTube, Instagram, Facebook, TikTok, and related hosts — with a concurrent queue, link grabber, optional watermarking, and a local metadata bridge for music-session matching. Built with PyQt6.
 
-[![Version](https://img.shields.io/badge/version-0.2.3-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
+[![Version](https://img.shields.io/badge/version-0.2.4-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org/)
 [![PyQt6](https://img.shields.io/badge/pyqt6-6.10+-blue.svg)](https://pypi.org/project/PyQt6/)
@@ -53,7 +53,7 @@ Do not run `source .venv/bin/activate` in fish (that script is bash-only and fai
 
 ### Configuration
 
-Edit `config.ini`:
+Edit in **Settings** (Save to `config.ini`) or edit the file directly:
 
 | Setting | Description | Default |
 | --- | --- | --- |
