@@ -46,6 +46,17 @@ from ytscore.companion import (
     default_inbox_jsonl_path,
     ensure_inbox_layout,
 )
+from ytscore.crawl import (
+    CRAWL_MODE_LABELS,
+    CrawlAuthError,
+    CrawlMode,
+    clamp_crawl_limit,
+    cookie_auth_configured,
+    crawl_many,
+    crawl_profile,
+    crawl_requires_auth,
+    parse_crawl_mode,
+)
 from ytscore.persist import (
     default_queue_state_path,
     deserialize_queue_snapshot,
@@ -61,7 +72,7 @@ from ytscore.presets import (
     resolve_job_options,
 )
 from ytscore.queue import DownloadQueue, QueueJob, JobState
-from ytscore.resolvers import resolve_url, resolve_many, auth_probe, detect_platform
+from ytscore.resolvers import auth_probe, detect_platform
 from ytscore.settings import Settings, load_settings, save_settings, DEFAULT_CONFIG_PATH
 from ytscore.triage import (
     category_label,
@@ -298,7 +309,8 @@ class SuiteWindow(QMainWindow):
         hint = QLabel(
             "Paste or drop a video, playlist, channel, or profile URL. "
             "Companions can also write URLs into .ytsdownloader/inbox/. "
-            "Uses Brave cookies from config when set."
+            "Deep crawl modes need cookie auth (Brave profile or cookie file) "
+            "and only enumerate content your session can already reach."
         )
         hint.setObjectName("pageHint")
         hint.setWordWrap(True)
@@ -360,15 +372,38 @@ class SuiteWindow(QMainWindow):
         self.preset_hint.setObjectName("pageHint")
         self.preset_hint.setWordWrap(True)
 
+        self.crawl_mode_combo = QComboBox()
+        for mode in CrawlMode:
+            self.crawl_mode_combo.addItem(CRAWL_MODE_LABELS[mode], mode.value)
+        self.crawl_mode_combo.setCurrentIndex(0)
+        self.crawl_mode_combo.currentIndexChanged.connect(self._refresh_crawl_auth_hint)
+        self.crawl_limit_spin = QSpinBox()
+        self.crawl_limit_spin.setRange(1, 500)
+        self.crawl_limit_spin.setValue(50)
+        self.crawl_limit_spin.setToolTip(
+            "Max items to enqueue from a profile / channel crawl (1–500)."
+        )
+        crawl_row = QHBoxLayout()
+        crawl_row.addWidget(self.crawl_mode_combo, stretch=2)
+        crawl_row.addWidget(QLabel("Limit"))
+        crawl_row.addWidget(self.crawl_limit_spin)
+        crawl_row.addStretch(1)
+        self.crawl_auth_hint = QLabel("")
+        self.crawl_auth_hint.setObjectName("pageHint")
+        self.crawl_auth_hint.setWordWrap(True)
+
         form.addRow("URL", self.url_edit)
         form.addRow("Output", out_row)
         form.addRow("Export preset", self.preset_combo)
         form.addRow("", self.preset_hint)
+        form.addRow("Crawl mode", crawl_row)
+        form.addRow("", self.crawl_auth_hint)
         form.addRow("Watermark PNG", wm_row)
         form.addRow("Media", media_row)
         form.addRow("Container", self.format_combo)
         layout.addLayout(form)
         self._apply_preset_to_download_form(self._selected_download_preset(), announce=False)
+        self._refresh_crawl_auth_hint()
 
         actions = QHBoxLayout()
         resolve_btn = QPushButton("Resolve & Queue")
@@ -796,6 +831,7 @@ class SuiteWindow(QMainWindow):
             if not current or current == os.path.expanduser("~/Downloads/YTSDownloader"):
                 self.out_edit.setText(default_out)
         self._refresh_analytics_label()
+        self._refresh_crawl_auth_hint()
 
     # ----- helpers -----
     def _browse_out(self) -> None:
@@ -811,6 +847,42 @@ class SuiteWindow(QMainWindow):
     def _selected_download_preset(self) -> ExportPreset:
         pid = self.preset_combo.currentData() if hasattr(self, "preset_combo") else "video_audio"
         return get_preset(str(pid or "video_audio")) or get_preset("video_audio") or CUSTOM
+
+    def _selected_crawl_mode(self) -> CrawlMode:
+        if not hasattr(self, "crawl_mode_combo"):
+            return CrawlMode.SHALLOW
+        raw = self.crawl_mode_combo.currentData()
+        try:
+            return parse_crawl_mode(str(raw or CrawlMode.SHALLOW.value))
+        except ValueError:
+            return CrawlMode.SHALLOW
+
+    def _crawl_limit(self) -> int:
+        if not hasattr(self, "crawl_limit_spin"):
+            return 50
+        return clamp_crawl_limit(self.crawl_limit_spin.value())
+
+    def _refresh_crawl_auth_hint(self) -> None:
+        if not hasattr(self, "crawl_auth_hint"):
+            return
+        mode = self._selected_crawl_mode()
+        auth_ok = cookie_auth_configured(self.settings)
+        if not crawl_requires_auth(mode):
+            self.crawl_auth_hint.setText(
+                "Shallow mode: single-pass resolve (cookies optional)."
+            )
+            return
+        if auth_ok:
+            src = (self.settings.cookies_from_browser or "").strip() or "cookie file"
+            self.crawl_auth_hint.setText(
+                f"Cookie auth ready ({src}). Deep crawl paces tab fetches; "
+                "only public/authorized surfaces your session can reach."
+            )
+        else:
+            self.crawl_auth_hint.setText(
+                "Deep crawl needs cookie auth — set Cookies from browser "
+                "(e.g. brave:Default) or Cookies file in Settings."
+            )
 
     def _on_download_preset_changed(self) -> None:
         self._apply_preset_to_download_form(self._selected_download_preset(), announce=True)
@@ -1034,14 +1106,28 @@ class SuiteWindow(QMainWindow):
             self._refresh_status("Dropped 1 URL — Resolve & Queue when ready")
             return
         self.grabber_text.setPlainText("\n".join(urls))
-        self.download_log.append(f"Dropped {len(urls)} URLs — resolving…")
-        self._refresh_status(f"Resolving {len(urls)} dropped URL(s)…")
+        mode = self._selected_crawl_mode()
+        limit = self._crawl_limit()
+        self.download_log.append(
+            f"Dropped {len(urls)} URLs — crawling ({mode.value}, limit {limit})…"
+        )
+        self._refresh_status(f"Crawling {len(urls)} dropped URL(s)…")
         try:
-            links = resolve_many(urls, self.settings)
+            crawled = crawl_many(
+                urls,
+                self.settings,
+                mode=mode,
+                limit=limit,
+            )
+        except CrawlAuthError as exc:
+            QMessageBox.warning(self, "Crawl auth", str(exc))
+            self.download_log.append(f"Drop crawl blocked: {exc}")
+            return
         except Exception as exc:
             QMessageBox.warning(self, "Drop", str(exc))
-            self.download_log.append(f"Drop resolve failed: {exc}")
+            self.download_log.append(f"Drop crawl failed: {exc}")
             return
+        links = crawled.urls
         if not links:
             QMessageBox.information(self, "Drop", "No media links found in dropped URLs.")
             return
@@ -1061,7 +1147,9 @@ class SuiteWindow(QMainWindow):
             watermark_path=opts["watermark_path"],
             output_format=opts["output_format"],
         )
-        self.download_log.append(f"Queued {len(links)} from drop ({preset.name}).")
+        self.download_log.append(
+            f"Queued {len(links)} from drop ({preset.name}, crawl={mode.value})."
+        )
         self._set_page(1)
         self._nav_buttons[1].setChecked(True)
         self._refresh_status(f"Queued {len(links)} from drop ({preset.name})")
@@ -1190,15 +1278,34 @@ class SuiteWindow(QMainWindow):
         if not out:
             QMessageBox.warning(self, "Input", "Choose an output folder.")
             return
-        self.download_log.append(f"Resolving {url} ({detect_platform(url)})…")
+        mode = self._selected_crawl_mode()
+        limit = self._crawl_limit()
+        self.download_log.append(
+            f"Crawling {url} ({detect_platform(url)}, mode={mode.value}, limit={limit})…"
+        )
         try:
-            links = resolve_url(url, self.settings)
-        except Exception as exc:
-            self.download_log.append(f"Resolve failed: {exc}")
-            QMessageBox.warning(self, "Resolve", str(exc))
+            crawled = crawl_profile(
+                url,
+                self.settings,
+                mode=mode,
+                limit=limit,
+            )
+        except CrawlAuthError as exc:
+            self.download_log.append(f"Crawl blocked: {exc}")
+            QMessageBox.warning(self, "Crawl auth", str(exc))
             return
+        except Exception as exc:
+            self.download_log.append(f"Crawl failed: {exc}")
+            QMessageBox.warning(self, "Crawl", str(exc))
+            return
+        links = crawled.urls
         if not links:
-            QMessageBox.information(self, "Resolve", "No media links found.")
+            detail = "; ".join(crawled.errors[:3]) if crawled.errors else ""
+            QMessageBox.information(
+                self,
+                "Crawl",
+                "No media links found." + (f"\n{detail}" if detail else ""),
+            )
             return
         title_cache.reset_stats()
         q = self._ensure_queue()
@@ -1219,8 +1326,10 @@ class SuiteWindow(QMainWindow):
                 output_format=opts["output_format"],
             )
         self.cache_label.setText(title_cache.status_text())
+        tabs = f", tabs={'+'.join(crawled.tabs_tried)}" if crawled.tabs_tried else ""
         self.download_log.append(
-            f"Queued {len(links)} item(s) [{preset.name}]. Open Queue and press Start."
+            f"Queued {len(links)} item(s) [{preset.name}, crawl={mode.value}{tabs}]. "
+            "Open Queue and press Start."
         )
         self._set_page(1)
         self._nav_buttons[1].setChecked(True)
@@ -1232,12 +1341,23 @@ class SuiteWindow(QMainWindow):
         if not urls:
             QMessageBox.warning(self, "Grabber", "Paste at least one URL.")
             return
-        self._refresh_status(f"Resolving {len(urls)} line(s)…")
+        mode = self._selected_crawl_mode()
+        limit = self._crawl_limit()
+        self._refresh_status(f"Crawling {len(urls)} line(s) ({mode.value})…")
         try:
-            links = resolve_many(urls, self.settings)
+            crawled = crawl_many(
+                urls,
+                self.settings,
+                mode=mode,
+                limit=limit,
+            )
+        except CrawlAuthError as exc:
+            QMessageBox.warning(self, "Crawl auth", str(exc))
+            return
         except Exception as exc:
             QMessageBox.warning(self, "Grabber", str(exc))
             return
+        links = crawled.urls
         q = self._ensure_queue()
         opts = self._current_enqueue_options()
         preset = self._selected_download_preset()
@@ -1256,7 +1376,9 @@ class SuiteWindow(QMainWindow):
         )
         self._set_page(1)
         self._nav_buttons[1].setChecked(True)
-        self._refresh_status(f"Queued {len(links)} from grabber ({preset.name})")
+        self._refresh_status(
+            f"Queued {len(links)} from grabber ({preset.name}, crawl={mode.value})"
+        )
 
     def _check_auth(self) -> None:
         url = self.url_edit.text().strip()

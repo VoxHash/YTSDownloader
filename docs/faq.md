@@ -12,6 +12,10 @@ Python 3.10+ is recommended. Fresh validation succeeded on Python 3.14.
 
 Many YouTube extractions requests require authenticated cookies to pass bot checks. Set `COOKIES_FROM_BROWSER` or `COOKIES_FILE`.
 
+## What are crawl modes?
+
+On **Download**, **Crawl mode** controls how profile / channel URLs expand into queue items. **Shallow** is a single-pass resolve (cookies optional). **Deep**, **Videos**, **Shorts**, and **Posts** need cookie auth and pace multi-tab or feed enumeration. They only list content your signed-in session can already reach via yt-dlp — not private or paywalled surfaces.
+
 ## Can I run without a watermark?
 
 Yes. Leave the watermark field empty; the downloaded file is kept/renamed without moviepy overlay.

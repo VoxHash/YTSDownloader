@@ -2,7 +2,7 @@
 
 > Multi-platform download suite for video/audio from YouTube, Instagram, Facebook, TikTok, and related hosts — with a concurrent queue, link grabber, optional watermarking, and a local metadata bridge for music-session matching. Built with PyQt6.
 
-[![Version](https://img.shields.io/badge/version-0.3.4-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org/)
 [![PyQt6](https://img.shields.io/badge/pyqt6-6.10+-blue.svg)](https://pypi.org/project/PyQt6/)
@@ -16,6 +16,7 @@
 - **Failure triage**: Per-item error category + detail panel with **Retry selected** / **Retry failed**
 - **Status analytics**: Optional local session OK / Err / Last / Avg counters in the status bar (no network telemetry)
 - **Multi-platform**: YouTube (channels / videos / Shorts / playlists), Instagram, Facebook, TikTok
+- **Profile crawl modes**: Shallow or deep (multi-tab / videos / shorts / posts) behind cookie auth; paced enumeration into the queue
 - **Concurrent queue**: Worker limit, retries, playlist start-slot pacing, rate-limit backoff
 - **Queue persistence**: Local JSON under `.ytsdownloader/` survives restarts (pending items stay paused until Start)
 - **Export presets**: Audio only, Video + audio, Watermark (and Custom); apply on enqueue or batch to selected / queued items
@@ -82,8 +83,8 @@ No cloud API keys are required. Treat cookie files as secrets.
 ## Usage
 
 1. Launch `.venv/bin/python main.py` (or `./run.sh`)
-2. On **Download**, pick an **Export preset**, set output folder, paste or drop a URL → **Resolve & Queue** → **Start Queue**
-3. Or use **Link Grabber** for many URLs (uses the Download page preset)
+2. On **Download**, pick an **Export preset**, optionally set **Crawl mode** + **Limit**, set output folder, paste or drop a URL → **Resolve & Queue** → **Start Queue** (deep crawl needs cookies in Settings)
+3. Or use **Link Grabber** for many URLs (uses the Download page preset + crawl mode)
 4. Or use **Metadata Bridge** with a playing desktop music session / catalog URL
 5. Monitor **Queue** (filter by state / search); inspect failures in the triage panel; **Retry selected** / **Retry failed**; optionally **Apply to selected** / **Apply to queued** with another preset
 

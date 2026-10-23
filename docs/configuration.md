@@ -44,6 +44,7 @@ Sensitive local inputs:
 
 1. Prefer `COOKIES_FROM_BROWSER = chrome` (or `firefox`, `edge`, `brave`, `opera`) when the browser is logged in.
 2. Otherwise export cookies to a file and set `COOKIES_FILE`.
+3. Deep **Crawl mode** options on Download (Deep / Videos / Shorts / Posts) require one of the above; Shallow works without cookies. Crawls only enumerate content your session can already reach via yt-dlp.
 3. Keep `JS_RUNTIME = node` and set `JS_RUNTIME_PATH` only when `node` is not on `PATH`.
 
 ## Themes

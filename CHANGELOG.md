@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-23
+
+### Added
+- **Profile / channel crawl modes** behind cookie auth (`ytscore.crawl`): Shallow, Deep (multi-tab), Videos, Shorts, and Posts — deep modes require `COOKIES_FROM_BROWSER` or `COOKIES_FILE`.
+- Download Suite controls: crawl mode combo + item limit (1–500); Resolve / drop / Link Grabber use the selected mode with pacing between tab fetches and backoff on rate-limit signals.
+- Auth-gate hint on Download; deep crawl enumerates only surfaces the signed-in session can already reach via existing extractors (no paywall/DRM bypass).
+- Unit tests and offscreen Suite smoke for crawl helpers, auth gate, and UI wiring.
+
+### Changed
+- SemVer minor bump: first shipped item from the former **Later** wave after the v0.3.x packaging baseline.
+- Roadmap: cookie-auth profile crawl completed; Next / Later empty.
+- Docs: usage, API, architecture, configuration, README cover crawl modes.
+
 ## [0.3.4] - 2026-10-23
 
 ### Added
@@ -140,7 +153,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.1...v0.3.2
