@@ -1,17 +1,13 @@
 # Roadmap
 
-Current product baseline: **v0.2.4** — Suite Settings write-back to `config.ini` (PyQt6 + yt-dlp).
+Current product baseline: **v0.3.0** — Batch export presets (PyQt6 + yt-dlp).
 
-## Now (v0.2.x)
+## Now (v0.3.x)
 
-- [x] Suite UI polish: filters on the queue table, drag-and-drop URL drop zone.
-- [x] Stronger playlist pacing and rate-limit backoff defaults.
-- [x] Persist queue state across restarts (local JSON).
-- [x] Settings page write-back to `config.ini`.
+- [x] Batch export presets (audio-only / video+audio / watermark profiles).
 
 ## Next
 
-- Batch export presets (audio-only / video+audio / watermark profiles).
 - Per-item failure triage panel with one-click retry.
 - Browser media extractor companion notes (extension handoff — desktop remains the downloader).
 - Optional analytics counters (success / error / timing) in the status bar.

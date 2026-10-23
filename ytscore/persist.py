@@ -35,6 +35,8 @@ def job_to_dict(job: QueueJob) -> Dict[str, Any]:
         "error": job.error,
         "index": job.index,
         "search_query": job.search_query,
+        "watermark_path": job.watermark_path,
+        "output_format": job.output_format,
     }
 
 
@@ -75,6 +77,16 @@ def job_from_dict(data: Dict[str, Any], *, remap_running: bool = True) -> QueueJ
         error=data.get("error"),
         index=data.get("index"),
         search_query=data.get("search_query"),
+        watermark_path=(
+            str(data.get("watermark_path") or "")
+            if "watermark_path" in data
+            else None
+        ),
+        output_format=(
+            str(data.get("output_format") or "")
+            if "output_format" in data
+            else None
+        ),
     )
 
 

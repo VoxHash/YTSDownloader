@@ -10,10 +10,10 @@ Apply a transparent PNG watermark during export.
 ## Steps
 
 1. Launch the app: `.venv/bin/python main.py` (or `./run.sh`)
-2. Select an output folder.
-3. Paste a direct video URL on any platform tab.
-4. Browse to your PNG under **Watermark (PNG)**.
-5. Choose **MP4** or **WebM** and start the download.
+2. On **Download**, choose export preset **Watermark**.
+3. Select an output folder and browse to your PNG under **Watermark PNG**.
+4. Paste a direct video URL → **Resolve & Queue** → **Start Queue**.
+5. Or enqueue first, then on **Queue** use **Apply to selected** / **Apply to queued** with the Watermark preset.
 
 ## Expected result
 

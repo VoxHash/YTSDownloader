@@ -36,6 +36,9 @@ class QueueJob:
     error: Optional[str] = None
     index: Optional[int] = None
     search_query: Optional[str] = None
+    # Per-job export options. None = inherit queue defaults at download time.
+    watermark_path: Optional[str] = None
+    output_format: Optional[str] = None
 
 
 Listener = Callable[[QueueJob], None]
@@ -80,6 +83,8 @@ class DownloadQueue:
         media: str = "video",
         title: str = "",
         search_query: Optional[str] = None,
+        watermark_path: Optional[str] = None,
+        output_format: Optional[str] = None,
     ) -> QueueJob:
         with self._lock:
             self._counter += 1
@@ -90,6 +95,12 @@ class DownloadQueue:
                 media=media,
                 index=self._counter,
                 search_query=search_query,
+                watermark_path=(
+                    self.watermark_path if watermark_path is None else watermark_path
+                ),
+                output_format=(
+                    self.output_format if output_format is None else output_format
+                ),
             )
             self._jobs[job.id] = job
             self._order.append(job.id)
@@ -98,8 +109,60 @@ class DownloadQueue:
             self._submit(job)
         return job
 
-    def add_many(self, urls: List[str], *, media: str = "video") -> List[QueueJob]:
-        return [self.add(u, media=media) for u in urls]
+    def add_many(
+        self,
+        urls: List[str],
+        *,
+        media: str = "video",
+        watermark_path: Optional[str] = None,
+        output_format: Optional[str] = None,
+    ) -> List[QueueJob]:
+        return [
+            self.add(
+                u,
+                media=media,
+                watermark_path=watermark_path,
+                output_format=output_format,
+            )
+            for u in urls
+        ]
+
+    def get(self, job_id: str) -> Optional[QueueJob]:
+        with self._lock:
+            return self._jobs.get(job_id)
+
+    def apply_export_options(
+        self,
+        job_ids: Optional[List[str]],
+        *,
+        media: str,
+        watermark_path: str = "",
+        output_format: str = "",
+        only_states: Optional[List[JobState]] = None,
+    ) -> int:
+        """
+        Update export options on jobs. If job_ids is None, all jobs (optionally
+        filtered by only_states) are updated. Skips search_audio. Returns count.
+        """
+        touched: List[QueueJob] = []
+        with self._lock:
+            if job_ids is None:
+                targets = [self._jobs[i] for i in self._order]
+            else:
+                targets = [self._jobs[i] for i in job_ids if i in self._jobs]
+            for job in targets:
+                if only_states is not None and job.state not in only_states:
+                    continue
+                if job.media == "search_audio":
+                    continue
+                job.media = media
+                job.watermark_path = watermark_path or ""
+                if output_format:
+                    job.output_format = output_format
+                touched.append(job)
+        for job in touched:
+            self._emit(job)
+        return len(touched)
 
     def clear_terminal(self) -> int:
         """Remove DONE / FAILED / CANCELLED jobs. Returns how many were removed."""
@@ -218,14 +281,20 @@ class DownloadQueue:
                     progress_hook=hook,
                 )
             else:
+                wm = (
+                    self.watermark_path
+                    if job.watermark_path is None
+                    else job.watermark_path
+                )
+                fmt = job.output_format or self.output_format
                 result = download_item(
                     job.url,
                     self.output_dir,
                     self.settings,
                     media=job.media,
                     index=job.index,
-                    watermark_path=self.watermark_path,
-                    output_format=self.output_format,
+                    watermark_path=wm,
+                    output_format=fmt,
                     progress_hook=hook,
                 )
             with self._lock:

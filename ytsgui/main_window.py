@@ -43,6 +43,13 @@ from ytscore.persist import (
     save_queue_state,
     serialize_queue_snapshot,
 )
+from ytscore.presets import (
+    CUSTOM,
+    ExportPreset,
+    get_preset,
+    list_presets,
+    resolve_job_options,
+)
 from ytscore.queue import DownloadQueue, QueueJob, JobState
 from ytscore.resolvers import resolve_url, resolve_many, auth_probe, detect_platform
 from ytscore.settings import Settings, load_settings, save_settings, DEFAULT_CONFIG_PATH
@@ -307,12 +314,27 @@ class SuiteWindow(QMainWindow):
         self.format_combo = QComboBox()
         self.format_combo.addItems(["mp4", "webm", "mkv"])
 
+        self.preset_combo = QComboBox()
+        for preset in list_presets(include_custom=True):
+            self.preset_combo.addItem(preset.name, preset.id)
+        # Default: Video + audio
+        idx_va = self.preset_combo.findData("video_audio")
+        if idx_va >= 0:
+            self.preset_combo.setCurrentIndex(idx_va)
+        self.preset_combo.currentIndexChanged.connect(self._on_download_preset_changed)
+        self.preset_hint = QLabel("")
+        self.preset_hint.setObjectName("pageHint")
+        self.preset_hint.setWordWrap(True)
+
         form.addRow("URL", self.url_edit)
         form.addRow("Output", out_row)
+        form.addRow("Export preset", self.preset_combo)
+        form.addRow("", self.preset_hint)
         form.addRow("Watermark PNG", wm_row)
         form.addRow("Media", media_row)
         form.addRow("Container", self.format_combo)
         layout.addLayout(form)
+        self._apply_preset_to_download_form(self._selected_download_preset(), announce=False)
 
         actions = QHBoxLayout()
         resolve_btn = QPushButton("Resolve & Queue")
@@ -347,9 +369,11 @@ class SuiteWindow(QMainWindow):
         layout.addWidget(title)
         hint = QLabel(
             "Concurrent workers, per-item progress, automatic retries. "
-            "Queue is saved locally and restored on startup (pending items stay paused — press Start)."
+            "Queue is saved locally and restored on startup (pending items stay paused — press Start). "
+            "Apply an export preset to selected rows or all queued items."
         )
         hint.setObjectName("pageHint")
+        hint.setWordWrap(True)
         layout.addWidget(hint)
 
         filter_row = QHBoxLayout()
@@ -373,10 +397,35 @@ class SuiteWindow(QMainWindow):
         filter_row.addWidget(self.queue_filter_count)
         layout.addLayout(filter_row)
 
-        self.queue_table = QTableWidget(0, 5)
-        self.queue_table.setHorizontalHeaderLabels(["#", "Title / URL", "State", "Progress", "Message"])
+        preset_row = QHBoxLayout()
+        preset_row.addWidget(QLabel("Export preset"))
+        self.queue_preset_combo = QComboBox()
+        for preset in list_presets(include_custom=False):
+            self.queue_preset_combo.addItem(preset.name, preset.id)
+        preset_row.addWidget(self.queue_preset_combo)
+        apply_sel = QPushButton("Apply to selected")
+        apply_sel.setStyleSheet(
+            "QPushButton { background: transparent; color: #fff; border: 1px solid #727272; border-radius: 20px; }"
+        )
+        apply_sel.clicked.connect(self._apply_preset_to_selected)
+        apply_queued = QPushButton("Apply to queued")
+        apply_queued.setStyleSheet(
+            "QPushButton { background: transparent; color: #fff; border: 1px solid #727272; border-radius: 20px; }"
+        )
+        apply_queued.clicked.connect(self._apply_preset_to_queued)
+        preset_row.addWidget(apply_sel)
+        preset_row.addWidget(apply_queued)
+        preset_row.addStretch(1)
+        layout.addLayout(preset_row)
+
+        self.queue_table = QTableWidget(0, 6)
+        self.queue_table.setHorizontalHeaderLabels(
+            ["#", "Title / URL", "State", "Export", "Progress", "Message"]
+        )
         self.queue_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.queue_table.setAlternatingRowColors(True)
+        self.queue_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.queue_table.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.queue_table.verticalHeader().setVisible(False)
         layout.addWidget(self.queue_table, stretch=1)
 
@@ -667,6 +716,120 @@ class SuiteWindow(QMainWindow):
         if path:
             self.wm_edit.setText(path)
 
+    def _selected_download_preset(self) -> ExportPreset:
+        pid = self.preset_combo.currentData() if hasattr(self, "preset_combo") else "video_audio"
+        return get_preset(str(pid or "video_audio")) or get_preset("video_audio") or CUSTOM
+
+    def _on_download_preset_changed(self) -> None:
+        self._apply_preset_to_download_form(self._selected_download_preset(), announce=True)
+
+    def _apply_preset_to_download_form(self, preset: ExportPreset, *, announce: bool = True) -> None:
+        self.preset_hint.setText(preset.description)
+        if preset.id == CUSTOM.id:
+            if announce:
+                self._refresh_status("Export preset: Custom (manual media / watermark)")
+            return
+        if preset.media == "audio":
+            self.media_audio.setChecked(True)
+        else:
+            self.media_video.setChecked(True)
+        if preset.media == "video" and preset.output_format in ("mp4", "webm", "mkv"):
+            idx = self.format_combo.findText(preset.output_format)
+            if idx >= 0:
+                self.format_combo.setCurrentIndex(idx)
+        if announce:
+            self._refresh_status(f"Export preset: {preset.name}")
+
+    def _current_enqueue_options(self) -> dict:
+        """Resolve media / watermark / container from the Download preset + form."""
+        preset = self._selected_download_preset()
+        media_override = "audio" if self.media_audio.isChecked() else "video"
+        return resolve_job_options(
+            preset,
+            watermark_path=self.wm_edit.text().strip(),
+            output_format=self.format_combo.currentText(),
+            media_override=media_override,
+        )
+
+    def _job_export_label(self, job: QueueJob) -> str:
+        media = job.media or "video"
+        if media == "search_audio":
+            return "search audio"
+        if media == "audio":
+            return "audio"
+        wm = job.watermark_path
+        if wm is None:
+            wm = self.queue.watermark_path if self.queue else ""
+        if wm:
+            return "video+wm"
+        return "video"
+
+    def _selected_queue_job_ids(self) -> List[str]:
+        ids: List[str] = []
+        seen = set()
+        for idx in self.queue_table.selectionModel().selectedRows():
+            row = idx.row()
+            for jid, r in self._job_rows.items():
+                if r == row and jid not in seen:
+                    ids.append(jid)
+                    seen.add(jid)
+                    break
+        return ids
+
+    def _apply_preset_to_jobs(self, job_ids: Optional[List[str]], *, only_queued: bool) -> None:
+        if not self.queue:
+            QMessageBox.information(self, "Queue", "Queue is empty.")
+            return
+        pid = self.queue_preset_combo.currentData()
+        preset = get_preset(str(pid or ""))
+        if not preset or preset.id == CUSTOM.id:
+            QMessageBox.information(self, "Preset", "Choose Audio only, Video + audio, or Watermark.")
+            return
+        wm = self.wm_edit.text().strip()
+        if preset.use_watermark and not wm:
+            QMessageBox.warning(
+                self,
+                "Preset",
+                "Watermark preset needs a PNG path on the Download page.",
+            )
+            return
+        opts = resolve_job_options(
+            preset,
+            watermark_path=wm,
+            output_format=self.format_combo.currentText() or preset.output_format,
+        )
+        only_states = [JobState.QUEUED] if only_queued else None
+        n = self.queue.apply_export_options(
+            job_ids,
+            media=opts["media"],
+            watermark_path=opts["watermark_path"],
+            output_format=opts["output_format"],
+            only_states=only_states,
+        )
+        # Keep queue-level defaults aligned with last applied batch preset for new jobs.
+        if opts["media"] == "video":
+            self.queue.watermark_path = opts["watermark_path"]
+            self.queue.output_format = opts["output_format"] or self.queue.output_format
+        self._persist_queue_now()
+        target = "queued" if only_queued else ("selected" if job_ids is not None else "all")
+        self._refresh_status(f"Applied {preset.name} to {n} {target} item(s)")
+        if n == 0:
+            QMessageBox.information(
+                self,
+                "Preset",
+                "No matching items updated (search-audio jobs are skipped).",
+            )
+
+    def _apply_preset_to_selected(self) -> None:
+        ids = self._selected_queue_job_ids()
+        if not ids:
+            QMessageBox.information(self, "Preset", "Select one or more queue rows first.")
+            return
+        self._apply_preset_to_jobs(ids, only_queued=False)
+
+    def _apply_preset_to_queued(self) -> None:
+        self._apply_preset_to_jobs(None, only_queued=True)
+
     def _on_urls_dropped(self, urls: List[str]) -> None:
         if not urls:
             return
@@ -689,13 +852,26 @@ class SuiteWindow(QMainWindow):
         if not links:
             QMessageBox.information(self, "Drop", "No media links found in dropped URLs.")
             return
+        opts = self._current_enqueue_options()
+        preset = self._selected_download_preset()
+        if preset.use_watermark and not opts["watermark_path"]:
+            QMessageBox.warning(
+                self,
+                "Preset",
+                "Watermark preset needs a PNG path before enqueueing.",
+            )
+            return
         q = self._ensure_queue()
-        media = "audio" if self.media_audio.isChecked() else "video"
-        q.add_many(links, media=media)
-        self.download_log.append(f"Queued {len(links)} from drop.")
+        q.add_many(
+            links,
+            media=opts["media"],
+            watermark_path=opts["watermark_path"],
+            output_format=opts["output_format"],
+        )
+        self.download_log.append(f"Queued {len(links)} from drop ({preset.name}).")
         self._set_page(1)
         self._nav_buttons[1].setChecked(True)
-        self._refresh_status(f"Queued {len(links)} from drop")
+        self._refresh_status(f"Queued {len(links)} from drop ({preset.name})")
 
     def _apply_queue_filters(self) -> None:
         state_want = self.queue_state_filter.currentData() or ""
@@ -705,12 +881,20 @@ class SuiteWindow(QMainWindow):
         for row in range(total):
             state_item = self.queue_table.item(row, 2)
             title_item = self.queue_table.item(row, 1)
-            msg_item = self.queue_table.item(row, 4)
+            export_item = self.queue_table.item(row, 3)
+            msg_item = self.queue_table.item(row, 5)
             state = (state_item.text() if state_item else "").lower()
             title = (title_item.text() if title_item else "").lower()
+            export = (export_item.text() if export_item else "").lower()
             msg = (msg_item.text() if msg_item else "").lower()
             state_ok = not state_want or state == state_want.lower()
-            text_ok = not needle or needle in title or needle in msg or needle in state
+            text_ok = (
+                not needle
+                or needle in title
+                or needle in msg
+                or needle in state
+                or needle in export
+            )
             show = state_ok and text_ok
             self.queue_table.setRowHidden(row, not show)
             if show:
@@ -725,6 +909,12 @@ class SuiteWindow(QMainWindow):
     def _ensure_queue(self) -> DownloadQueue:
         out = self.out_edit.text().strip() or os.path.expanduser("~/Downloads/YTSDownloader")
         os.makedirs(out, exist_ok=True)
+        opts = self._current_enqueue_options()
+        # Queue-level defaults match the active Download preset (per-job opts still win).
+        wm_default = opts["watermark_path"]
+        fmt_default = opts["output_format"] if opts["media"] == "video" else (
+            self.format_combo.currentText() or "mp4"
+        )
         if self.queue is None or self.queue.output_dir != out:
             old_jobs = self.queue.jobs() if self.queue else []
             if self.queue:
@@ -732,15 +922,15 @@ class SuiteWindow(QMainWindow):
             self.queue = DownloadQueue(
                 settings=self.settings,
                 output_dir=out,
-                watermark_path=self.wm_edit.text().strip(),
-                output_format=self.format_combo.currentText(),
+                watermark_path=wm_default,
+                output_format=fmt_default,
             )
             self.queue.add_listener(lambda job: self._bridge.job_updated.emit(job))
             if old_jobs:
                 self.queue.restore_jobs(old_jobs)
         else:
-            self.queue.watermark_path = self.wm_edit.text().strip()
-            self.queue.output_format = self.format_combo.currentText()
+            self.queue.watermark_path = wm_default
+            self.queue.output_format = fmt_default
             self.queue.settings = self.settings
         return self.queue
 
@@ -819,14 +1009,29 @@ class SuiteWindow(QMainWindow):
             return
         title_cache.reset_stats()
         q = self._ensure_queue()
-        media = "audio" if self.media_audio.isChecked() else "video"
+        opts = self._current_enqueue_options()
+        preset = self._selected_download_preset()
+        if preset.use_watermark and not opts["watermark_path"]:
+            QMessageBox.warning(
+                self,
+                "Preset",
+                "Watermark preset needs a PNG path before enqueueing.",
+            )
+            return
         for link in links:
-            q.add(link, media=media)
+            q.add(
+                link,
+                media=opts["media"],
+                watermark_path=opts["watermark_path"],
+                output_format=opts["output_format"],
+            )
         self.cache_label.setText(title_cache.status_text())
-        self.download_log.append(f"Queued {len(links)} item(s). Open Queue and press Start.")
+        self.download_log.append(
+            f"Queued {len(links)} item(s) [{preset.name}]. Open Queue and press Start."
+        )
         self._set_page(1)
         self._nav_buttons[1].setChecked(True)
-        self._refresh_status(f"Queued {len(links)} item(s)")
+        self._refresh_status(f"Queued {len(links)} item(s) ({preset.name})")
 
     def _grabber_queue(self) -> None:
         lines = self.grabber_text.toPlainText().splitlines()
@@ -841,11 +1046,24 @@ class SuiteWindow(QMainWindow):
             QMessageBox.warning(self, "Grabber", str(exc))
             return
         q = self._ensure_queue()
-        media = "audio" if self.media_audio.isChecked() else "video"
-        q.add_many(links, media=media)
+        opts = self._current_enqueue_options()
+        preset = self._selected_download_preset()
+        if preset.use_watermark and not opts["watermark_path"]:
+            QMessageBox.warning(
+                self,
+                "Preset",
+                "Watermark preset needs a PNG path before enqueueing.",
+            )
+            return
+        q.add_many(
+            links,
+            media=opts["media"],
+            watermark_path=opts["watermark_path"],
+            output_format=opts["output_format"],
+        )
         self._set_page(1)
         self._nav_buttons[1].setChecked(True)
-        self._refresh_status(f"Queued {len(links)} from grabber")
+        self._refresh_status(f"Queued {len(links)} from grabber ({preset.name})")
 
     def _check_auth(self) -> None:
         url = self.url_edit.text().strip()
@@ -907,8 +1125,9 @@ class SuiteWindow(QMainWindow):
         self.queue_table.setItem(row, 0, QTableWidgetItem(str(job.index or "")))
         self.queue_table.setItem(row, 1, QTableWidgetItem(job.title or job.url))
         self.queue_table.setItem(row, 2, QTableWidgetItem(job.state.value))
-        self.queue_table.setItem(row, 3, QTableWidgetItem(f"{job.progress:.0f}%"))
-        self.queue_table.setItem(row, 4, QTableWidgetItem(job.message or job.error or ""))
+        self.queue_table.setItem(row, 3, QTableWidgetItem(self._job_export_label(job)))
+        self.queue_table.setItem(row, 4, QTableWidgetItem(f"{job.progress:.0f}%"))
+        self.queue_table.setItem(row, 5, QTableWidgetItem(job.message or job.error or ""))
         self._apply_queue_filters()
 
     def _update_overall(self) -> None:
