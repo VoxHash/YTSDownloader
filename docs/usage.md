@@ -42,4 +42,4 @@ Use **Check Auth** after entering a URL to validate cookie / JS runtime extracti
 
 - Media files land in the selected folder
 - Optional watermark PNG composites when configured
-- Queue retries failed items up to `MAX_RETRIES`
+- Queue spaces playlist/job starts by `COUNT_TIMER_ONGOING` and retries failed items up to `MAX_RETRIES` with exponential backoff (`BACKOFF_*`; harder on HTTP 429)

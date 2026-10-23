@@ -458,7 +458,9 @@ class SuiteWindow(QMainWindow):
             f"JS runtime: {self.settings.js_runtime or '(none)'}\n"
             f"Max workers: {self.settings.max_workers}\n"
             f"Max retries: {self.settings.max_retries}\n"
-            f"Pace (s): {self.settings.pace_seconds}\n"
+            f"Playlist pace (s): {self.settings.pace_seconds}\n"
+            f"Backoff base / factor / max (s): "
+            f"{self.settings.backoff_base} / {self.settings.backoff_factor} / {self.settings.backoff_max}\n"
             f"Audio format: {self.settings.audio_format}\n"
             f"Video format: {self.settings.video_format_pref}\n"
         )

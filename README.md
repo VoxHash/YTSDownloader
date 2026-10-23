@@ -2,7 +2,7 @@
 
 > Multi-platform download suite for video/audio from YouTube, Instagram, Facebook, TikTok, and related hosts — with a concurrent queue, link grabber, optional watermarking, and a local metadata bridge for music-session matching. Built with PyQt6.
 
-[![Version](https://img.shields.io/badge/version-0.2.1-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
+[![Version](https://img.shields.io/badge/version-0.2.2-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org/)
 [![PyQt6](https://img.shields.io/badge/pyqt6-6.10+-blue.svg)](https://pypi.org/project/PyQt6/)
@@ -13,7 +13,7 @@
 - **URL drop zone**: Drag links (or a text file of URLs) onto Download
 - **Queue filters**: Filter by state and search title / URL / message
 - **Multi-platform**: YouTube (channels / videos / Shorts / playlists), Instagram, Facebook, TikTok
-- **Concurrent queue**: Worker limit, retries, per-item progress, pacing
+- **Concurrent queue**: Worker limit, retries, playlist start-slot pacing, rate-limit backoff
 - **Link grabber**: Paste many URLs; resolve and enqueue in batch
 - **Metadata bridge**: Read the open desktop music session (MPRIS on Linux) → search-match → audio download
 - **Watermarking**: Optional PNG overlay via moviepy + ffmpeg
@@ -57,13 +57,16 @@ Edit `config.ini`:
 | Setting | Description | Default |
 | --- | --- | --- |
 | `THEME` | Theme folder under `themes/` | `SuiteDark` |
-| `COUNT_TIMER_ONGOING` | Seconds between downloads | `2` |
+| `COUNT_TIMER_ONGOING` | Seconds between playlist/job *starts* | `2.5` |
 | `COOKIES_FROM_BROWSER` | Browser cookie source | empty |
 | `COOKIES_FILE` | Cookie file path | empty |
 | `JS_RUNTIME` | JS runtime name | `node` |
 | `JS_RUNTIME_PATH` | Absolute runtime path | empty |
 | `MAX_WORKERS` | Concurrent download workers | `2` |
 | `MAX_RETRIES` | Retries per item | `3` |
+| `BACKOFF_BASE` | Exponential retry backoff base (seconds) | `2` |
+| `BACKOFF_FACTOR` | Backoff multiplier per retry | `2` |
+| `BACKOFF_MAX` | Cap on retry wait (seconds) | `90` |
 | `AUDIO_FORMAT` | Audio extract format | `m4a` |
 | `VIDEO_FORMAT` | yt-dlp format expression | `bestvideo+bestaudio/best` |
 | `DEFAULT_OUTPUT` | Default output folder | empty |

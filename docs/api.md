@@ -1,8 +1,20 @@
 # API Surface
 
-`YTSDownloader` does not expose an HTTP API. The callable surface is the Python module in `main.py`.
+`YTSDownloader` does not expose an HTTP API. Prefer the Suite packages (`ytscore`, `ytsgui`); legacy helpers remain in `main.py`.
 
-## Notable helpers
+## Suite (`ytscore`)
+
+| Symbol | Role |
+| --- | --- |
+| `load_settings` / `Settings` | Load `config.ini` (pace, backoff, workers, cookies) |
+| `apply_auth_opts` | Attach cookies / JS runtime options for yt-dlp |
+| `compute_backoff_seconds` / `is_rate_limited` | Retry delay and rate-limit detection |
+| `resolve_url` / `resolve_many` | Expand playlist / channel / profile URLs |
+| `DownloadQueue` | Concurrent workers with start-slot pacing and retries |
+| `download_item` | Single URL download with exponential backoff retries |
+| `SuiteWindow` (`ytsgui`) | Suite sidebar UI |
+
+## Legacy (`main.py`)
 
 | Symbol | Role |
 | --- | --- |
@@ -15,6 +27,6 @@
 | `save_original_names(links, output_path, output_format)` | Write `original_names.txt` |
 | `add_watermark(video_path, watermark_path, output_path)` | Overlay PNG watermark via moviepy |
 | `WorkerThread` | Background download + optional watermark worker |
-| `MainWindow` | PyQt6 application window |
+| `MainWindow` | Classic PyQt6 window (`python main.py --legacy`) |
 
 These helpers are intended for the GUI workflow. Importing them for scripts is possible but unsupported as a stable public API.

@@ -36,6 +36,8 @@ Edit `config.ini` as needed:
 | `JS_RUNTIME_PATH` | Absolute path to the runtime binary (optional if on `PATH`) |
 | `MAX_WORKERS` | Concurrent download workers |
 | `MAX_RETRIES` | Retries per queue item |
+| `COUNT_TIMER_ONGOING` | Seconds between playlist/job starts (default `2.5`) |
+| `BACKOFF_BASE` / `BACKOFF_FACTOR` / `BACKOFF_MAX` | Exponential retry backoff (harder on rate limits) |
 
 No API keys or cloud secrets are required.
 

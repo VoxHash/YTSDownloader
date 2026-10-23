@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Optional
 
+from ytscore.backoff import compute_backoff_seconds, is_rate_limited
 from ytscore.cache import title_cache
 from ytscore.settings import Settings, apply_auth_opts
 from ytscore.util import clean_filename
@@ -27,6 +28,7 @@ class DownloadResult:
     path: Optional[str] = None
     title: Optional[str] = None
     error: Optional[str] = None
+    rate_limited: bool = False
 
 
 def _require_yt_dlp():
@@ -99,6 +101,7 @@ def download_item(
 
     ydl_opts = apply_auth_opts(ydl_opts, settings)
     last_error = None
+    saw_rate_limit = False
     attempts = settings.max_retries + 1
     for attempt in range(1, attempts + 1):
         try:
@@ -125,10 +128,34 @@ def download_item(
             return DownloadResult(ok=True, path=path, title=title)
         except Exception as exc:
             last_error = str(exc)
+            limited = is_rate_limited(exc)
+            if limited:
+                saw_rate_limit = True
             logging.warning("Download attempt %s/%s failed for %s: %s", attempt, attempts, url, exc)
-            if attempt < attempts:
-                time.sleep(min(8.0, settings.pace_seconds * attempt))
-    return DownloadResult(ok=False, error=last_error or "unknown error")
+            if attempt >= attempts:
+                break
+            # Exponential wait; HTTP 429 / rate-limit signals use a harder base.
+            delay = compute_backoff_seconds(
+                attempt,
+                base=settings.backoff_base,
+                factor=settings.backoff_factor,
+                maximum=settings.backoff_max,
+                rate_limited=limited,
+            )
+            logging.info(
+                "Backoff %.1fs before retry %s/%s (rate_limited=%s)",
+                delay,
+                attempt + 1,
+                attempts,
+                limited,
+            )
+            if delay > 0:
+                time.sleep(delay)
+    return DownloadResult(
+        ok=False,
+        error=last_error or "unknown error",
+        rate_limited=saw_rate_limit or is_rate_limited(last_error),
+    )
 
 
 def search_and_download_audio(

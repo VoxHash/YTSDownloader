@@ -6,12 +6,20 @@ Settings live in `config.ini` under the `[SETTINGS]` section.
 
 | Setting | Description | Default | Example |
 | --- | --- | --- | --- |
-| `THEME` | Theme directory under `themes/` | `DarkFreeze` | `DarkFreeze` |
-| `COUNT_TIMER_ONGOING` | Pause (seconds) between downloads | `2` | `2` |
-| `COOKIES_FROM_BROWSER` | Browser cookies for yt-dlp | empty | `chrome` |
+| `THEME` | Theme directory under `themes/` | `SuiteDark` | `SuiteDark` |
+| `COUNT_TIMER_ONGOING` | Seconds between playlist/job *starts* (shared across workers) | `2.5` | `3` |
+| `COOKIES_FROM_BROWSER` | Browser cookies for yt-dlp | empty | `brave:Default` |
 | `COOKIES_FILE` | Cookie file path | empty | `/path/to/cookies.txt` |
 | `JS_RUNTIME` | JavaScript runtime name | `node` | `node` |
 | `JS_RUNTIME_PATH` | Absolute path to runtime binary | empty | `/usr/bin/node` |
+| `MAX_WORKERS` | Concurrent download workers | `2` | `2` |
+| `MAX_RETRIES` | Retries per item after failure | `3` | `3` |
+| `BACKOFF_BASE` | Base seconds for exponential retry backoff | `2` | `2` |
+| `BACKOFF_FACTOR` | Multiplier applied each retry | `2` | `2` |
+| `BACKOFF_MAX` | Maximum retry wait (seconds); rate limits use a harder base | `90` | `90` |
+| `AUDIO_FORMAT` | Preferred audio extract format | `m4a` | `mp3` |
+| `VIDEO_FORMAT` | yt-dlp format expression | `bestvideo+bestaudio/best` | `best` |
+| `DEFAULT_OUTPUT` | Default output folder | empty | `/home/you/Videos` |
 
 ## Environment variables / secrets
 

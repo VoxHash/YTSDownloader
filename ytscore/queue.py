@@ -1,4 +1,4 @@
-"""Concurrent download queue with retries and progress callbacks."""
+"""Concurrent download queue with retries, playlist pacing, and progress callbacks."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable, Dict, List, Optional
 
+from ytscore.backoff import compute_backoff_seconds
 from ytscore.downloader import download_item, search_and_download_audio
 from ytscore.settings import Settings
 
@@ -54,6 +55,9 @@ class DownloadQueue:
     _listeners: List[Listener] = field(default_factory=list, repr=False)
     _running: bool = False
     _counter: int = 0
+    # Playlist pacing: serialize job *starts* so concurrent workers still space work.
+    _pace_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    _next_start_at: float = field(default=0.0, repr=False)
 
     def add_listener(self, cb: Listener) -> None:
         self._listeners.append(cb)
@@ -126,12 +130,44 @@ class DownloadQueue:
             fut = self._executor.submit(self._run_job, job.id)
             self._futures[job.id] = fut
 
+    def _wait_for_pace_slot(self, job: QueueJob) -> None:
+        """Block until the shared playlist start slot is free, then reserve the next gap."""
+        pace = max(0.0, float(self.settings.pace_seconds))
+        while True:
+            with self._pace_lock:
+                now = time.monotonic()
+                wait = self._next_start_at - now
+                if wait <= 0:
+                    self._next_start_at = now + pace
+                    return
+            with self._lock:
+                if job.state == JobState.CANCELLED:
+                    return
+                job.message = f"Pacing {wait:.1f}s…"
+            self._emit(job)
+            time.sleep(min(wait, 0.25))
+
+    def _extend_global_cooldown(self, seconds: float) -> None:
+        """Push the next start slot out (used after rate-limit failures)."""
+        if seconds <= 0:
+            return
+        with self._pace_lock:
+            now = time.monotonic()
+            self._next_start_at = max(self._next_start_at, now + seconds)
+
     def _run_job(self, job_id: str) -> None:
         with self._lock:
             job = self._jobs.get(job_id)
             if not job or job.state == JobState.CANCELLED:
                 return
             job.state = JobState.RUNNING
+            job.message = "Waiting for pace slot…"
+        self._emit(job)
+
+        self._wait_for_pace_slot(job)
+        with self._lock:
+            if job.state == JobState.CANCELLED:
+                return
             job.message = "Downloading…"
         self._emit(job)
 
@@ -176,8 +212,19 @@ class DownloadQueue:
                     job.state = JobState.FAILED
                     job.error = result.error
                     job.message = result.error or "Failed"
-            if self.settings.pace_seconds > 0:
-                time.sleep(self.settings.pace_seconds)
+            if getattr(result, "rate_limited", False):
+                # Extra cooldown so sibling playlist workers do not stampede.
+                cool = compute_backoff_seconds(
+                    1,
+                    base=self.settings.backoff_base,
+                    factor=self.settings.backoff_factor,
+                    maximum=self.settings.backoff_max,
+                    rate_limited=True,
+                )
+                self._extend_global_cooldown(cool)
+                with self._lock:
+                    if job.state == JobState.FAILED:
+                        job.message = f"{job.message} (rate-limit cooldown {cool:.0f}s)"
         except Exception as exc:
             with self._lock:
                 job.state = JobState.FAILED

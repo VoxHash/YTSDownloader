@@ -11,7 +11,7 @@ from typing import Optional, Tuple
 @dataclass
 class Settings:
     theme: str = "SuiteDark"
-    pace_seconds: float = 2.0
+    pace_seconds: float = 2.5
     cookies_from_browser: str = ""
     cookies_file: str = ""
     js_runtime: str = ""
@@ -21,6 +21,10 @@ class Settings:
     default_output: str = ""
     audio_format: str = "m4a"
     video_format_pref: str = "bestvideo+bestaudio/best"
+    # Exponential backoff between download retries (and harder on HTTP 429).
+    backoff_base: float = 2.0
+    backoff_factor: float = 2.0
+    backoff_max: float = 90.0
 
     def cookies_tuple(self) -> Optional[Tuple[str, ...]]:
         parts = [p.strip() for p in self.cookies_from_browser.split(":") if p.strip()]
@@ -35,7 +39,7 @@ def load_settings(path: str = "config.ini") -> Settings:
     s = cfg["SETTINGS"] if cfg.has_section("SETTINGS") else {}
     return Settings(
         theme=s.get("THEME", "SuiteDark"),
-        pace_seconds=float(s.get("COUNT_TIMER_ONGOING", "2")),
+        pace_seconds=float(s.get("COUNT_TIMER_ONGOING", "2.5")),
         cookies_from_browser=s.get("COOKIES_FROM_BROWSER", "").strip(),
         cookies_file=s.get("COOKIES_FILE", "").strip(),
         js_runtime=s.get("JS_RUNTIME", "").strip(),
@@ -46,6 +50,9 @@ def load_settings(path: str = "config.ini") -> Settings:
         audio_format=s.get("AUDIO_FORMAT", "m4a").strip() or "m4a",
         video_format_pref=s.get("VIDEO_FORMAT", "bestvideo+bestaudio/best").strip()
         or "bestvideo+bestaudio/best",
+        backoff_base=max(0.0, float(s.get("BACKOFF_BASE", "2"))),
+        backoff_factor=max(1.0, float(s.get("BACKOFF_FACTOR", "2"))),
+        backoff_max=max(0.0, float(s.get("BACKOFF_MAX", "90"))),
     )
 
 

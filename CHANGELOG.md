@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-23
+
+### Added
+- Shared playlist **start-slot pacing** so concurrent queue workers space job starts by `COUNT_TIMER_ONGOING`.
+- Rate-limit-aware **exponential backoff** on download retries (`BACKOFF_BASE`, `BACKOFF_FACTOR`, `BACKOFF_MAX`); HTTP 429 / rate-limit errors use a harder base and extend the global queue cooldown.
+- `ytscore.backoff` helpers for detection and delay calculation (unit-tested without live hosts).
+
+### Changed
+- Default playlist pace raised to **2.5s** (`COUNT_TIMER_ONGOING`).
+- Suite Settings overview shows pace and backoff knobs.
+- Retry waits no longer cap at a flat 8s; they follow configured exponential backoff (max 90s by default).
+
 ## [0.2.1] - 2026-10-23
 
 ### Added
@@ -53,7 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/VoxHash/YTSDownloader/releases/tag/v0.1.0
