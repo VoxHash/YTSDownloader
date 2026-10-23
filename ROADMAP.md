@@ -1,6 +1,6 @@
 # Roadmap
 
-Current product baseline: **v0.4.4** — Suite queue triage actions, mount-only folder sidebar, and Suite-dark app icon (desktop + window).
+Current product baseline: **v0.4.5** — Suite queue triage, folder sidebar with system root (Computer) plus mount volumes, and Suite-dark app icon.
 
 ## Now (v0.4.x)
 

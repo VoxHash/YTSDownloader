@@ -76,13 +76,26 @@ def _is_mount_point(path: str) -> bool:
         return False
 
 
+def primary_system_volume() -> Optional[str]:
+    """
+    Absolute path of the local machine root volume for the folder sidebar.
+
+    On Unix this is ``/`` (shown as “Computer” in the Qt dialog). Not used on
+    Windows. Does **not** return XDG user places.
+    """
+    if sys.platform.startswith("win"):
+        return None
+    return _existing_dir("/")
+
+
 def discover_mount_points(proc_mounts: Optional[str] = None) -> List[str]:
     """
     Return absolute mount points for user-visible volumes.
 
     Reads ``/proc/mounts`` (or ``proc_mounts`` text) and keeps paths under
     ``/run/media/$USER``, ``/media/$USER``, ``/mnt``, plus other real device
-    mounts with common filesystem types. Does **not** add XDG user folders.
+    mounts with common filesystem types. Does **not** add XDG user folders
+    or the system root (see ``primary_system_volume`` / ``volume_sidebar_paths``).
     Under ``/mnt``, only real mount points are included (empty stubs like
     ``/mnt/test`` are skipped).
     """
@@ -166,7 +179,7 @@ def volume_sidebar_paths(
     extra: Optional[Sequence[str]] = None,
 ) -> List[str]:
     """
-    Ordered sidebar paths: discovered volume/mount roots only.
+    Ordered sidebar paths: local system root first, then volume/mount roots.
 
     ``home`` / ``downloads`` are accepted for API compatibility but ignored —
     XDG places must not appear in the dialog sidebar. Pure path helper (no Qt)
@@ -185,6 +198,9 @@ def volume_sidebar_paths(
         seen.add(abs_path)
         paths.append(abs_path)
 
+    root = primary_system_volume()
+    if root:
+        add(root)
     for m in discover_mount_points(proc_mounts=proc_mounts):
         add(m)
     if extra:
@@ -193,12 +209,26 @@ def volume_sidebar_paths(
     return paths
 
 
+def _label_system_volume_sidebar(dialog) -> None:
+    """Rename the ``/`` sidebar entry to “Computer” in Qt's non-native dialog."""
+    from PyQt6.QtWidgets import QListWidget
+
+    for lw in dialog.findChildren(QListWidget):
+        for i in range(lw.count()):
+            item = lw.item(i)
+            if item is None:
+                continue
+            if item.text() in ("/", ""):
+                item.setText("Computer")
+
+
 def configure_directory_dialog(dialog, *, start_dir: str = "") -> None:
     """
     Apply volume sidebar URLs and Linux non-native option to a QFileDialog.
 
     Native GTK/KDE pickers often hide removable volumes; Qt's dialog plus
-    ``setSidebarUrls`` lists mount roots only (no Desktop/Downloads/Trash).
+    ``setSidebarUrls`` lists the system root (“Computer”) and mount roots
+    (no Desktop/Downloads/Trash).
     """
     from PyQt6.QtCore import QUrl
     from PyQt6.QtWidgets import QFileDialog
@@ -212,6 +242,7 @@ def configure_directory_dialog(dialog, *, start_dir: str = "") -> None:
     urls = [QUrl.fromLocalFile(p) for p in volume_sidebar_paths()]
     # Always set (even empty) so Qt default XDG places are replaced.
     dialog.setSidebarUrls(urls)
+    _label_system_volume_sidebar(dialog)
 
 
 def get_existing_directory(

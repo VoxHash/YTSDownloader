@@ -15,7 +15,7 @@
 | `resolve_url` / `resolve_many` | Expand playlist / channel / profile URLs (shallow) |
 | `crawl_profile` / `crawl_many` / `CrawlMode` | Cookie-gated profile crawl (shallow / deep / videos / shorts / posts) with limit + pacing |
 | `DownloadQueue` | Concurrent workers with start-slot pacing, retries, `retry_jobs` / `retry_failed`, `remove_jobs` / `clear_all` / `force_download` |
-| `get_existing_directory` / `volume_sidebar_paths` | Output-folder picker with Linux **mount-only** sidebar URLs |
+| `get_existing_directory` / `volume_sidebar_paths` | Output-folder picker with Linux sidebar URLs (system root + mounts) |
 | `resolve_app_icon_path` (`ytscore.icons`) | Locate Suite app icon under `assets/icons/` |
 | `download_item` | Single URL download with exponential backoff retries |
 | `SuiteWindow` (`ytsgui`) | Suite sidebar UI |

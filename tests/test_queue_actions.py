@@ -9,7 +9,11 @@ import time
 import unittest
 from unittest import mock
 
-from ytscore.folder_dialog import discover_mount_points, volume_sidebar_paths
+from ytscore.folder_dialog import (
+    discover_mount_points,
+    primary_system_volume,
+    volume_sidebar_paths,
+)
 from ytscore.queue import DownloadQueue, JobState, QueueJob
 from ytscore.settings import Settings
 
@@ -33,7 +37,21 @@ class FolderSidebarTests(unittest.TestCase):
         self.assertIn("/run/media/raider/USB_DRIVE", mounts)
         self.assertIn("/mnt/data", mounts)
         self.assertNotIn("/run/user/1000", mounts)
+        # Root is provided by primary_system_volume / volume_sidebar_paths, not here.
         self.assertNotIn("/", mounts)
+
+    def test_volume_sidebar_includes_system_root_first(self) -> None:
+        root = primary_system_volume()
+        self.assertEqual(root, "/")
+        with tempfile.TemporaryDirectory() as tmp:
+            usb = os.path.join(tmp, "usb")
+            os.makedirs(usb)
+            with mock.patch(
+                "ytscore.folder_dialog.discover_mount_points", return_value=[]
+            ):
+                paths = volume_sidebar_paths(proc_mounts="", extra=[usb])
+            self.assertEqual(paths[0], "/")
+            self.assertIn(os.path.abspath(usb), paths)
 
     def test_volume_sidebar_excludes_xdg_places(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -52,6 +70,7 @@ class FolderSidebarTests(unittest.TestCase):
                 proc_mounts="",
                 extra=[desktop, downloads, trash, usb],
             )
+            self.assertIn("/", paths)
             self.assertIn(os.path.abspath(usb), paths)
             for bad in (home, downloads, desktop, trash):
                 self.assertNotIn(os.path.abspath(bad), paths)
@@ -87,7 +106,7 @@ class FolderSidebarTests(unittest.TestCase):
         self.assertNotIn("/mnt/test", mounts)
         self.assertNotIn("/mnt", mounts)
 
-    def test_volume_sidebar_paths_mounts_only(self) -> None:
+    def test_volume_sidebar_paths_system_and_mounts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             home = os.path.join(tmp, "home")
             downloads = os.path.join(home, "Downloads")
@@ -100,13 +119,17 @@ class FolderSidebarTests(unittest.TestCase):
                 proc_mounts="",
                 extra=[usb],
             )
+            self.assertIn("/", paths)
+            self.assertEqual(paths[0], "/")
             self.assertNotIn(os.path.abspath(home), paths)
             self.assertNotIn(os.path.abspath(downloads), paths)
             self.assertIn(os.path.abspath(usb), paths)
 
-    def test_live_sidebar_has_media_mounts_not_xdg(self) -> None:
-        """When real /run/media/$USER mounts exist, they appear; XDG names do not."""
+    def test_live_sidebar_has_system_and_media_mounts_not_xdg(self) -> None:
+        """System root plus real /run/media/$USER mounts; XDG names do not."""
         paths = volume_sidebar_paths()
+        self.assertIn("/", paths)
+        self.assertEqual(paths[0], "/")
         for name in (
             "Desktop",
             "Documents",
