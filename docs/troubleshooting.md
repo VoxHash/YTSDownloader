@@ -49,6 +49,16 @@ Install ffmpeg via your OS package manager and ensure **both** `ffmpeg` and `ffp
 
 Known edge case during Qt shutdown order. Prefer confirming downloads completed; improvements are tracked under Milestone “Now” in `ROADMAP.md`.
 
+## Tests fail / Qt needs a display
+
+CI and local smoke use Qt’s **offscreen** platform — no X server or Xvfb required:
+
+```bash
+QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover -s tests -v
+```
+
+On minimal Linux images, install Qt runtime libraries (same set as `.github/workflows/ci.yml`): `libegl1`, `libgl1`, `libdbus-1-3`, `libfontconfig1`, and the common `libxcb-*` / `libxkbcommon*` packages. Headed Suite click automation is not part of the supported validation path.
+
 ## Still stuck?
 
 Open an issue with OS, Python version, and logs: https://github.com/VoxHash/YTSDownloader/issues

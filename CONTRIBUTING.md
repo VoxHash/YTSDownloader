@@ -28,16 +28,25 @@ System dependencies:
 
 ## Validation
 
-There is currently no automated test suite. Before opening a PR:
+Primary path (same as CI): unit tests plus offscreen Suite smoke — no display required.
+
+```bash
+# fish-safe (no activate needed)
+QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover -s tests -v
+```
+
+GitHub Actions runs the same command on Ubuntu with Qt runtime libraries installed (see `.github/workflows/ci.yml`). Headed GUI click farms are out of scope.
+
+Optional compile / launch check:
 
 ```bash
 .venv/bin/python -m py_compile main.py
 .venv/bin/python main.py
 ```
 
-Manual smoke checklist:
+Optional manual GUI smoke (before a release or UI-heavy PR):
 
-- App window loads with four platform tabs
+- Suite window loads (sidebar: Download, Queue, Link Grabber, Metadata Bridge, Settings)
 - Output folder + URL required-field validation works
 - One short download completes when cookies/auth are configured if the platform requires it
 - Optional watermark produces an output file

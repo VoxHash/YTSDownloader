@@ -172,7 +172,8 @@ $Root = (Get-Location).Path
 
 ### What not to automate yet
 
-- No cross-OS GitHub Actions matrix is claimed in-repo: freezing PyQt6 + yt-dlp needs per-OS runners, display/signing secrets, and ffmpeg on those images. Add CI only after a green manual freeze on each platform.
+- **Unit / offscreen Suite smoke** already runs on GitHub Actions (`.github/workflows/ci.yml`) with `QT_QPA_PLATFORM=offscreen` — that is not a freeze matrix.
+- No cross-OS **PyInstaller freeze** CI matrix is claimed in-repo: freezing PyQt6 + yt-dlp needs per-OS runners, signing secrets, and ffmpeg on those images. Add freeze CI only after a green manual freeze on each platform.
 - Do not bundle GPL UI or extractor sources into this MIT tree; ship yt-dlp as its upstream package inside the freeze only.
 
 ### Checklist before you publish a build

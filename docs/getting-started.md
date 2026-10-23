@@ -42,6 +42,14 @@ Edit `config.ini` as needed:
 
 No API keys or cloud secrets are required.
 
+## Validate (optional)
+
+Same command CI runs (no display):
+
+```bash
+QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover -s tests -v
+```
+
 ## First Run
 
 ```bash

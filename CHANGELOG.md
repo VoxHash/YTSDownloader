@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-23
+
+### Added
+- GitHub Actions **CI** workflow (`.github/workflows/ci.yml`): on push/PR, install Qt runtime libs on Ubuntu, set `QT_QPA_PLATFORM=offscreen`, run `python -m unittest discover -s tests` across Python 3.10 / 3.12 / 3.14.
+- Docs: CONTRIBUTING / troubleshooting / getting-started / PR template describe the scripted offscreen validation path (fish-safe `.venv/bin/python`).
+
+### Changed
+- Roadmap: CI scripted offscreen smoke marked done; headed GUI e2e click farms stay out of scope. Manual GUI smoke remains optional for release checks.
+
 ## [0.4.0] - 2026-10-23
 
 ### Added
@@ -153,7 +162,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.2...v0.3.3
