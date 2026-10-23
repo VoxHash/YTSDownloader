@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 import os
-from typing import Optional
+from typing import List, Optional
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject, QMimeData
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent
 from PyQt6.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -29,18 +29,102 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QPlainTextEdit,
     QFormLayout,
+    QFrame,
 )
 
 from ytscore.cache import title_cache
 from ytscore.queue import DownloadQueue, QueueJob, JobState
 from ytscore.resolvers import resolve_url, resolve_many, auth_probe, detect_platform
 from ytscore.settings import Settings, load_settings
+from ytscore.util import extract_urls
 from ytscore import spotify_bridge
 from ytsgui.styles import load_stylesheet
 
 
 class QueueBridge(QObject):
     job_updated = pyqtSignal(object)
+
+
+class UrlDropZone(QFrame):
+    """Visual drop target that emits extracted http(s) URLs."""
+
+    urls_dropped = pyqtSignal(list)
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("urlDropZone")
+        self.setAcceptDrops(True)
+        self.setMinimumHeight(88)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 14, 16, 14)
+        title = QLabel("Drop URLs here")
+        title.setObjectName("dropZoneTitle")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hint = QLabel("Drag links from a browser, or drop a .txt / .url file")
+        hint.setObjectName("dropZoneHint")
+        hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hint.setWordWrap(True)
+        layout.addWidget(title)
+        layout.addWidget(hint)
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # noqa: N802
+        if self._mime_has_urls(event.mimeData()):
+            event.acceptProposedAction()
+            self.setProperty("dragOver", True)
+            self.style().unpolish(self)
+            self.style().polish(self)
+        else:
+            event.ignore()
+
+    def dragLeaveEvent(self, event) -> None:  # noqa: N802
+        self.setProperty("dragOver", False)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        super().dragLeaveEvent(event)
+
+    def dropEvent(self, event: QDropEvent) -> None:  # noqa: N802
+        self.setProperty("dragOver", False)
+        self.style().unpolish(self)
+        self.style().polish(self)
+        urls = self._urls_from_mime(event.mimeData())
+        if urls:
+            event.acceptProposedAction()
+            self.urls_dropped.emit(urls)
+        else:
+            event.ignore()
+
+    @staticmethod
+    def _mime_has_urls(mime: QMimeData) -> bool:
+        if mime.hasUrls():
+            return True
+        if mime.hasText() and extract_urls(mime.text()):
+            return True
+        return False
+
+    @staticmethod
+    def _urls_from_mime(mime: QMimeData) -> List[str]:
+        chunks: List[str] = []
+        if mime.hasUrls():
+            for qurl in mime.urls():
+                local = qurl.toLocalFile()
+                if local and os.path.isfile(local):
+                    try:
+                        with open(local, "r", encoding="utf-8", errors="ignore") as fh:
+                            chunks.append(fh.read())
+                    except OSError:
+                        continue
+                else:
+                    chunks.append(qurl.toString())
+        if mime.hasText():
+            chunks.append(mime.text())
+        found: List[str] = []
+        seen = set()
+        for chunk in chunks:
+            for url in extract_urls(chunk):
+                if url not in seen:
+                    seen.add(url)
+                    found.append(url)
+        return found
 
 
 class SuiteWindow(QMainWindow):
@@ -147,7 +231,7 @@ class SuiteWindow(QMainWindow):
         title = QLabel("Download")
         title.setObjectName("pageTitle")
         hint = QLabel(
-            "Paste a video, playlist, channel, or profile URL. "
+            "Paste or drop a video, playlist, channel, or profile URL. "
             "Uses Brave cookies from config when set."
         )
         hint.setObjectName("pageHint")
@@ -155,9 +239,14 @@ class SuiteWindow(QMainWindow):
         layout.addWidget(title)
         layout.addWidget(hint)
 
+        self.url_drop_zone = UrlDropZone()
+        self.url_drop_zone.urls_dropped.connect(self._on_urls_dropped)
+        layout.addWidget(self.url_drop_zone)
+
         form = QFormLayout()
         self.url_edit = QLineEdit()
         self.url_edit.setPlaceholderText("https://…")
+        self.url_edit.setAcceptDrops(True)
         self.out_edit = QLineEdit(self.settings.default_output or os.path.expanduser("~/Downloads/YTSDownloader"))
         out_btn = QPushButton("Browse")
         out_btn.setProperty("class", "secondary")
@@ -234,6 +323,27 @@ class SuiteWindow(QMainWindow):
         hint = QLabel("Concurrent workers, per-item progress, automatic retries.")
         hint.setObjectName("pageHint")
         layout.addWidget(hint)
+
+        filter_row = QHBoxLayout()
+        filter_row.addWidget(QLabel("State"))
+        self.queue_state_filter = QComboBox()
+        self.queue_state_filter.addItem("All", "")
+        for state in JobState:
+            self.queue_state_filter.addItem(state.value.capitalize(), state.value)
+        self.queue_state_filter.currentIndexChanged.connect(self._apply_queue_filters)
+        filter_row.addWidget(self.queue_state_filter)
+
+        filter_row.addWidget(QLabel("Search"))
+        self.queue_search_filter = QLineEdit()
+        self.queue_search_filter.setPlaceholderText("Title, URL, or message…")
+        self.queue_search_filter.setClearButtonEnabled(True)
+        self.queue_search_filter.textChanged.connect(self._apply_queue_filters)
+        filter_row.addWidget(self.queue_search_filter, stretch=1)
+
+        self.queue_filter_count = QLabel("")
+        self.queue_filter_count.setObjectName("pageHint")
+        filter_row.addWidget(self.queue_filter_count)
+        layout.addLayout(filter_row)
 
         self.queue_table = QTableWidget(0, 5)
         self.queue_table.setHorizontalHeaderLabels(["#", "Title / URL", "State", "Progress", "Message"])
@@ -370,6 +480,61 @@ class SuiteWindow(QMainWindow):
         if path:
             self.wm_edit.setText(path)
 
+    def _on_urls_dropped(self, urls: List[str]) -> None:
+        if not urls:
+            return
+        self._set_page(0)
+        self._nav_buttons[0].setChecked(True)
+        if len(urls) == 1:
+            self.url_edit.setText(urls[0])
+            self.download_log.append(f"Dropped URL: {urls[0]}")
+            self._refresh_status("Dropped 1 URL — Resolve & Queue when ready")
+            return
+        self.grabber_text.setPlainText("\n".join(urls))
+        self.download_log.append(f"Dropped {len(urls)} URLs — resolving…")
+        self._refresh_status(f"Resolving {len(urls)} dropped URL(s)…")
+        try:
+            links = resolve_many(urls, self.settings)
+        except Exception as exc:
+            QMessageBox.warning(self, "Drop", str(exc))
+            self.download_log.append(f"Drop resolve failed: {exc}")
+            return
+        if not links:
+            QMessageBox.information(self, "Drop", "No media links found in dropped URLs.")
+            return
+        q = self._ensure_queue()
+        media = "audio" if self.media_audio.isChecked() else "video"
+        q.add_many(links, media=media)
+        self.download_log.append(f"Queued {len(links)} from drop.")
+        self._set_page(1)
+        self._nav_buttons[1].setChecked(True)
+        self._refresh_status(f"Queued {len(links)} from drop")
+
+    def _apply_queue_filters(self) -> None:
+        state_want = self.queue_state_filter.currentData() or ""
+        needle = self.queue_search_filter.text().strip().lower()
+        visible = 0
+        total = self.queue_table.rowCount()
+        for row in range(total):
+            state_item = self.queue_table.item(row, 2)
+            title_item = self.queue_table.item(row, 1)
+            msg_item = self.queue_table.item(row, 4)
+            state = (state_item.text() if state_item else "").lower()
+            title = (title_item.text() if title_item else "").lower()
+            msg = (msg_item.text() if msg_item else "").lower()
+            state_ok = not state_want or state == state_want.lower()
+            text_ok = not needle or needle in title or needle in msg or needle in state
+            show = state_ok and text_ok
+            self.queue_table.setRowHidden(row, not show)
+            if show:
+                visible += 1
+        if total == 0:
+            self.queue_filter_count.setText("")
+        elif visible == total and not state_want and not needle:
+            self.queue_filter_count.setText(f"{total} item(s)")
+        else:
+            self.queue_filter_count.setText(f"{visible}/{total} shown")
+
     def _ensure_queue(self) -> DownloadQueue:
         out = self.out_edit.text().strip() or os.path.expanduser("~/Downloads/YTSDownloader")
         os.makedirs(out, exist_ok=True)
@@ -489,6 +654,7 @@ class SuiteWindow(QMainWindow):
             for job in self.queue.jobs():
                 if job.state in (JobState.QUEUED, JobState.RUNNING):
                     self._upsert_job_row(job)
+        self._apply_queue_filters()
         self._update_overall()
 
     def _on_job_updated(self, job: QueueJob) -> None:
@@ -507,6 +673,7 @@ class SuiteWindow(QMainWindow):
         self.queue_table.setItem(row, 2, QTableWidgetItem(job.state.value))
         self.queue_table.setItem(row, 3, QTableWidgetItem(f"{job.progress:.0f}%"))
         self.queue_table.setItem(row, 4, QTableWidgetItem(job.message or job.error or ""))
+        self._apply_queue_filters()
 
     def _update_overall(self) -> None:
         if not self.queue:

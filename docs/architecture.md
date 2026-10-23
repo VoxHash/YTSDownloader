@@ -23,7 +23,7 @@ Downloads are network-bound. The suite stays on **Python + PyQt6 + yt-dlp** so e
 ## Layers
 
 1. **Configuration** — `config.ini` selects theme, pacing, cookies, JS runtime, worker/retry limits, and formats.
-2. **UI (Suite)** — Sidebar navigation: Download, Queue, Link Grabber, Metadata Bridge, Settings. Dark suite theme under `themes/SuiteDark/`.
+2. **UI (Suite)** — Sidebar navigation: Download (with URL drop zone), Queue (state/search filters), Link Grabber, Metadata Bridge, Settings. Dark suite theme under `themes/SuiteDark/`.
 3. **UI (Legacy)** — `python main.py --legacy` keeps the classic multi-tab window.
 4. **Extraction** — yt-dlp resolves playlists/profiles and downloads best video+audio or audio-only.
 5. **Queue** — Thread-pool workers with per-item progress, retries, and pacing.

@@ -1,10 +1,10 @@
 # Roadmap
 
-Current product baseline: **v0.2.0** — modular download suite (PyQt6 + yt-dlp) with concurrent queue, link grabber, and local metadata bridge.
+Current product baseline: **v0.2.1** — Suite UI polish (queue filters + URL drop zone) on the modular download suite (PyQt6 + yt-dlp).
 
 ## Now (v0.2.x)
 
-- Suite UI polish: filters on the queue table, drag-and-drop URL drop zone.
+- [x] Suite UI polish: filters on the queue table, drag-and-drop URL drop zone.
 - Stronger playlist pacing and rate-limit backoff defaults.
 - Persist queue state across restarts (local JSON).
 - Settings page write-back to `config.ini` (today: reload-only).

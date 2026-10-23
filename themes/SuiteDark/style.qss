@@ -165,3 +165,24 @@ QComboBox QAbstractItemView {
 QSplitter::handle {
     background-color: #282828;
 }
+
+QFrame#urlDropZone {
+    background-color: #181818;
+    border: 2px dashed #535353;
+    border-radius: 8px;
+}
+QFrame#urlDropZone[dragOver="true"] {
+    border-color: #1db954;
+    background-color: #1a2a1f;
+}
+QLabel#dropZoneTitle {
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
+    border: none;
+}
+QLabel#dropZoneHint {
+    color: #b3b3b3;
+    border: none;
+    font-size: 12px;
+}

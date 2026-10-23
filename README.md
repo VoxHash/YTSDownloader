@@ -2,7 +2,7 @@
 
 > Multi-platform download suite for video/audio from YouTube, Instagram, Facebook, TikTok, and related hosts — with a concurrent queue, link grabber, optional watermarking, and a local metadata bridge for music-session matching. Built with PyQt6.
 
-[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
+[![Version](https://img.shields.io/badge/version-0.2.1-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org/)
 [![PyQt6](https://img.shields.io/badge/pyqt6-6.10+-blue.svg)](https://pypi.org/project/PyQt6/)
@@ -10,6 +10,8 @@
 ## Features
 
 - **Suite UI**: Sidebar navigation — Download, Queue, Link Grabber, Metadata Bridge, Settings
+- **URL drop zone**: Drag links (or a text file of URLs) onto Download
+- **Queue filters**: Filter by state and search title / URL / message
 - **Multi-platform**: YouTube (channels / videos / Shorts / playlists), Instagram, Facebook, TikTok
 - **Concurrent queue**: Worker limit, retries, per-item progress, pacing
 - **Link grabber**: Paste many URLs; resolve and enqueue in batch
@@ -71,10 +73,10 @@ No cloud API keys are required. Treat cookie files as secrets.
 ## Usage
 
 1. Launch `.venv/bin/python main.py` (or `./run.sh`)
-2. On **Download**, set output folder and paste a URL → **Resolve & Queue** → **Start Queue**
+2. On **Download**, set output folder and paste or drop a URL → **Resolve & Queue** → **Start Queue**
 3. Or use **Link Grabber** for many URLs
 4. Or use **Metadata Bridge** with a playing desktop music session / catalog URL
-5. Monitor **Queue** for progress
+5. Monitor **Queue** (filter by state / search) for progress
 
 Full guides: [docs/getting-started.md](docs/getting-started.md) · [docs/usage.md](docs/usage.md) · [docs/architecture.md](docs/architecture.md)
 

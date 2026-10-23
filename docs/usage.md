@@ -17,12 +17,13 @@ Optional activation: bash/zsh `source .venv/bin/activate`, fish `source .venv/bi
 
 ## Suite flow
 
-1. Open **Download**, set an output folder, paste a URL.
+1. Open **Download**, set an output folder, paste a URL, or drop links onto the drop zone (a single URL fills the field; multiple URLs resolve into the queue).
 2. Choose Video or Audio, then **Resolve & Queue**.
 3. Open **Queue** and press **Start** (or use **Start Queue** on Download).
-4. Use **Link Grabber** to paste many URLs (one per line).
-5. Use **Metadata Bridge** while a desktop music client is playing to queue a matching public-host audio download.
-6. Watch per-item progress on the Queue page.
+4. Filter the queue by **State** and/or **Search** (title, URL, message).
+5. Use **Link Grabber** to paste many URLs (one per line).
+6. Use **Metadata Bridge** while a desktop music client is playing to queue a matching public-host audio download.
+7. Watch per-item progress on the Queue page.
 
 ## Platform URL patterns
 

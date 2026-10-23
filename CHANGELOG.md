@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-23
+
+### Added
+- Queue page filters: state combo (All / queued / running / done / failed / cancelled) and text search over title, URL, and message.
+- Download page drag-and-drop URL zone (browser links or `.txt` / `.url` files); single drop fills the URL field, multiple URLs resolve into the queue.
+- `extract_urls` helper in `ytscore.util` for paste/drop parsing.
+
+### Changed
+- SuiteDark styles for the drop zone (dashed target, green highlight while dragging).
+
 ## [0.2.0] - 2026-10-23
 
 ### Added
@@ -43,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/VoxHash/YTSDownloader/releases/tag/v0.1.0
