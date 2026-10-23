@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `scripts/install_local.sh` — single user-local Linux install (`~/.local/bin/ytsdownloader` + `.desktop`); docs in [installation.md](docs/installation.md#local-desktop-install-linux).
+
 ## [0.4.2] - 2026-10-23
 
 ### Added

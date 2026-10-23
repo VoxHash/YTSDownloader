@@ -61,6 +61,25 @@ ffprobe -version
 .venv/bin/python -c "import yt_dlp, moviepy, PyQt6; print('ok')"
 ```
 
+## Local desktop install (Linux)
+
+Registers **one** user-local PATH wrapper and `.desktop` entry that always launch this checkout via `.venv/bin/python main.py` (fish-safe; no venv activate). Does **not** put `dist/` freeze binaries on PATH — keep the freeze as a build artifact only.
+
+```bash
+chmod +x scripts/install_local.sh
+./scripts/install_local.sh
+ytsdownloader
+```
+
+Creates:
+
+| Path | Role |
+| --- | --- |
+| `~/.local/bin/ytsdownloader` | Wrapper → absolute project `.venv/bin/python main.py` |
+| `~/.local/share/applications/ytsdownloader.desktop` | Application menu entry (`Exec` → that wrapper) |
+
+Re-run the script after moving the repo so paths stay correct. Personal `.desktop` / bin files under `~/.local` are machine-local and are not committed.
+
 ## Packaging (Windows / macOS / Linux distributables)
 
 Ship frozen desktop builds with **PyInstaller** (`onedir`). PyInstaller has maintained PyQt6 hooks, does not cross-compile (build on each OS), and matches how most PyQt6 + heavy native-dep apps are frozen today. Prefer `onedir` over `onefile` for Qt plugin layout, faster cold start, and easier debugging.

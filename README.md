@@ -48,6 +48,8 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python main.py
 # or: ./run.sh
+# optional Linux menu/PATH install (one entry):
+# ./scripts/install_local.sh && ytsdownloader
 ```
 
 Prefer the `.venv/bin/...` paths — they work in **bash**, **zsh**, and **fish** without activating. If you want a activated shell:
