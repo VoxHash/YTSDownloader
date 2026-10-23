@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Roadmap / architecture: ffmpeg spawn profiling on synthetic watermark paths — **no native hot-path helpers**; spawn is not a meaningful share of realistic Suite wall time (network/extract and re-encode dominate). No SemVer bump (docs-only).
+
 ## [0.3.3] - 2026-10-23
 
 ### Added

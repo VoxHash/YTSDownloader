@@ -22,6 +22,23 @@ main.py ──► ytsgui (Suite UI)          [--legacy ► classic tabs]
 
 Downloads are network-bound. The suite stays on **Python + PyQt6 + yt-dlp** so extractor maintenance stays with yt-dlp and the GUI remains one process. A Rust/Go rewrite is deferred unless profiling shows a clear CPU bottleneck (unlikely for typical I/O-heavy downloads).
 
+### ffmpeg / moviepy profiling (v0.3.3 gate)
+
+Conditional milestone: add focused hot-path helpers **only if** ffmpeg **process spawn** is a meaningful share of wall time on realistic Suite jobs — keep Python orchestration either way.
+
+Local measurements (`.venv/bin/python`, system ffmpeg, Suite `ytscore.watermark.add_watermark`, repo `watermark.png`):
+
+| Workload | Wall (approx.) | Notes |
+| --- | --- | --- |
+| `ffmpeg -version` spawn | ~33 ms mean | Process start baseline |
+| Direct single-ffmpeg overlay (2s / 15s synth) | ~0.11 s / ~0.45 s | One filtergraph encode |
+| moviepy watermark (2s / 15s synth) | ~0.26 s / ~2.9 s | ~6–8 imageio-ffmpeg Popens; spawn estimate ≪ encode time on 15s |
+| Live short-URL download attempt | ~20 s | Extract/auth retries; no watermark reached |
+
+**Result:** spawn is not the bottleneck; network/extract and (when watermarking) re-encode dominate. No native helpers or process-reuse shipped. moviepy remains slower than a single ffmpeg filtergraph because it re-encodes frame-by-frame — that is encode cost, not spawn cost.
+
+**Revisit when:** watermark-only batches of long local files become the primary workload and fresh profiles show process start (not libx264 / Python frames) dominating samples, or redundant per-job ffmpeg probes multiply well beyond a handful of spawns.
+
 ## Layers
 
 1. **Configuration** — `config.ini` selects theme, playlist pacing, backoff, cookies, JS runtime, worker/retry limits, formats, and optional status analytics. Suite Settings can write the same keys back atomically (`save_settings`).
