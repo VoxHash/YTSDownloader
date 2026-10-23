@@ -101,6 +101,34 @@ class DownloadQueue:
     def add_many(self, urls: List[str], *, media: str = "video") -> List[QueueJob]:
         return [self.add(u, media=media) for u in urls]
 
+    def clear_terminal(self) -> int:
+        """Remove DONE / FAILED / CANCELLED jobs. Returns how many were removed."""
+        terminal = {JobState.DONE, JobState.FAILED, JobState.CANCELLED}
+        with self._lock:
+            keep_ids = [i for i in self._order if self._jobs[i].state not in terminal]
+            removed = len(self._order) - len(keep_ids)
+            self._order = keep_ids
+            self._jobs = {i: self._jobs[i] for i in keep_ids}
+            # Drop futures for removed ids (should already be idle).
+            for jid in list(self._futures):
+                if jid not in self._jobs:
+                    self._futures.pop(jid, None)
+        return removed
+
+    def restore_jobs(self, jobs: List[QueueJob]) -> None:
+        """Replace queue contents with restored jobs (caller applies remap rules)."""
+        with self._lock:
+            self._jobs = {}
+            self._order = []
+            max_index = 0
+            for job in jobs:
+                self._jobs[job.id] = job
+                self._order.append(job.id)
+                if job.index is not None:
+                    max_index = max(max_index, int(job.index))
+            self._counter = max(self._counter, max_index)
+            self._futures.clear()
+
     def start(self) -> None:
         with self._lock:
             if self._running:

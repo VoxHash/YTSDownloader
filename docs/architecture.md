@@ -26,7 +26,7 @@ Downloads are network-bound. The suite stays on **Python + PyQt6 + yt-dlp** so e
 2. **UI (Suite)** — Sidebar navigation: Download (with URL drop zone), Queue (state/search filters), Link Grabber, Metadata Bridge, Settings. Dark suite theme under `themes/SuiteDark/`.
 3. **UI (Legacy)** — `python main.py --legacy` keeps the classic multi-tab window.
 4. **Extraction** — yt-dlp resolves playlists/profiles and downloads best video+audio or audio-only.
-5. **Queue** — Thread-pool workers with start-slot pacing, exponential retry backoff (harder on HTTP 429), and per-item progress.
+5. **Queue** — Thread-pool workers with start-slot pacing, exponential retry backoff (harder on HTTP 429), and per-item progress. Snapshot persistence via `ytscore.persist` writes `.ytsdownloader/queue_state.json`; restore remaps in-flight jobs to queued (no auto-start).
 6. **Metadata bridge** — Reads the open desktop music-session metadata (MPRIS on Linux), builds a search query, and queues a matching public-host audio download.
 7. **Post-process** — Optional full-frame PNG watermark composite.
 8. **Diagnostics** — Logging panels and metadata cache hit/miss counters.

@@ -33,6 +33,13 @@ from PyQt6.QtWidgets import (
 )
 
 from ytscore.cache import title_cache
+from ytscore.persist import (
+    default_queue_state_path,
+    deserialize_queue_snapshot,
+    load_queue_state,
+    save_queue_state,
+    serialize_queue_snapshot,
+)
 from ytscore.queue import DownloadQueue, QueueJob, JobState
 from ytscore.resolvers import resolve_url, resolve_many, auth_probe, detect_platform
 from ytscore.settings import Settings, load_settings
@@ -139,6 +146,8 @@ class SuiteWindow(QMainWindow):
         self._bridge = QueueBridge()
         self._bridge.job_updated.connect(self._on_job_updated)
         self._job_rows = {}
+        self._queue_state_path = default_queue_state_path()
+        self._persist_enabled = True
 
         root = QWidget()
         root.setObjectName("centralRoot")
@@ -176,11 +185,18 @@ class SuiteWindow(QMainWindow):
         self._nav_buttons[0].setChecked(True)
         self._set_page(0)
 
+        self._persist_timer = QTimer(self)
+        self._persist_timer.setSingleShot(True)
+        self._persist_timer.setInterval(400)
+        self._persist_timer.timeout.connect(self._persist_queue_now)
+
         self._spotify_timer = QTimer(self)
         self._spotify_timer.setInterval(2000)
         self._spotify_timer.timeout.connect(self._poll_spotify_session)
         self._spotify_timer.start()
         self._poll_spotify_session()
+
+        self._restore_queue_from_disk()
 
     # ----- sidebar -----
     def _build_sidebar(self) -> QWidget:
@@ -320,7 +336,10 @@ class SuiteWindow(QMainWindow):
         title = QLabel("Queue")
         title.setObjectName("pageTitle")
         layout.addWidget(title)
-        hint = QLabel("Concurrent workers, per-item progress, automatic retries.")
+        hint = QLabel(
+            "Concurrent workers, per-item progress, automatic retries. "
+            "Queue is saved locally and restored on startup (pending items stay paused — press Start)."
+        )
         hint.setObjectName("pageHint")
         layout.addWidget(hint)
 
@@ -541,6 +560,7 @@ class SuiteWindow(QMainWindow):
         out = self.out_edit.text().strip() or os.path.expanduser("~/Downloads/YTSDownloader")
         os.makedirs(out, exist_ok=True)
         if self.queue is None or self.queue.output_dir != out:
+            old_jobs = self.queue.jobs() if self.queue else []
             if self.queue:
                 self.queue.stop()
             self.queue = DownloadQueue(
@@ -550,11 +570,67 @@ class SuiteWindow(QMainWindow):
                 output_format=self.format_combo.currentText(),
             )
             self.queue.add_listener(lambda job: self._bridge.job_updated.emit(job))
+            if old_jobs:
+                self.queue.restore_jobs(old_jobs)
         else:
             self.queue.watermark_path = self.wm_edit.text().strip()
             self.queue.output_format = self.format_combo.currentText()
             self.queue.settings = self.settings
         return self.queue
+
+    def _schedule_persist(self) -> None:
+        if not self._persist_enabled:
+            return
+        self._persist_timer.start()
+
+    def _persist_queue_now(self) -> None:
+        if not self._persist_enabled or not self.queue:
+            return
+        snapshot = serialize_queue_snapshot(
+            jobs=self.queue.jobs(),
+            output_dir=self.queue.output_dir,
+            watermark_path=self.queue.watermark_path,
+            output_format=self.queue.output_format,
+        )
+        try:
+            save_queue_state(self._queue_state_path, snapshot)
+        except OSError:
+            pass
+
+    def _restore_queue_from_disk(self) -> None:
+        data = load_queue_state(self._queue_state_path)
+        if not data:
+            return
+        jobs, meta = deserialize_queue_snapshot(data, remap_running=True)
+        if not jobs:
+            return
+        self._persist_enabled = False
+        try:
+            out = (meta.get("output_dir") or "").strip()
+            if out:
+                self.out_edit.setText(out)
+            wm = (meta.get("watermark_path") or "").strip()
+            if wm:
+                self.wm_edit.setText(wm)
+            fmt = (meta.get("output_format") or "").strip()
+            if fmt:
+                idx = self.format_combo.findText(fmt)
+                if idx >= 0:
+                    self.format_combo.setCurrentIndex(idx)
+            q = self._ensure_queue()
+            q.restore_jobs(jobs)
+            for job in q.jobs():
+                self._upsert_job_row(job)
+            pending = sum(1 for j in jobs if j.state == JobState.QUEUED)
+            done = sum(1 for j in jobs if j.state == JobState.DONE)
+            failed = sum(1 for j in jobs if j.state == JobState.FAILED)
+            self._refresh_status(
+                f"Restored {len(jobs)} item(s) "
+                f"({pending} pending, {done} done, {failed} failed) — not auto-started"
+            )
+            self._update_overall()
+        finally:
+            self._persist_enabled = True
 
     def _resolve_and_queue(self) -> None:
         url = self.url_edit.text().strip()
@@ -641,28 +717,20 @@ class SuiteWindow(QMainWindow):
     def _clear_finished(self) -> None:
         if not self.queue:
             return
-        # Soft clear: remove DONE/FAILED from table mapping; keep engine jobs for simplicity
-        keep = []
-        for jid, row in list(self._job_rows.items()):
-            item_state = self.queue_table.item(row, 2)
-            state = item_state.text() if item_state else ""
-            if state in (JobState.DONE.value, JobState.FAILED.value, JobState.CANCELLED.value):
-                pass
-            else:
-                keep.append((jid, row))
+        self.queue.clear_terminal()
         self.queue_table.setRowCount(0)
         self._job_rows.clear()
-        if self.queue:
-            for job in self.queue.jobs():
-                if job.state in (JobState.QUEUED, JobState.RUNNING):
-                    self._upsert_job_row(job)
+        for job in self.queue.jobs():
+            self._upsert_job_row(job)
         self._apply_queue_filters()
         self._update_overall()
+        self._persist_queue_now()
 
     def _on_job_updated(self, job: QueueJob) -> None:
         self._upsert_job_row(job)
         self._update_overall()
         self.cache_label.setText(title_cache.status_text())
+        self._schedule_persist()
 
     def _upsert_job_row(self, job: QueueJob) -> None:
         row = self._job_rows.get(job.id)
@@ -768,6 +836,8 @@ class SuiteWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:  # noqa: N802
         self._spotify_timer.stop()
+        self._persist_timer.stop()
         if self.queue:
             self.queue.stop()
+            self._persist_queue_now()
         super().closeEvent(event)

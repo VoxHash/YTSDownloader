@@ -30,6 +30,7 @@ Sensitive local inputs:
 - Browser cookie profiles referenced by `COOKIES_FROM_BROWSER`
 - Exported `cookies.txt` / `cookies.json` (ignored by git)
 - Optional local override file `config.ini.local` (ignored by git)
+- Queue snapshot `.ytsdownloader/queue_state.json` (ignored by git; may include URLs and local paths)
 
 ## Authentication tips
 

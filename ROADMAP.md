@@ -1,12 +1,12 @@
 # Roadmap
 
-Current product baseline: **v0.2.2** — playlist start-slot pacing and rate-limit-aware exponential backoff on the modular download suite (PyQt6 + yt-dlp).
+Current product baseline: **v0.2.3** — local JSON queue persistence across Suite restarts (PyQt6 + yt-dlp).
 
 ## Now (v0.2.x)
 
 - [x] Suite UI polish: filters on the queue table, drag-and-drop URL drop zone.
 - [x] Stronger playlist pacing and rate-limit backoff defaults.
-- Persist queue state across restarts (local JSON).
+- [x] Persist queue state across restarts (local JSON).
 - Settings page write-back to `config.ini` (today: reload-only).
 
 ## Next

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-23
+
+### Added
+- Local **queue persistence** to `.ytsdownloader/queue_state.json` (gitignored): saves on enqueue/state changes, Clear Finished, and app close; restores on Suite startup.
+- Safer restore: in-progress (`running`) items become **queued** with a “press Start Queue to resume” message — downloads are **not** auto-restarted.
+
+### Changed
+- **Clear Finished** removes done/failed/cancelled jobs from the queue engine (and persisted state), not only from the table view.
+- Queue page hint documents restore-without-auto-start behavior.
+
 ## [0.2.2] - 2026-10-23
 
 ### Added
@@ -65,7 +75,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.1.0...v0.2.0

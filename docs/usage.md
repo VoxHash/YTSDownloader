@@ -25,6 +25,14 @@ Optional activation: bash/zsh `source .venv/bin/activate`, fish `source .venv/bi
 6. Use **Metadata Bridge** while a desktop music client is playing to queue a matching public-host audio download.
 7. Watch per-item progress on the Queue page.
 
+## Queue persistence
+
+The Suite saves the download queue to `.ytsdownloader/queue_state.json` (gitignored) whenever items are enqueued, change state, you clear finished jobs, or the app closes.
+
+On the next launch the queue is restored into the table. Items that were **running** come back as **queued** with a resume hint — downloads are **not** auto-started. Press **Start** when you are ready.
+
+**Clear Finished** removes done / failed / cancelled jobs from both the table and the saved file.
+
 ## Platform URL patterns
 
 - YouTube channel: `https://www.youtube.com/@channelname`
