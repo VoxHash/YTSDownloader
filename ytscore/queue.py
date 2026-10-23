@@ -8,7 +8,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, Future
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Set
 
 from ytscore.backoff import compute_backoff_seconds
 from ytscore.downloader import download_item, search_and_download_audio
@@ -61,6 +61,8 @@ class DownloadQueue:
     # Playlist pacing: serialize job *starts* so concurrent workers still space work.
     _pace_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _next_start_at: float = field(default=0.0, repr=False)
+    # Job ids that skip the next pace wait (force download / prioritize).
+    _force_ids: Set[str] = field(default_factory=set, repr=False)
 
     def add_listener(self, cb: Listener) -> None:
         self._listeners.append(cb)
@@ -181,7 +183,97 @@ class DownloadQueue:
             for jid in list(self._futures):
                 if jid not in self._jobs:
                     self._futures.pop(jid, None)
+            self._force_ids &= set(self._jobs)
         return removed
+
+    def remove_jobs(self, job_ids: List[str]) -> int:
+        """Remove specific jobs (cancels running futures). Returns how many were removed."""
+        if not job_ids:
+            return 0
+        cancel_futs: List[Future] = []
+        with self._lock:
+            removed = 0
+            for jid in job_ids:
+                if jid not in self._jobs:
+                    continue
+                job = self._jobs[jid]
+                if job.state == JobState.RUNNING:
+                    job.state = JobState.CANCELLED
+                fut = self._futures.pop(jid, None)
+                if fut is not None:
+                    cancel_futs.append(fut)
+                del self._jobs[jid]
+                if jid in self._order:
+                    self._order.remove(jid)
+                self._force_ids.discard(jid)
+                removed += 1
+        for fut in cancel_futs:
+            fut.cancel()
+        return removed
+
+    def clear_all(self) -> int:
+        """Remove every job and cancel in-flight futures. Returns how many were removed."""
+        cancel_futs: List[Future] = []
+        with self._lock:
+            removed = len(self._order)
+            cancel_futs = list(self._futures.values())
+            self._futures.clear()
+            self._jobs.clear()
+            self._order.clear()
+            self._force_ids.clear()
+        for fut in cancel_futs:
+            fut.cancel()
+        return removed
+
+    def force_download(self, job_id: str) -> bool:
+        """
+        Prioritize one job and start it immediately.
+
+        Moves the job to the front of the queue, re-queues terminal states while
+        preserving URL / media / export options, skips playlist pacing for that
+        start, and ensures a worker pool is running so the job proceeds even if
+        the queue was stopped. Returns False if the id is unknown.
+        """
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if not job:
+                return False
+            if job.state == JobState.RUNNING:
+                # Already in flight — skip remaining pace wait if still waiting.
+                self._force_ids.add(job_id)
+                return True
+
+            if job.state != JobState.QUEUED:
+                fut = self._futures.pop(job_id, None)
+                if fut is not None:
+                    fut.cancel()
+                job.state = JobState.QUEUED
+                job.progress = 0.0
+                job.error = None
+                job.path = None
+            job.message = "Force download"
+            if job_id in self._order:
+                self._order.remove(job_id)
+            self._order.insert(0, job_id)
+            self._force_ids.add(job_id)
+
+            if self._executor is None:
+                self._running = True
+                self._executor = ThreadPoolExecutor(max_workers=self.settings.max_workers)
+            elif not self._running:
+                # Executor may linger after a force-only path; keep accepting work.
+                self._running = True
+
+            existing = self._futures.get(job_id)
+            need_submit = existing is None or existing.done()
+            if need_submit and existing is not None:
+                self._futures.pop(job_id, None)
+            submit_job = job
+
+        if need_submit:
+            self._submit(submit_job)
+        self._emit(job)
+        return True
 
     def retry_jobs(
         self,
@@ -241,11 +333,14 @@ class DownloadQueue:
 
     def start(self) -> None:
         with self._lock:
-            if self._running:
-                return
-            self._running = True
-            self._executor = ThreadPoolExecutor(max_workers=self.settings.max_workers)
-            pending = [self._jobs[i] for i in self._order if self._jobs[i].state == JobState.QUEUED]
+            if not self._running or self._executor is None:
+                self._running = True
+                self._executor = ThreadPoolExecutor(max_workers=self.settings.max_workers)
+            pending = [
+                self._jobs[i]
+                for i in self._order
+                if self._jobs[i].state == JobState.QUEUED and i not in self._futures
+            ]
         for job in pending:
             self._submit(job)
 
@@ -256,6 +351,7 @@ class DownloadQueue:
             self._executor = None
             futures = list(self._futures.values())
             self._futures.clear()
+            self._force_ids.clear()
         for fut in futures:
             fut.cancel()
         if ex:
@@ -272,6 +368,12 @@ class DownloadQueue:
         """Block until the shared playlist start slot is free, then reserve the next gap."""
         pace = max(0.0, float(self.settings.pace_seconds))
         while True:
+            with self._lock:
+                if job.id in self._force_ids:
+                    self._force_ids.discard(job.id)
+                    return
+                if job.state == JobState.CANCELLED:
+                    return
             with self._pace_lock:
                 now = time.monotonic()
                 wait = self._next_start_at - now
@@ -280,6 +382,9 @@ class DownloadQueue:
                     return
             with self._lock:
                 if job.state == JobState.CANCELLED:
+                    return
+                if job.id in self._force_ids:
+                    self._force_ids.discard(job.id)
                     return
                 job.message = f"Pacing {wait:.1f}s…"
             self._emit(job)

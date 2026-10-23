@@ -7,8 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-10-23
+
 ### Added
+- Queue row context menu: **Remove from queue** and **Force download** (prioritize + start immediately, skip pacing; works while queue is stopped).
+- **Clear All** next to Clear Finished (confirm dialog; persists empty `queue_state.json`).
+- Output-folder picker sidebar for Home / Downloads / `/run/media` / `/media` / `/mnt` and mounts from `/proc/mounts` (`ytscore.folder_dialog`); Linux uses Qt dialog so volumes stay visible. Applied to Download Browse and Settings default output.
 - `scripts/install_local.sh` — single user-local Linux install (`~/.local/bin/ytsdownloader` + `.desktop`); docs in [installation.md](docs/installation.md#local-desktop-install-linux).
+- Unit / offscreen tests for remove, clear all, force download, and folder sidebar helpers.
+
+### Changed
+- `DownloadQueue.start` submits any still-queued jobs not already in flight (safe after a force-download bootstrap).
 
 ## [0.4.2] - 2026-10-23
 
@@ -176,7 +185,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.4...v0.4.0

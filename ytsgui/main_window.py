@@ -6,8 +6,8 @@ import os
 import time
 from typing import Dict, List, Optional, Set
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject, QMimeData
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject, QMimeData, QPoint
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QAction
 from PyQt6.QtWidgets import (
     QMainWindow,
     QWidget,
@@ -36,6 +36,7 @@ from PyQt6.QtWidgets import (
     QScrollArea,
     QSplitter,
     QCheckBox,
+    QMenu,
 )
 
 from ytscore.analytics import SessionAnalytics
@@ -57,6 +58,7 @@ from ytscore.crawl import (
     crawl_requires_auth,
     parse_crawl_mode,
 )
+from ytscore.folder_dialog import get_existing_directory
 from ytscore.persist import (
     default_queue_state_path,
     deserialize_queue_snapshot,
@@ -499,6 +501,8 @@ class SuiteWindow(QMainWindow):
         self.queue_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.queue_table.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.queue_table.verticalHeader().setVisible(False)
+        self.queue_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.queue_table.customContextMenuRequested.connect(self._queue_table_context_menu)
         self.queue_table.itemSelectionChanged.connect(self._refresh_failure_triage)
         splitter.addWidget(self.queue_table)
 
@@ -562,9 +566,15 @@ class SuiteWindow(QMainWindow):
             "QPushButton { background: transparent; color: #fff; border: 1px solid #727272; border-radius: 20px; }"
         )
         clear.clicked.connect(self._clear_finished)
+        clear_all = QPushButton("Clear All")
+        clear_all.setStyleSheet(
+            "QPushButton { background: transparent; color: #fff; border: 1px solid #727272; border-radius: 20px; }"
+        )
+        clear_all.clicked.connect(self._clear_all_queue)
         row.addWidget(start)
         row.addWidget(stop)
         row.addWidget(clear)
+        row.addWidget(clear_all)
         row.addStretch(1)
         layout.addLayout(row)
         self._refresh_failure_triage()
@@ -814,7 +824,8 @@ class SuiteWindow(QMainWindow):
             self.settings_cookies_file.setText(path)
 
     def _browse_default_output(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self, "Default output folder")
+        start = self.settings_default_output.text().strip() or os.path.expanduser("~")
+        folder = get_existing_directory(self, "Default output folder", start)
         if folder:
             self.settings_default_output.setText(folder)
 
@@ -835,7 +846,8 @@ class SuiteWindow(QMainWindow):
 
     # ----- helpers -----
     def _browse_out(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self, "Select output folder")
+        start = self.out_edit.text().strip() or os.path.expanduser("~")
+        folder = get_existing_directory(self, "Select output folder", start)
         if folder:
             self.out_edit.setText(folder)
 
@@ -1413,18 +1425,100 @@ class SuiteWindow(QMainWindow):
             self.queue.stop()
             self._refresh_status("Queue stopped")
 
-    def _clear_finished(self) -> None:
-        if not self.queue:
-            return
-        self.queue.clear_terminal()
+    def _rebuild_queue_table(self) -> None:
         self.queue_table.setRowCount(0)
         self._job_rows.clear()
+        if not self.queue:
+            return
         for job in self.queue.jobs():
             self._upsert_job_row(job)
         self._apply_queue_filters()
         self._refresh_failure_triage()
         self._update_overall()
+
+    def _clear_finished(self) -> None:
+        if not self.queue:
+            return
+        self.queue.clear_terminal()
+        self._rebuild_queue_table()
         self._persist_queue_now()
+
+    def _clear_all_queue(self) -> None:
+        if not self.queue or not self.queue.jobs():
+            QMessageBox.information(self, "Queue", "Queue is already empty.")
+            return
+        reply = QMessageBox.question(
+            self,
+            "Clear All",
+            "Remove every item from the queue?\nThis cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        n = self.queue.clear_all()
+        self._rebuild_queue_table()
+        self._persist_queue_now()
+        self._refresh_status(f"Cleared {n} queue item(s)")
+
+    def _job_id_at_row(self, row: int) -> Optional[str]:
+        for jid, r in self._job_rows.items():
+            if r == row:
+                return jid
+        return None
+
+    def _queue_table_context_menu(self, pos: QPoint) -> None:
+        if not self.queue:
+            return
+        index = self.queue_table.indexAt(pos)
+        if not index.isValid():
+            return
+        row = index.row()
+        # Ensure the clicked row is part of the selection (keeps multi-select).
+        selected_rows = {i.row() for i in self.queue_table.selectionModel().selectedRows()}
+        if row not in selected_rows:
+            self.queue_table.selectRow(row)
+        ids = self._selected_queue_job_ids()
+        if not ids:
+            jid = self._job_id_at_row(row)
+            if jid:
+                ids = [jid]
+        if not ids:
+            return
+
+        menu = QMenu(self.queue_table)
+        remove_act = QAction("Remove from queue", menu)
+        force_act = QAction("Force download", menu)
+        menu.addAction(remove_act)
+        menu.addAction(force_act)
+        chosen = menu.exec(self.queue_table.viewport().mapToGlobal(pos))
+        if chosen is remove_act:
+            self._remove_queue_jobs(ids)
+        elif chosen is force_act:
+            self._force_download_jobs(ids)
+
+    def _remove_queue_jobs(self, job_ids: List[str]) -> None:
+        if not self.queue or not job_ids:
+            return
+        n = self.queue.remove_jobs(job_ids)
+        self._rebuild_queue_table()
+        self._persist_queue_now()
+        self._refresh_status(f"Removed {n} item(s) from queue")
+
+    def _force_download_jobs(self, job_ids: List[str]) -> None:
+        if not self.queue or not job_ids:
+            return
+        ok = 0
+        for jid in job_ids:
+            if self.queue.force_download(jid):
+                ok += 1
+        self._rebuild_queue_table()
+        self._persist_queue_now()
+        self._update_overall()
+        if ok:
+            self._refresh_status(f"Force download started for {ok} item(s)")
+        else:
+            QMessageBox.information(self, "Force download", "No matching queue items.")
 
     def _on_job_updated(self, job: QueueJob) -> None:
         self._upsert_job_row(job)

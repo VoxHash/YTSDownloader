@@ -1,12 +1,13 @@
 # Roadmap
 
-Current product baseline: **v0.4.2** — manual per-OS PyInstaller freeze scripts/docs (+ optional Ubuntu `workflow_dispatch` freeze).
+Current product baseline: **v0.4.3** — Suite queue triage actions (context menu / Clear All / force download) + Linux volume-aware folder picker.
 
 ## Now (v0.4.x)
 
 - [x] Deeper social profile crawl modes behind cookie auth (legally constrained surfaces only).
 - [x] CI scripted offscreen smoke (`unittest` + `QT_QPA_PLATFORM=offscreen` on GitHub Actions).
 - [x] Manual per-OS PyInstaller freeze path complete (`scripts/build_pyinstaller.sh` / `.ps1`, packaging docs, optional Ubuntu-only `freeze.yml` via `workflow_dispatch`).
+- [x] Queue context menu (remove / force download), Clear All, and volume sidebar on output-folder Browse.
 
 ## Next
 
