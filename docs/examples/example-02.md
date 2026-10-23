@@ -9,7 +9,7 @@ Apply a transparent PNG watermark during export.
 
 ## Steps
 
-1. Launch the app: `python main.py`
+1. Launch the app: `.venv/bin/python main.py` (or `./run.sh`)
 2. Select an output folder.
 3. Paste a direct video URL on any platform tab.
 4. Browse to your PNG under **Watermark (PNG)**.

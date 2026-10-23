@@ -6,12 +6,15 @@ End-to-end path that matches a fresh clone:
 git clone https://github.com/VoxHash/YTSDownloader.git
 cd YTSDownloader
 python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/pip install -r requirements.txt
 ffmpeg -version
-python -m py_compile main.py
-python main.py
+.venv/bin/python -m py_compile main.py
+.venv/bin/python main.py
+# or: ./run.sh
 ```
+
+Shell-agnostic tip: use `.venv/bin/python` / `.venv/bin/pip` (or `./run.sh`) so you never need `activate`. In fish, if you do activate, use `source .venv/bin/activate.fish` — not the bash `activate` script.
 
 Then in the GUI:
 

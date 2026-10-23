@@ -13,11 +13,15 @@
 git clone https://github.com/VoxHash/YTSDownloader.git
 cd YTSDownloader
 python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/pip install -r requirements.txt
 ```
 
-On Windows, activate with `.venv\Scripts\activate`.
+Prefer `.venv/bin/python` and `.venv/bin/pip` (works in bash, zsh, and fish). Optional activation:
+
+- bash/zsh: `source .venv/bin/activate`
+- fish: `source .venv/bin/activate.fish`
+- Windows: `.venv\Scripts\activate`
 
 ## Configure
 
@@ -25,18 +29,21 @@ Edit `config.ini` as needed:
 
 | Key | Purpose |
 | --- | --- |
-| `THEME` | Theme folder under `themes/` (default `DarkFreeze`) |
+| `THEME` | Theme folder under `themes/` (default `SuiteDark`) |
 | `COOKIES_FROM_BROWSER` | Browser name for cookies (`chrome`, `firefox`, …) |
 | `COOKIES_FILE` | Path to an exported cookies file |
 | `JS_RUNTIME` | Runtime name (default `node`) |
 | `JS_RUNTIME_PATH` | Absolute path to the runtime binary (optional if on `PATH`) |
+| `MAX_WORKERS` | Concurrent download workers |
+| `MAX_RETRIES` | Retries per queue item |
 
 No API keys or cloud secrets are required.
 
 ## First Run
 
 ```bash
-python main.py
+.venv/bin/python main.py
+# or: ./run.sh
 ```
 
 1. Choose an output folder.

@@ -34,10 +34,19 @@
 git clone https://github.com/VoxHash/YTSDownloader.git
 cd YTSDownloader
 python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-python main.py
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python main.py
+# or: ./run.sh
 ```
+
+Prefer the `.venv/bin/...` paths — they work in **bash**, **zsh**, and **fish** without activating. If you want a activated shell:
+
+- bash/zsh: `source .venv/bin/activate`
+- fish: `source .venv/bin/activate.fish`
+- Windows: `.venv\Scripts\activate`
+
+Do not run `source .venv/bin/activate` in fish (that script is bash-only and fails with `case` errors).
 
 ### Configuration
 
@@ -61,7 +70,7 @@ No cloud API keys are required. Treat cookie files as secrets.
 
 ## Usage
 
-1. Launch `python main.py`
+1. Launch `.venv/bin/python main.py` (or `./run.sh`)
 2. On **Download**, set output folder and paste a URL → **Resolve & Queue** → **Start Queue**
 3. Or use **Link Grabber** for many URLs
 4. Or use **Metadata Bridge** with a playing desktop music session / catalog URL

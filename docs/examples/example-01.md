@@ -8,9 +8,9 @@ Download one public YouTube video without a watermark.
 
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python main.py
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python main.py
+# or: ./run.sh
 ```
 
 2. Open the **YouTube Downloader** tab.

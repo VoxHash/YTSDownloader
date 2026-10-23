@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default entrypoint launches the Suite UI.
 - Default theme set to `SuiteDark`.
 - Architecture docs updated for the modular layout.
+- Docs prefer shell-agnostic `.venv/bin/python` / `.venv/bin/pip` (and `./run.sh`); fish users should use `activate.fish`, not bash `activate`.
 
 ## [0.1.0] - 2026-10-05
 

@@ -8,9 +8,11 @@ Thanks for contributing to `YTSDownloader` by VoxHash Technologies.
 git clone https://github.com/VoxHash/YTSDownloader.git
 cd YTSDownloader
 python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/pip install -r requirements.txt
 ```
+
+Prefer `.venv/bin/python` / `.venv/bin/pip` (works in fish without activate). Optional: bash/zsh `source .venv/bin/activate`, fish `source .venv/bin/activate.fish`.
 
 System dependencies:
 
@@ -20,7 +22,8 @@ System dependencies:
 ## Run the App
 
 ```bash
-python main.py
+.venv/bin/python main.py
+# or: ./run.sh
 ```
 
 ## Validation
@@ -28,8 +31,8 @@ python main.py
 There is currently no automated test suite. Before opening a PR:
 
 ```bash
-python -m py_compile main.py
-python main.py
+.venv/bin/python -m py_compile main.py
+.venv/bin/python main.py
 ```
 
 Manual smoke checklist:

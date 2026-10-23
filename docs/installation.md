@@ -34,13 +34,19 @@ brew install python ffmpeg node
 ```bash
 cd YTSDownloader
 python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/pip install -r requirements.txt
 ```
+
+Optional activation (not required if you call `.venv/bin/python` directly):
+
+- bash/zsh: `source .venv/bin/activate`
+- fish: `source .venv/bin/activate.fish`
+- Windows: `.venv\Scripts\activate`
 
 Pinned packages (from `requirements.txt`):
 
-- `yt-dlp==2026.3.3`
+- `yt-dlp==2026.10.21`
 - `numpy==2.4.3`
 - `moviepy==2.2.1`
 - `pillow==11.3.0`
@@ -49,7 +55,7 @@ Pinned packages (from `requirements.txt`):
 ## Verify
 
 ```bash
-python -m py_compile main.py
+.venv/bin/python -m py_compile main.py
 ffmpeg -version
-python -c "import yt_dlp, moviepy, PyQt6; print('ok')"
+.venv/bin/python -c "import yt_dlp, moviepy, PyQt6; print('ok')"
 ```

@@ -3,15 +3,17 @@
 ## Launch
 
 ```bash
-source .venv/bin/activate
-python main.py
+.venv/bin/python main.py
+# or: ./run.sh
 ```
 
 Classic tabbed UI:
 
 ```bash
-python main.py --legacy
+.venv/bin/python main.py --legacy
 ```
+
+Optional activation: bash/zsh `source .venv/bin/activate`, fish `source .venv/bin/activate.fish`.
 
 ## Suite flow
 
