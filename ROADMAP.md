@@ -1,15 +1,15 @@
 # Roadmap
 
-Current product baseline: **v0.3.1** — Per-item failure triage with one-click retry (PyQt6 + yt-dlp).
+Current product baseline: **v0.3.2** — Browser companion inbox handoff (desktop remains the downloader) (PyQt6 + yt-dlp).
 
 ## Now (v0.3.x)
 
 - [x] Batch export presets (audio-only / video+audio / watermark profiles).
 - [x] Per-item failure triage panel with one-click retry.
+- [x] Browser media extractor companion notes (extension handoff — desktop remains the downloader).
 
 ## Next
 
-- Browser media extractor companion notes (extension handoff — desktop remains the downloader).
 - Optional analytics counters (success / error / timing) in the status bar.
 
 ## Later

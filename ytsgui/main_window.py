@@ -37,6 +37,12 @@ from PyQt6.QtWidgets import (
 )
 
 from ytscore.cache import title_cache
+from ytscore.companion import (
+    consume_companion_inbox,
+    default_inbox_dir,
+    default_inbox_jsonl_path,
+    ensure_inbox_layout,
+)
 from ytscore.persist import (
     default_queue_state_path,
     deserialize_queue_snapshot,
@@ -170,6 +176,12 @@ class SuiteWindow(QMainWindow):
         self._job_rows = {}
         self._queue_state_path = default_queue_state_path()
         self._persist_enabled = True
+        self._companion_inbox_dir = default_inbox_dir()
+        self._companion_inbox_jsonl = default_inbox_jsonl_path()
+        ensure_inbox_layout(
+            inbox_dir=self._companion_inbox_dir,
+            jsonl_path=self._companion_inbox_jsonl,
+        )
 
         root = QWidget()
         root.setObjectName("centralRoot")
@@ -217,6 +229,11 @@ class SuiteWindow(QMainWindow):
         self._spotify_timer.timeout.connect(self._poll_spotify_session)
         self._spotify_timer.start()
         self._poll_spotify_session()
+
+        self._companion_timer = QTimer(self)
+        self._companion_timer.setInterval(1500)
+        self._companion_timer.timeout.connect(self._poll_companion_inbox)
+        self._companion_timer.start()
 
         self._restore_queue_from_disk()
 
@@ -270,6 +287,7 @@ class SuiteWindow(QMainWindow):
         title.setObjectName("pageTitle")
         hint = QLabel(
             "Paste or drop a video, playlist, channel, or profile URL. "
+            "Companions can also write URLs into .ytsdownloader/inbox/. "
             "Uses Brave cookies from config when set."
         )
         hint.setObjectName("pageHint")
@@ -965,6 +983,26 @@ class SuiteWindow(QMainWindow):
     def _apply_preset_to_queued(self) -> None:
         self._apply_preset_to_jobs(None, only_queued=True)
 
+    def _poll_companion_inbox(self) -> None:
+        """Accept URLs written by a browser companion into the local inbox."""
+        try:
+            items = consume_companion_inbox(
+                inbox_dir=self._companion_inbox_dir,
+                jsonl_path=self._companion_inbox_jsonl,
+            )
+        except Exception as exc:
+            self.download_log.append(f"Companion inbox error: {exc}")
+            return
+        if not items:
+            return
+        urls = [item.url for item in items]
+        titled = sum(1 for item in items if item.title)
+        self.download_log.append(
+            f"Companion handoff: {len(urls)} URL(s)"
+            + (f" ({titled} with title)" if titled else "")
+        )
+        self._on_urls_dropped(urls)
+
     def _on_urls_dropped(self, urls: List[str]) -> None:
         if not urls:
             return
@@ -1378,6 +1416,7 @@ class SuiteWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:  # noqa: N802
         self._spotify_timer.stop()
+        self._companion_timer.stop()
         self._persist_timer.stop()
         if self.queue:
             self.queue.stop()

@@ -20,6 +20,10 @@ Yes. Leave the watermark field empty; the downloaded file is kept/renamed withou
 
 Not yet. Launch with `python main.py`. Related notes are in [cli.md](cli.md).
 
+## Can a browser extension download for me?
+
+No. A companion may only hand off media URLs (drop zone, Link Grabber, or the local `.ytsdownloader/` inbox). The desktop Suite always resolves and downloads. See [Architecture](architecture.md#browser-companion-handoff-contract).
+
 ## Who maintains this?
 
 VoxHash Technologies — contact@voxhash.dev

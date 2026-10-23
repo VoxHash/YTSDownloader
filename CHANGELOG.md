@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-10-23
+
+### Added
+- Browser **companion inbox** handoff: Suite polls `.ytsdownloader/inbox/` and `.ytsdownloader/companion_inbox.jsonl` for media URLs; desktop remains the only downloader.
+- `ytscore.companion` parsers (`parse_companion_payload`, `consume_companion_inbox`) plus unit / offscreen Suite smoke tests.
+- Architecture docs for the extension handoff contract (drop zone + Link Grabber + local inbox); docs index / usage / API / configuration updated.
+
+### Changed
+- Download page hint mentions the companion inbox path.
+
 ## [0.3.1] - 2026-10-23
 
 ### Added

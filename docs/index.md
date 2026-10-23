@@ -11,7 +11,7 @@ Desktop tool by **VoxHash Technologies** for downloading short-form videos from 
 - [Usage](usage.md)
 - [CLI Notes](cli.md)
 - [API Surface](api.md)
-- [Architecture](architecture.md)
+- [Architecture](architecture.md) (includes [browser companion handoff](architecture.md#browser-companion-handoff-contract))
 - [Troubleshooting](troubleshooting.md)
 - [FAQ](faq.md)
 

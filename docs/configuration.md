@@ -35,6 +35,7 @@ Sensitive local inputs:
 - Exported `cookies.txt` / `cookies.json` (ignored by git)
 - Optional local override file `config.ini.local` (ignored by git)
 - Queue snapshot `.ytsdownloader/queue_state.json` (ignored by git; may include URLs and local paths)
+- Companion inbox `.ytsdownloader/inbox/` and `.ytsdownloader/companion_inbox.jsonl` (ignored by git; may include page URLs from a browser helper)
 
 ## Authentication tips
 
