@@ -52,17 +52,21 @@ fi
   --collect-submodules ytsgui \
   --hidden-import PIL \
   --add-data "$ROOT/themes:themes" \
+  --add-data "$ROOT/assets:assets" \
   --add-data "$ROOT/config.ini:." \
+  --icon "$ROOT/assets/icons/256x256/ytsdownloader.png" \
   --specpath "$ROOT/build" \
   --workpath "$ROOT/build/pyi" \
   --distpath "$ROOT/dist" \
   "$ROOT/main.py"
 
 OUT="$ROOT/dist/YTSDownloader"
-# Suite reads config.ini / themes/ from process cwd (not only from _internal datas).
+# Suite reads config.ini / themes/ / assets from process cwd (not only from _internal datas).
 cp -a "$ROOT/config.ini" "$OUT/config.ini"
 rm -rf "$OUT/themes"
 cp -a "$ROOT/themes" "$OUT/themes"
+rm -rf "$OUT/assets"
+cp -a "$ROOT/assets" "$OUT/assets"
 
 echo
 echo "Built: $OUT/"

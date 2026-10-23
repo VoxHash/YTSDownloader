@@ -1,6 +1,6 @@
 # Roadmap
 
-Current product baseline: **v0.4.3** — Suite queue triage actions (context menu / Clear All / force download) + Linux volume-aware folder picker.
+Current product baseline: **v0.4.4** — Suite queue triage actions, mount-only folder sidebar, and Suite-dark app icon (desktop + window).
 
 ## Now (v0.4.x)
 

@@ -76,9 +76,10 @@ Creates:
 | Path | Role |
 | --- | --- |
 | `~/.local/bin/ytsdownloader` | Wrapper → absolute project `.venv/bin/python main.py` |
-| `~/.local/share/applications/ytsdownloader.desktop` | Application menu entry (`Exec` → that wrapper) |
+| `~/.local/share/applications/ytsdownloader.desktop` | Application menu entry (`Exec` → that wrapper, `Icon=ytsdownloader`) |
+| `~/.local/share/icons/hicolor/*/apps/ytsdownloader.{png,svg}` | Freedesktop icon from `assets/icons/` |
 
-Re-run the script after moving the repo so paths stay correct. Personal `.desktop` / bin files under `~/.local` are machine-local and are not committed.
+Re-run the script after moving the repo (or after icon updates) so paths and icons stay correct. Personal `.desktop` / bin / icon files under `~/.local` are machine-local and are not committed.
 
 ## Packaging (Windows / macOS / Linux distributables)
 
@@ -103,7 +104,7 @@ Do **not** assume a frozen build is self-sufficient without documenting those PA
 
 ### Shared recipe (run on the target OS)
 
-Helpers (same flags; post-copy `config.ini` + `themes/` next to the binary for cwd loading):
+Helpers (same flags; post-copy `config.ini` + `themes/` + `assets/` next to the binary for cwd loading; `--icon` points at `assets/icons/256x256/ytsdownloader.png`):
 
 | OS | Command |
 | --- | --- |
@@ -149,10 +150,12 @@ Manual equivalent (same flags the Linux/macOS script uses):
   --collect-submodules ytsgui \
   --hidden-import PIL \
   --add-data "$(pwd)/themes:themes" \
+  --add-data "$(pwd)/assets:assets" \
   --add-data "$(pwd)/config.ini:." \
+  --icon "$(pwd)/assets/icons/256x256/ytsdownloader.png" \
   --specpath build --workpath build/pyi --distpath dist \
   main.py
-# then copy config.ini + themes/ into dist/YTSDownloader/ (scripts do this)
+# then copy config.ini + themes/ + assets/ into dist/YTSDownloader/ (scripts do this)
 ```
 
 Use absolute paths for `--add-data` when `--specpath` is outside the repo root layout (PyInstaller resolves relative sources against the spec directory). PyQt6 widgets/core/gui are collected by PyInstaller’s built-in hooks — avoid `--collect-all PyQt6` (it pulls unused QML/3D plugins and balloons the tree).

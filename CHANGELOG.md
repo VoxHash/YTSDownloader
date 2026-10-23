@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-10-23
+
+### Added
+- Original Suite-dark app icon (`assets/icons/`, SVG + 32–256 PNG); wired via `QApplication` / window icon, `scripts/install_local.sh` → `~/.local/share/icons/hicolor`, and PyInstaller `--icon` / `assets` bundle.
+
+### Changed
+- Output-folder dialog sidebar lists **volume/mount roots only** (`/run/media/$USER`, `/media/$USER`, `/mnt` mounts from `/proc/mounts`). Home / Downloads / Desktop / Documents / Music / Pictures / Videos / Trash are no longer sidebar entries; empty `/mnt` stubs (e.g. `/mnt/test`) are skipped.
+
+### Fixed
+- Folder-dialog sidebar no longer surfaces Qt/XDG user places or non-mount `/mnt` placeholders.
+
 ## [0.4.3] - 2026-10-23
 
 ### Added
@@ -185,7 +196,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.0...v0.4.1

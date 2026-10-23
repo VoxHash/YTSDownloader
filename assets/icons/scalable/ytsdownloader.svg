@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="YTSDownloader">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a1a"/>
+      <stop offset="100%" stop-color="#0d0d0d"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="#1ed760"/>
+      <stop offset="100%" stop-color="#1db954"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded dark tile -->
+  <rect x="16" y="16" width="224" height="224" rx="48" ry="48" fill="url(#bg)"/>
+  <rect x="16" y="16" width="224" height="224" rx="48" ry="48" fill="none" stroke="#282828" stroke-width="4"/>
+  <!-- Soft ring -->
+  <circle cx="128" cy="128" r="78" fill="none" stroke="#1db954" stroke-opacity="0.22" stroke-width="10"/>
+  <!-- Download tray -->
+  <path d="M72 168 H184 V184 H72 Z" fill="url(#accent)"/>
+  <!-- Arrow shaft + head -->
+  <path d="M118 64 H138 V128 H162 L128 168 L94 128 H118 Z" fill="url(#accent)"/>
+  <!-- Small media bar accents -->
+  <rect x="86" y="196" width="28" height="8" rx="4" fill="#1db954" fill-opacity="0.85"/>
+  <rect x="122" y="196" width="48" height="8" rx="4" fill="#1db954" fill-opacity="0.45"/>
+</svg>

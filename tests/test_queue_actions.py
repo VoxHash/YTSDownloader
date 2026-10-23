@@ -23,15 +23,71 @@ class FolderSidebarTests(unittest.TestCase):
             "tmpfs /run/user/1000 tmpfs rw 0 0\n"
         )
         with mock.patch("os.path.isdir", return_value=True), mock.patch(
-            "os.listdir", return_value=[]
-        ), mock.patch.dict(os.environ, {"USER": "raider"}, clear=False):
+            "os.path.ismount",
+            side_effect=lambda p: p in ("/mnt/data", "/run/media/raider/USB_DRIVE"),
+        ), mock.patch("os.listdir", return_value=[]), mock.patch.dict(
+            os.environ, {"USER": "raider"}, clear=False
+        ):
             mounts = discover_mount_points(proc_mounts=proc)
-        self.assertIn("/run/media/raider", mounts)
+        self.assertNotIn("/run/media/raider", mounts)
         self.assertIn("/run/media/raider/USB_DRIVE", mounts)
         self.assertIn("/mnt/data", mounts)
         self.assertNotIn("/run/user/1000", mounts)
+        self.assertNotIn("/", mounts)
 
-    def test_volume_sidebar_paths_order(self) -> None:
+    def test_volume_sidebar_excludes_xdg_places(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            home = os.path.join(tmp, "home")
+            downloads = os.path.join(home, "Downloads")
+            desktop = os.path.join(home, "Desktop")
+            trash = os.path.join(home, "Trash")
+            usb = os.path.join(tmp, "Gaming_Images")
+            os.makedirs(downloads)
+            os.makedirs(desktop)
+            os.makedirs(trash)
+            os.makedirs(usb)
+            paths = volume_sidebar_paths(
+                home=home,
+                downloads=downloads,
+                proc_mounts="",
+                extra=[desktop, downloads, trash, usb],
+            )
+            self.assertIn(os.path.abspath(usb), paths)
+            for bad in (home, downloads, desktop, trash):
+                self.assertNotIn(os.path.abspath(bad), paths)
+            for name in (
+                "Desktop",
+                "Documents",
+                "Downloads",
+                "Music",
+                "Pictures",
+                "Videos",
+                "Trash",
+            ):
+                self.assertFalse(
+                    any(os.path.basename(p) == name for p in paths),
+                    msg=f"sidebar unexpectedly contains {name}: {paths}",
+                )
+
+    def test_discover_skips_mnt_non_mount_stub(self) -> None:
+        """Empty /mnt/test-style stubs must not become sidebar volumes."""
+        with mock.patch(
+            "os.listdir",
+            side_effect=lambda path: ["test", "data"] if path == "/mnt" else [],
+        ), mock.patch(
+            "os.path.isdir",
+            side_effect=lambda path: path
+            in ("/mnt", "/mnt/test", "/mnt/data", "/run/media/raider", "/media/raider"),
+        ), mock.patch(
+            "os.path.ismount",
+            side_effect=lambda path: path == "/mnt/data",
+        ), mock.patch.dict(os.environ, {"USER": "raider"}, clear=False):
+            mounts = discover_mount_points(proc_mounts="")
+        self.assertIn("/mnt/data", mounts)
+        self.assertNotIn("/mnt/test", mounts)
+        self.assertNotIn("/mnt", mounts)
+
+    def test_volume_sidebar_paths_mounts_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             home = os.path.join(tmp, "home")
             downloads = os.path.join(home, "Downloads")
@@ -44,9 +100,41 @@ class FolderSidebarTests(unittest.TestCase):
                 proc_mounts="",
                 extra=[usb],
             )
-            self.assertEqual(paths[0], os.path.abspath(home))
-            self.assertEqual(paths[1], os.path.abspath(downloads))
+            self.assertNotIn(os.path.abspath(home), paths)
+            self.assertNotIn(os.path.abspath(downloads), paths)
             self.assertIn(os.path.abspath(usb), paths)
+
+    def test_live_sidebar_has_media_mounts_not_xdg(self) -> None:
+        """When real /run/media/$USER mounts exist, they appear; XDG names do not."""
+        paths = volume_sidebar_paths()
+        for name in (
+            "Desktop",
+            "Documents",
+            "Downloads",
+            "Music",
+            "Pictures",
+            "Videos",
+            "Trash",
+        ):
+            self.assertFalse(
+                any(os.path.basename(p) == name for p in paths),
+                msg=f"live sidebar contains XDG place {name}: {paths}",
+            )
+        self.assertNotIn("/mnt/test", paths)
+        user = os.environ.get("USER") or os.path.basename(os.path.expanduser("~"))
+        media_root = f"/run/media/{user}"
+        if os.path.isdir(media_root):
+            children = [
+                os.path.join(media_root, n)
+                for n in os.listdir(media_root)
+                if os.path.isdir(os.path.join(media_root, n))
+            ]
+            for child in children:
+                self.assertIn(
+                    os.path.abspath(child),
+                    [os.path.abspath(p) for p in paths],
+                    msg=f"expected mount {child} in sidebar {paths}",
+                )
 
 
 class QueueRemoveClearForceTests(unittest.TestCase):

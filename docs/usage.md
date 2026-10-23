@@ -38,7 +38,7 @@ On the next launch the queue is restored into the table. Items that were **runni
 
 **Clear Finished** removes done / failed / cancelled jobs from both the table and the saved file. **Clear All** asks for confirmation, then removes every item and persists the empty queue.
 
-On Linux, **Browse** for the output folder (Download page and Settings default output) opens a Qt dialog with a sidebar listing Home, Downloads, `/run/media`, `/media`, `/mnt`, and discovered mount points so USB and other volumes are easy to pick.
+On Linux, **Browse** for the output folder (Download page and Settings default output) opens a Qt dialog whose sidebar lists **mounted volumes only** (paths under `/run/media/$USER`, `/media/$USER`, and real `/mnt` mounts). Standard places such as Desktop, Documents, Downloads, and Trash are omitted; Computer/root navigation remains available in the dialog itself.
 
 ## Platform URL patterns
 

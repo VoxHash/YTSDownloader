@@ -661,6 +661,11 @@ if __name__ == "__main__":
     # Default: modern Suite UI. Pass --legacy for the classic tabbed window.
     if "--legacy" in sys.argv:
         app = QApplication(sys.argv)
+        try:
+            from ytsgui.app import apply_app_icon
+            apply_app_icon(app)
+        except Exception:
+            pass
         def cleanup_log_handlers():
             for handler in list(logger.handlers):
                 if isinstance(handler, TextEditLogger):
@@ -668,6 +673,13 @@ if __name__ == "__main__":
                     handler.close()
         app.aboutToQuit.connect(cleanup_log_handlers)
         window = MainWindow()
+        try:
+            from ytscore.icons import resolve_app_icon_path
+            icon_path = resolve_app_icon_path()
+            if icon_path:
+                window.setWindowIcon(QIcon(icon_path))
+        except Exception:
+            pass
         window.show()
         sys.exit(app.exec())
     from ytsgui.app import run_suite

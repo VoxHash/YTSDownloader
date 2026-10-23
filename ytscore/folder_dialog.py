@@ -6,30 +6,6 @@ import os
 import sys
 from typing import List, Optional, Sequence
 
-# Device filesystem types we treat as browsable volumes (USB / internal mounts).
-_VOLUME_FS_TYPES = frozenset(
-    {
-        "ext2",
-        "ext3",
-        "ext4",
-        "xfs",
-        "btrfs",
-        "f2fs",
-        "ntfs",
-        "vfat",
-        "exfat",
-        "fuseblk",
-        "fuse.ntfs",
-        "fuse.exfat",
-        "fuse.sshfs",
-        "nfs",
-        "nfs4",
-        "cifs",
-        "smb3",
-        "zfs",
-    }
-)
-
 _SKIP_MOUNT_PREFIXES = (
     "/proc",
     "/sys",
@@ -39,6 +15,21 @@ _SKIP_MOUNT_PREFIXES = (
     "/boot",
     "/var/lib/docker",
     "/var/lib/containers",
+)
+
+# Never put XDG user places (or Trash) in the folder-dialog sidebar.
+_XDG_SIDEBAR_NAMES = frozenset(
+    {
+        "desktop",
+        "documents",
+        "downloads",
+        "music",
+        "pictures",
+        "videos",
+        "trash",
+        ".trash",
+        "home",
+    }
 )
 
 
@@ -60,13 +51,40 @@ def _existing_dir(path: str) -> Optional[str]:
     return None
 
 
+def _is_xdg_user_place(path: str) -> bool:
+    """True for Home / Desktop / Downloads / Trash-style paths we must not sidebar."""
+    try:
+        abs_path = os.path.abspath(path)
+    except OSError:
+        return True
+    home = os.path.abspath(os.path.expanduser("~"))
+    if abs_path == home:
+        return True
+    base = os.path.basename(abs_path).lower()
+    if base in _XDG_SIDEBAR_NAMES:
+        return True
+    # Trash locations (user + volume trash dirs).
+    if base.startswith(".trash") or "/trash/" in abs_path.lower() + "/":
+        return True
+    return False
+
+
+def _is_mount_point(path: str) -> bool:
+    try:
+        return os.path.ismount(path)
+    except OSError:
+        return False
+
+
 def discover_mount_points(proc_mounts: Optional[str] = None) -> List[str]:
     """
     Return absolute mount points for user-visible volumes.
 
     Reads ``/proc/mounts`` (or ``proc_mounts`` text) and keeps paths under
-    ``/run/media``, ``/media``, ``/mnt``, plus other real device mounts with
-    common filesystem types. Always includes those roots when they exist.
+    ``/run/media/$USER``, ``/media/$USER``, ``/mnt``, plus other real device
+    mounts with common filesystem types. Does **not** add XDG user folders.
+    Under ``/mnt``, only real mount points are included (empty stubs like
+    ``/mnt/test`` are skipped).
     """
     text = proc_mounts
     if text is None:
@@ -83,18 +101,16 @@ def discover_mount_points(proc_mounts: Optional[str] = None) -> List[str]:
         abs_path = _existing_dir(path)
         if not abs_path or abs_path in seen:
             return
+        if _is_xdg_user_place(abs_path):
+            return
+        # Skip container roots themselves; prefer volume leaves.
+        if abs_path in ("/run/media", "/media", "/mnt"):
+            return
         seen.add(abs_path)
         found.append(abs_path)
 
     user = _user_name()
-    for root in (
-        f"/run/media/{user}",
-        f"/media/{user}",
-        "/run/media",
-        "/media",
-        "/mnt",
-    ):
-        add(root)
+    media_user_roots = (f"/run/media/{user}", f"/media/{user}")
 
     for line in text.splitlines():
         parts = line.split()
@@ -110,32 +126,34 @@ def discover_mount_points(proc_mounts: Optional[str] = None) -> List[str]:
         )
         if any(target == p or target.startswith(p + "/") for p in _SKIP_MOUNT_PREFIXES):
             continue
-        if target in ("/", "/home", "/usr", "/var", "/opt", "/tmp"):
-            # Keep root only as Computer entry elsewhere; skip OS partitions here
-            # unless they sit under media/mnt roots (handled via children).
-            if not (
-                target.startswith("/run/media/")
-                or target.startswith("/media/")
-                or target.startswith("/mnt/")
-            ):
-                continue
+        # Only user-facing removable / secondary volume roots — never OS
+        # subvolumes (/srv, /root, /var/*, /home, …).
         is_media = (
             target.startswith("/run/media/")
             or target.startswith("/media/")
             or target.startswith("/mnt/")
         )
-        looks_device = source.startswith("/dev/") or fstype in _VOLUME_FS_TYPES
-        if is_media or looks_device:
-            if fstype in _VOLUME_FS_TYPES or is_media or source.startswith("/dev/"):
-                add(target)
+        if not is_media:
+            continue
+        add(target)
 
-    # Direct children of media roots (covers mounts not yet listed as FS type).
-    for root in (f"/run/media/{user}", f"/media/{user}", "/mnt"):
+    # Children of per-user media roots (covers mounts not yet typed in /proc).
+    for root in media_user_roots:
         try:
             for name in sorted(os.listdir(root)):
-                add(os.path.join(root, name))
+                child = os.path.join(root, name)
+                add(child)
         except OSError:
             pass
+
+    # Under /mnt only real mounts — never empty stubs (e.g. /mnt/test).
+    try:
+        for name in sorted(os.listdir("/mnt")):
+            child = os.path.join("/mnt", name)
+            if _is_mount_point(child):
+                add(child)
+    except OSError:
+        pass
 
     return found
 
@@ -148,12 +166,13 @@ def volume_sidebar_paths(
     extra: Optional[Sequence[str]] = None,
 ) -> List[str]:
     """
-    Ordered sidebar paths: Home, Downloads, media roots, discovered mounts.
+    Ordered sidebar paths: discovered volume/mount roots only.
 
-    Pure path helper (no Qt) so unit tests can run without a display.
+    ``home`` / ``downloads`` are accepted for API compatibility but ignored —
+    XDG places must not appear in the dialog sidebar. Pure path helper (no Qt)
+    so unit tests can run without a display.
     """
-    home_path = _existing_dir(home or os.path.expanduser("~")) or os.path.expanduser("~")
-    dl = downloads or os.path.join(home_path, "Downloads")
+    del home, downloads  # unused; kept for call-site compatibility
     paths: List[str] = []
     seen = set()
 
@@ -161,11 +180,11 @@ def volume_sidebar_paths(
         abs_path = _existing_dir(path)
         if not abs_path or abs_path in seen:
             return
+        if _is_xdg_user_place(abs_path):
+            return
         seen.add(abs_path)
         paths.append(abs_path)
 
-    add(home_path)
-    add(dl)
     for m in discover_mount_points(proc_mounts=proc_mounts):
         add(m)
     if extra:
@@ -179,7 +198,7 @@ def configure_directory_dialog(dialog, *, start_dir: str = "") -> None:
     Apply volume sidebar URLs and Linux non-native option to a QFileDialog.
 
     Native GTK/KDE pickers often hide removable volumes; Qt's dialog plus
-    ``setSidebarUrls`` keeps Home / media mounts visible.
+    ``setSidebarUrls`` lists mount roots only (no Desktop/Downloads/Trash).
     """
     from PyQt6.QtCore import QUrl
     from PyQt6.QtWidgets import QFileDialog
@@ -191,8 +210,8 @@ def configure_directory_dialog(dialog, *, start_dir: str = "") -> None:
     if sys.platform.startswith("linux"):
         dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
     urls = [QUrl.fromLocalFile(p) for p in volume_sidebar_paths()]
-    if urls:
-        dialog.setSidebarUrls(urls)
+    # Always set (even empty) so Qt default XDG places are replaced.
+    dialog.setSidebarUrls(urls)
 
 
 def get_existing_directory(

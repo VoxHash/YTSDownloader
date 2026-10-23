@@ -36,6 +36,8 @@ if (-not $ffmpeg -or -not $ffprobe) {
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $Themes = Join-Path $Root "themes"
+$Assets = Join-Path $Root "assets"
+$IconPng = Join-Path $Root "assets\icons\256x256\ytsdownloader.png"
 $Config = Join-Path $Root "config.ini"
 $Main = Join-Path $Root "main.py"
 $SpecPath = Join-Path $Root "build"
@@ -57,7 +59,9 @@ $DistPath = Join-Path $Root "dist"
     --collect-submodules ytsgui `
     --hidden-import PIL `
     --add-data "$Themes;themes" `
+    --add-data "$Assets;assets" `
     --add-data "$Config;." `
+    --icon $IconPng `
     --specpath $SpecPath `
     --workpath $WorkPath `
     --distpath $DistPath `
@@ -65,13 +69,18 @@ $DistPath = Join-Path $Root "dist"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $Out = Join-Path $Root "dist\YTSDownloader"
-# Suite reads config.ini / themes/ from process cwd (not only from _internal datas).
+# Suite reads config.ini / themes/ / assets from process cwd (not only from _internal datas).
 Copy-Item -LiteralPath $Config -Destination (Join-Path $Out "config.ini") -Force
 $OutThemes = Join-Path $Out "themes"
 if (Test-Path -LiteralPath $OutThemes) {
     Remove-Item -LiteralPath $OutThemes -Recurse -Force
 }
 Copy-Item -LiteralPath $Themes -Destination $OutThemes -Recurse -Force
+$OutAssets = Join-Path $Out "assets"
+if (Test-Path -LiteralPath $OutAssets) {
+    Remove-Item -LiteralPath $OutAssets -Recurse -Force
+}
+Copy-Item -LiteralPath $Assets -Destination $OutAssets -Recurse -Force
 
 Write-Host ""
 Write-Host "Built: $Out\"

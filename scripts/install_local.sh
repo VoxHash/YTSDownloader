@@ -6,7 +6,11 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BIN_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
-APP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+APP_DIR="$DATA_HOME/applications"
+ICON_NAME="ytsdownloader"
+ICON_SRC_DIR="$ROOT/assets/icons"
+HICOLOR="$DATA_HOME/icons/hicolor"
 WRAPPER="$BIN_DIR/ytsdownloader"
 DESKTOP="$APP_DIR/ytsdownloader.desktop"
 PY="$ROOT/.venv/bin/python"
@@ -24,6 +28,25 @@ echo "==> Ensuring dependencies"
 "$PY" -m pip install -r "$ROOT/requirements.txt"
 
 mkdir -p "$BIN_DIR" "$APP_DIR"
+
+echo "==> Installing icons under $HICOLOR"
+if [[ -f "$ICON_SRC_DIR/scalable/ytsdownloader.svg" ]]; then
+  mkdir -p "$HICOLOR/scalable/apps"
+  install -m 644 "$ICON_SRC_DIR/scalable/ytsdownloader.svg" \
+    "$HICOLOR/scalable/apps/${ICON_NAME}.svg"
+fi
+for size in 256 128 64 48 32; do
+  src="$ICON_SRC_DIR/${size}x${size}/ytsdownloader.png"
+  if [[ -f "$src" ]]; then
+    mkdir -p "$HICOLOR/${size}x${size}/apps"
+    install -m 644 "$src" "$HICOLOR/${size}x${size}/apps/${ICON_NAME}.png"
+  fi
+done
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+  gtk-update-icon-cache -f -t "$HICOLOR" 2>/dev/null || true
+elif command -v update-icon-caches >/dev/null 2>&1; then
+  update-icon-caches "$HICOLOR" 2>/dev/null || true
+fi
 
 # Drop competing user-local names so PATH / menus resolve to one entry.
 for name in ytsdownloader YTSDownloader yts-downloader; do
@@ -74,6 +97,7 @@ GenericName=Download Suite
 Comment=Multi-platform video/audio download suite (PyQt6)
 Exec=$WRAPPER
 Path=$ROOT
+Icon=$ICON_NAME
 Terminal=false
 Categories=AudioVideo;Network;
 StartupNotify=true
