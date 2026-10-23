@@ -2,7 +2,7 @@
 
 > Multi-platform download suite for video/audio from YouTube, Instagram, Facebook, TikTok, and related hosts — with a concurrent queue, link grabber, optional watermarking, and a local metadata bridge for music-session matching. Built with PyQt6.
 
-[![Version](https://img.shields.io/badge/version-0.3.3-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
+[![Version](https://img.shields.io/badge/version-0.3.4-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org/)
 [![PyQt6](https://img.shields.io/badge/pyqt6-6.10+-blue.svg)](https://pypi.org/project/PyQt6/)
@@ -30,10 +30,11 @@
 ### Prerequisites
 
 - Python 3.10+
-- ffmpeg on `PATH`
+- ffmpeg and ffprobe on `PATH`
 - Optional: Node.js (`node`) for yt-dlp JS runtime
 - Optional: browser cookies when platforms require authentication
 - Optional (Linux metadata bridge): `dbus-send` or `busctl`
+- Optional: PyInstaller `onedir` freeze per OS — [docs/installation.md#packaging](docs/installation.md#packaging-windows--macos--linux-distributables)
 
 ### Install and run
 
@@ -86,7 +87,7 @@ No cloud API keys are required. Treat cookie files as secrets.
 4. Or use **Metadata Bridge** with a playing desktop music session / catalog URL
 5. Monitor **Queue** (filter by state / search); inspect failures in the triage panel; **Retry selected** / **Retry failed**; optionally **Apply to selected** / **Apply to queued** with another preset
 
-Full guides: [docs/getting-started.md](docs/getting-started.md) · [docs/usage.md](docs/usage.md) · [docs/architecture.md](docs/architecture.md)
+Full guides: [docs/getting-started.md](docs/getting-started.md) · [docs/usage.md](docs/usage.md) · [docs/architecture.md](docs/architecture.md) · [Packaging](docs/installation.md#packaging-windows--macos--linux-distributables)
 
 ## Examples
 

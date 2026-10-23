@@ -29,9 +29,10 @@ JS_RUNTIME_PATH = /usr/bin/node
 
 ```bash
 ffmpeg -version
+ffprobe -version
 ```
 
-Install ffmpeg via your OS package manager and ensure it is on `PATH`.
+Install ffmpeg via your OS package manager and ensure **both** `ffmpeg` and `ffprobe` are on `PATH`. Frozen PyInstaller builds still expect these tools at runtime (see [Installation → Packaging](installation.md#packaging-windows--macos--linux-distributables)).
 
 ## "No videos found"
 

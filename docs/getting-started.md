@@ -3,9 +3,10 @@
 ## Prerequisites
 
 - Python 3.10+ (validated with Python 3.14)
-- `ffmpeg` available on `PATH`
+- `ffmpeg` and `ffprobe` available on `PATH`
 - Optional: Node.js for yt-dlp JavaScript extraction (`JS_RUNTIME=node`)
 - Optional: browser cookies when platforms require authentication
+- Optional: frozen builds — see [Installation → Packaging](installation.md#packaging-windows--macos--linux-distributables)
 
 ## Setup
 

@@ -20,6 +20,10 @@ Yes. Leave the watermark field empty; the downloaded file is kept/renamed withou
 
 Not yet. Launch with `python main.py`. Related notes are in [cli.md](cli.md).
 
+## How do I build a Windows / macOS / Linux distributable?
+
+Use **PyInstaller `onedir`** on each target OS (no cross-compile). Keep **ffmpeg** and **ffprobe** on the end-user `PATH`. See [Installation → Packaging](installation.md#packaging-windows--macos--linux-distributables) and `./scripts/build_pyinstaller.sh`.
+
 ## Can a browser extension download for me?
 
 No. A companion may only hand off media URLs (drop zone, Link Grabber, or the local `.ytsdownloader/` inbox). The desktop Suite always resolves and downloads. See [Architecture](architecture.md#browser-companion-handoff-contract).

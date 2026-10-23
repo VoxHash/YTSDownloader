@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-10-23
+
+### Added
+- **Packaging notes** for Windows / macOS / Linux distributables: PyInstaller `onedir` primary recipe, ffmpeg/ffprobe as external PATH deps, optional Briefcase wrap, cx_Freeze called out as alternative.
+- `scripts/build_pyinstaller.sh` — fish-safe local freeze helper (no venv activate required).
+
 ### Changed
-- Roadmap / architecture: ffmpeg spawn profiling on synthetic watermark paths — **no native hot-path helpers**; spawn is not a meaningful share of realistic Suite wall time (network/extract and re-encode dominate). No SemVer bump (docs-only).
+- Docs kit: installation, getting-started, architecture, FAQ, troubleshooting, index, and README link the packaging section.
+- Roadmap: packaging milestone completed; Next is empty (Later: deeper cookie-auth profile crawl).
+- Architecture: ffmpeg spawn profiling on synthetic watermark paths — **no native hot-path helpers**; spawn is not a meaningful share of realistic Suite wall time.
+
+### Fixed
+- Parse `COUNT_TIMER_ONGOING` as float in `main.py` so the default `2.5` pacing value does not crash import (required for Suite and frozen launches).
 
 ## [0.3.3] - 2026-10-23
 
@@ -129,7 +140,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.3.0...v0.3.1

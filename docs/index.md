@@ -6,7 +6,7 @@ Desktop tool by **VoxHash Technologies** for downloading short-form videos from 
 
 - [Getting Started](getting-started.md)
 - [Quick Start](quick-start.md)
-- [Installation](installation.md)
+- [Installation](installation.md) (includes [Packaging](installation.md#packaging-windows--macos--linux-distributables) for Windows / macOS / Linux)
 - [Configuration](configuration.md)
 - [Usage](usage.md)
 - [CLI Notes](cli.md)

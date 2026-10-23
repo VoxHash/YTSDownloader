@@ -105,5 +105,6 @@ Rules:
 ## Runtime dependencies
 
 - **Python packages**: yt-dlp, PyQt6, moviepy, Pillow, numpy
-- **System**: ffmpeg (mux/encode), optional Node.js for extractor JS challenges
+- **System**: ffmpeg + ffprobe (mux/encode / probe), optional Node.js for extractor JS challenges
 - **Optional**: session bus tools (`dbus-send` / `busctl`) for the metadata bridge on Linux
+- **Distributables**: freeze with PyInstaller `onedir` per OS; ffmpeg/ffprobe remain external — see [Installation → Packaging](installation.md#packaging-windows--macos--linux-distributables)

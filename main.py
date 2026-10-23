@@ -40,7 +40,7 @@ def read_config(file_path):
 # Load configuration
 config = read_config('config.ini')
 theme = config["SETTINGS"]["THEME"]
-timer = int(config["SETTINGS"]["COUNT_TIMER_ONGOING"])
+timer = float(config["SETTINGS"]["COUNT_TIMER_ONGOING"])
 cookies_from_browser = config["SETTINGS"].get("COOKIES_FROM_BROWSER", "").strip()
 cookies_file = config["SETTINGS"].get("COOKIES_FILE", "").strip()
 js_runtime = config["SETTINGS"].get("JS_RUNTIME", "").strip()
