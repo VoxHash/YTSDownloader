@@ -95,6 +95,26 @@ class ParseCompanionPayloadTests(unittest.TestCase):
         self.assertEqual(items[0].url, "https://example.com/watch?v=quest")
         self.assertEqual(items[0].source, "quest-companion")
 
+    def test_android_companion_document_with_title(self) -> None:
+        payload = json.dumps(
+            {
+                "schema": 1,
+                "source": "android-companion",
+                "urls": [
+                    {
+                        "schema": 1,
+                        "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                        "title": "Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)",
+                        "source": "android-companion",
+                    }
+                ],
+            }
+        )
+        items = parse_companion_payload(payload)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].source, "android-companion")
+        self.assertIn("Rick Astley", items[0].title)
+
 
 class ConsumeCompanionInboxTests(unittest.TestCase):
     def test_jsonl_and_drop_file(self) -> None:

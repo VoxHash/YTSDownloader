@@ -1,8 +1,8 @@
 # Android companion (GrapheneOS-friendly)
 
-Lightweight **URL companion** for YTSDownloader. The desktop Suite remains the primary downloader; this app collects media page URLs and exports companion-inbox payloads the Suite already understands.
+Lightweight **URL companion** for YTSDownloader with **on-device title resolve** (v0.8.0 Suite path slice 1). The desktop Suite remains the primary downloader; this app collects media page URLs (and optional titles) and exports companion-inbox payloads the Suite already understands.
 
-**Not** full Suite feature parity (resolve, yt-dlp download, watermark, queue workers). That stays deferred under ROADMAP → Platforms.
+**Not** full Suite feature parity (yt-dlp download, watermark, desktop-class queue workers). Remaining work stays under ROADMAP → Later.
 
 ## What ships in this slice
 
@@ -10,10 +10,12 @@ Lightweight **URL companion** for YTSDownloader. The desktop Suite remains the p
 | --- | --- |
 | Paste URL → local queue | Yes |
 | Share sheet (`ACTION_SEND` text) → queue | Yes |
+| On-device **title resolve** (YouTube oEmbed + noembed fallback) | Yes (v0.8.0) |
+| Queue rows show title + URL | Yes (v0.8.0) |
 | Export JSON via Storage Access Framework (folder or create-document) | Yes |
-| Export to Downloads / app files (no SAF chooser) | Yes |
+| Export to Downloads / app files (no SAF chooser); optional `title` in payload | Yes |
 | Share NDJSON / JSONL payload | Yes |
-| On-device download / extract | No (desktop Suite) |
+| On-device yt-dlp download / extract / watermark | No (desktop Suite) |
 | Google Play Services / FCM | None (ADB sideload only) |
 | Cleartext HTTP | Off by default (`usesCleartextTraffic=false` + network security config) |
 

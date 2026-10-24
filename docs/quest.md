@@ -64,7 +64,20 @@ adb -s "$QUEST_SERIAL" shell am start -n \
 
 Sideloaded apps appear under **Library → Unknown Sources** on the headset.
 
-**ADB cold-start note (Horizon OS):** after a fresh `adb install`, `am start -n …` often returns **Error type 3** (`Activity class … does not exist`) even though `dumpsys package` lists the activity and `com.oculus.intent.category.2D`. Put the headset on and open the app once from **Unknown Sources**, then ADB SEND / EXPORT works. `./scripts/smoke_quest.sh` always checks install + 2D registration on the Quest; if cold start is blocked it falls back to full SEND/EXPORT using the same Quest APK on a connected Pixel (proves the binary + `quest-companion` payload).
+**ADB cold-start note (Horizon OS):** after a fresh `adb install`, `am start -n …` (and `metavr app launch`) return **Error type 3** (`Activity class … does not exist` / no launchable activity) even though `dumpsys package` lists the activity and `com.oculus.intent.category.2D`. Horizon filters sideloaded apps from ActivityManager resolution until the first **Library → Unknown Sources** open.
+
+Verified on Quest 3 `2G0YC5ZGB6031R` (2026-10-23):
+
+| Step | Result |
+| --- | --- |
+| `adb` reclaim + wake | OK (`product:eureka`, wakefulness Awake) |
+| `am broadcast …prox_close` (simulate worn) | OK (`sys.hmt.mounted=1`, `HEADSET_MOUNTED`) |
+| VR passcode UI | Blocks automation until entered (uiautomator2 sees keypad; Store PIN / `content://com.oculus.rc` not available on this device) |
+| Library / Unknown Sources via ADB / metavr / uiautomator | Not reachable — home is VR-composited (empty a11y tree; screencap shows Bubbles home only) |
+| On-headset SEND/EXPORT | **Not** verified until one manual Unknown Sources launch |
+| Pixel fallback with Quest APK | Proves binary + `quest-companion` parse/consume |
+
+Manual once: unlock passcode if shown → wear headset → Meta button → **Library → Unknown Sources → YTS Quest Companion**. Then `SKIP_INSTALL=1 ./scripts/smoke_quest.sh`. The smoke script always checks install + 2D registration on the Quest; if cold start is blocked it falls back to Pixel.
 
 ## Smoke e2e checklist
 

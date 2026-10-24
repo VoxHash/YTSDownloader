@@ -126,6 +126,11 @@ if ! grep -q 'com.oculus.supportedDevices' <<<"$DUMP" && ! grep -q 'quest3' <<<"
 fi
 echo "OK: Quest install + Horizon 2D panel intent registered ($PKG)"
 
+# Simulate headset worn (helps wake / dismiss some idle paths; does not bypass Unknown Sources).
+adb -s "$SERIAL" shell am broadcast -a com.oculus.vrpowermanager.prox_close >/dev/null 2>&1 || true
+adb -s "$SERIAL" shell cmd package unstop "$PKG" >/dev/null 2>&1 || true
+adb -s "$SERIAL" shell pm enable "$PKG" >/dev/null 2>&1 || true
+
 AM_OUT="$(adb -s "$SERIAL" shell am start -n "$ACTIVITY" \
   -a android.intent.action.SEND -t 'text/plain' \
   --es android.intent.extra.TEXT "$SMOKE_URL" 2>&1 || true)"
@@ -138,8 +143,10 @@ if ! grep -q 'Error type 3' <<<"$AM_OUT"; then
 fi
 
 echo "NOTE: Horizon OS blocked cold ADB am start (Error type 3) or export failed."
-echo "      Put the headset on → Library → Unknown Sources → open YTS Quest Companion once,"
-echo "      then re-run: SKIP_INSTALL=1 ./scripts/smoke_quest.sh"
+echo "      Unlock VR passcode if shown → put headset on → Meta button → Library →"
+echo "      Unknown Sources → open YTS Quest Companion once, then re-run:"
+echo "      SKIP_INSTALL=1 ./scripts/smoke_quest.sh"
+echo "      (metavr app launch / am start / uiautomator cannot open Unknown Sources alone.)"
 echo "      Falling back to full SEND/EXPORT with the same Quest APK on Pixel (if present)."
 
 PIXEL="${PIXEL_SERIAL:-}"

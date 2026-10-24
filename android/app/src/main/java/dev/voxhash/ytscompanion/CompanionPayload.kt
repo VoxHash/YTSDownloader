@@ -35,15 +35,18 @@ object CompanionPayload {
         return if (isHttpUrl(url)) url else null
     }
 
-    fun toJsonDocument(urls: List<String>): String {
+    fun toJsonDocument(items: List<QueueItem>): String {
         val arr = JSONArray()
-        for (url in urls) {
-            arr.put(
+        for (item in items) {
+            val row =
                 JSONObject()
                     .put("schema", SCHEMA_VERSION)
-                    .put("url", url)
-                    .put("source", SOURCE),
-            )
+                    .put("url", item.url)
+                    .put("source", SOURCE)
+            if (item.title.isNotBlank()) {
+                row.put("title", item.title)
+            }
+            arr.put(row)
         }
         return JSONObject()
             .put("schema", SCHEMA_VERSION)
@@ -52,16 +55,18 @@ object CompanionPayload {
             .toString(2)
     }
 
-    fun toJsonl(urls: List<String>): String {
+    fun toJsonl(items: List<QueueItem>): String {
         val sb = StringBuilder()
-        for (url in urls) {
-            sb.append(
+        for (item in items) {
+            val row =
                 JSONObject()
                     .put("schema", SCHEMA_VERSION)
-                    .put("url", url)
+                    .put("url", item.url)
                     .put("source", SOURCE)
-                    .toString(),
-            )
+            if (item.title.isNotBlank()) {
+                row.put("title", item.title)
+            }
+            sb.append(row.toString())
             sb.append('\n')
         }
         return sb.toString()

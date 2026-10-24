@@ -17,6 +17,8 @@
     <string name="exported">Wrote companion inbox payload</string>
     <string name="exported_downloads">Wrote %1$s (Downloads + app files)</string>
     <string name="export_failed">Export failed</string>
-    <string name="parity_note">Desktop Suite remains the downloader. This app only collects URLs for inbox handoff. Full Suite feature parity is later.</string>
+    <string name="parity_note">On-device title resolve (oEmbed) + local queue. Desktop Suite remains the downloader — no on-device yt-dlp / watermark yet.</string>
     <string name="remove">Remove</string>
+    <string name="resolving_title">Resolving title…</string>
+    <string name="resolve_failed">Title unavailable (URL kept)</string>
 </resources>

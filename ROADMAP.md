@@ -1,10 +1,10 @@
 # Roadmap
 
-Current product baseline: **v0.7.0** — Meta Quest 3 **browse/queue shell** (Horizon OS 2D panel flavor `quest` under `android/`) plus Android phone companion (v0.6.x). Desktop Suite remains primary. Pixel 7 Pro and Quest 3 ADB handoff paths documented.
+Current product baseline: **v0.8.0** — Android / GrapheneOS companion **on-device title resolve + queue UX** (oEmbed) on the phone flavor, plus Meta Quest 3 **browse/queue shell** (v0.7.x). Desktop Suite remains primary downloader. Pixel 7 Pro and Quest 3 ADB handoff paths documented.
 
-## Now (v0.7.x)
+## Now (v0.8.x)
 
-- [x] **Meta Quest 3** browse/queue shell (scaffold) — Horizon OS 2D panel product flavor (`quest`); landscape / larger hit targets; inbox `source: quest-companion`; `./scripts/build_quest.sh` + [docs/quest.md](docs/quest.md). Quest ADB install + 2D registration verified (`eureka` / `2G0YC5ZGB6031R`); cold `am start` may need one Unknown Sources open first — smoke falls back to Pixel with the same Quest APK for SEND/EXPORT. Immersive OpenXR / Horizon Store / on-device download **not** done.
+- [x] **Android / GrapheneOS** Suite path — **slice 1**: on-device title resolve (YouTube oEmbed + noembed fallback) and queue rows showing title + URL; export payloads may include `title`. On-device yt-dlp download / watermark / full worker parity **not** done — desktop Suite remains the downloader. See [docs/android.md](docs/android.md).
 
 ## Next
 
@@ -14,8 +14,9 @@ _(no active desktop milestone — see Later)_
 
 ### Platforms
 
-- [ ] **Android / GrapheneOS** full Suite path — on-device resolve + queue UX on hardened Android; desktop remains primary until that dedicated path exists. Companion handoff (v0.6.0 scaffold) is the interim bridge.
+- [ ] **Android / GrapheneOS** Suite path — remaining: on-device yt-dlp resolve/download workers, watermark, full queue parity with desktop. Companion handoff + oEmbed titles (v0.8.0) are the interim bridge.
 - [ ] **Meta Quest 3** immersive / Horizon Store packaging — OpenXR or Spatial SDK beyond the 2D panel Unknown Sources shell; downloads still constrained by store policies and local storage.
+- [x] **Meta Quest 3** browse/queue shell (scaffold) — Horizon OS 2D panel product flavor (`quest`); landscape / larger hit targets; inbox `source: quest-companion`; `./scripts/build_quest.sh` + [docs/quest.md](docs/quest.md). Quest ADB install + 2D registration verified (`eureka` / `2G0YC5ZGB6031R`). **On-headset SEND/EXPORT** still needs one manual **Library → Unknown Sources** open after install (Horizon filters cold `am start` / `metavr app launch` with Error type 3; VR passcode + Meta-button Library are not automatable without the Store PIN / worn session). Smoke falls back to Pixel with the same Quest APK. Immersive OpenXR / Horizon Store / on-device download **not** done.
 
 ### Native / core (deferred with rationale)
 

@@ -27,7 +27,8 @@ open class MainActivity : AppCompatActivity() {
     private lateinit var emptyLabel: TextView
     private lateinit var exportFolderLabel: TextView
     private lateinit var adapter: QueueAdapter
-    private val urls = mutableListOf<String>()
+    private val items = mutableListOf<QueueItem>()
+    private val resolving = mutableSetOf<String>()
 
     private val createDocument =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -50,16 +51,16 @@ open class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         store = QueueStore(this)
-        urls.clear()
-        urls.addAll(store.load())
+        items.clear()
+        items.addAll(store.load())
 
         urlInput = findViewById(R.id.urlInput)
         emptyLabel = findViewById(R.id.emptyLabel)
         exportFolderLabel = findViewById(R.id.exportFolderLabel)
         val queueList = findViewById<RecyclerView>(R.id.queueList)
 
-        adapter = QueueAdapter(urls) { index ->
-            urls.removeAt(index)
+        adapter = QueueAdapter(items, resolving) { index ->
+            items.removeAt(index)
             persistAndRefresh()
         }
         queueList.layoutManager = LinearLayoutManager(this)
@@ -67,7 +68,7 @@ open class MainActivity : AppCompatActivity() {
 
         findViewById<MaterialButton>(R.id.addButton).setOnClickListener { addFromInput() }
         findViewById<MaterialButton>(R.id.clearButton).setOnClickListener {
-            urls.clear()
+            items.clear()
             persistAndRefresh()
         }
         findViewById<MaterialButton>(R.id.pickFolderButton).setOnClickListener {
@@ -81,6 +82,7 @@ open class MainActivity : AppCompatActivity() {
 
         refreshExportFolderLabel()
         persistAndRefresh()
+        items.filter { it.title.isBlank() }.forEach { scheduleResolve(it.url) }
         handleIncomingIntent(intent)
     }
 
@@ -122,19 +124,41 @@ open class MainActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.invalid_url, Toast.LENGTH_SHORT).show()
             return
         }
-        if (urls.any { it.equals(url, ignoreCase = true) }) {
+        if (items.any { it.url.equals(url, ignoreCase = true) }) {
             Toast.makeText(this, R.string.added, Toast.LENGTH_SHORT).show()
             return
         }
-        urls.add(0, url)
+        items.add(0, QueueItem(url = url))
         persistAndRefresh()
         Toast.makeText(this, R.string.added, Toast.LENGTH_SHORT).show()
+        scheduleResolve(url)
+    }
+
+    private fun scheduleResolve(url: String) {
+        if (!resolving.add(url)) return
+        adapter.notifyDataSetChanged()
+        UrlResolver.resolveTitleAsync(url) { title ->
+            runOnUiThread {
+                resolving.remove(url)
+                val idx = items.indexOfFirst { it.url.equals(url, ignoreCase = true) }
+                if (idx < 0) {
+                    adapter.notifyDataSetChanged()
+                    return@runOnUiThread
+                }
+                val resolved = title?.takeIf { it.isNotBlank() } ?: ""
+                items[idx] = items[idx].copy(title = resolved)
+                persistAndRefresh()
+                if (resolved.isEmpty()) {
+                    Toast.makeText(this, R.string.resolve_failed, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     private fun persistAndRefresh() {
-        store.save(urls)
+        store.save(items)
         adapter.notifyDataSetChanged()
-        emptyLabel.visibility = if (urls.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
+        emptyLabel.visibility = if (items.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
     }
 
     private fun refreshExportFolderLabel() {
@@ -148,7 +172,7 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private fun exportInbox() {
-        if (urls.isEmpty()) {
+        if (items.isEmpty()) {
             Toast.makeText(this, R.string.empty_queue, Toast.LENGTH_SHORT).show()
             return
         }
@@ -171,7 +195,7 @@ open class MainActivity : AppCompatActivity() {
         try {
             contentResolver.openOutputStream(uri)?.use { os ->
                 OutputStreamWriter(os, Charsets.UTF_8).use { writer ->
-                    writer.write(CompanionPayload.toJsonDocument(urls))
+                    writer.write(CompanionPayload.toJsonDocument(items))
                 }
             }
             Toast.makeText(this, R.string.exported, Toast.LENGTH_SHORT).show()
@@ -185,12 +209,12 @@ open class MainActivity : AppCompatActivity() {
      * Public Downloads via MediaStore + app-specific external files copy.
      */
     private fun exportToDownloads() {
-        if (urls.isEmpty()) {
+        if (items.isEmpty()) {
             Toast.makeText(this, R.string.empty_queue, Toast.LENGTH_SHORT).show()
             return
         }
         val name = CompanionPayload.suggestedFileName()
-        val body = CompanionPayload.toJsonDocument(urls)
+        val body = CompanionPayload.toJsonDocument(items)
         try {
             val appDir =
                 getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
@@ -245,11 +269,11 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private fun sharePayload() {
-        if (urls.isEmpty()) {
+        if (items.isEmpty()) {
             Toast.makeText(this, R.string.empty_queue, Toast.LENGTH_SHORT).show()
             return
         }
-        val payload = CompanionPayload.toJsonl(urls)
+        val payload = CompanionPayload.toJsonl(items)
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, payload)
@@ -259,10 +283,12 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private class QueueAdapter(
-        private val items: List<String>,
+        private val rows: List<QueueItem>,
+        private val resolving: Set<String>,
         private val onRemove: (Int) -> Unit,
     ) : RecyclerView.Adapter<QueueAdapter.VH>() {
         class VH(val root: android.view.View) : RecyclerView.ViewHolder(root) {
+            val title: TextView = root.findViewById(R.id.itemTitle)
             val url: TextView = root.findViewById(R.id.itemUrl)
             val remove: MaterialButton = root.findViewById(R.id.removeButton)
         }
@@ -274,14 +300,31 @@ open class MainActivity : AppCompatActivity() {
         }
 
         override fun onBindViewHolder(holder: VH, position: Int) {
-            holder.url.text = items[position]
+            val item = rows[position]
+            val pending = resolving.any { it.equals(item.url, ignoreCase = true) }
+            holder.title.text =
+                when {
+                    item.title.isNotBlank() -> item.title
+                    pending -> holder.root.context.getString(R.string.resolving_title)
+                    else -> item.url
+                }
+            val showUrl = item.title.isNotBlank() || pending
+            holder.url.text = item.url
+            holder.url.visibility =
+                if (showUrl && holder.title.text.toString() != item.url) {
+                    android.view.View.VISIBLE
+                } else if (pending) {
+                    android.view.View.VISIBLE
+                } else {
+                    android.view.View.GONE
+                }
             holder.remove.setOnClickListener {
                 val pos = holder.bindingAdapterPosition
                 if (pos != RecyclerView.NO_POSITION) onRemove(pos)
             }
         }
 
-        override fun getItemCount(): Int = items.size
+        override fun getItemCount(): Int = rows.size
     }
 
     companion object {

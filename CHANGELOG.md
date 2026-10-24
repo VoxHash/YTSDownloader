@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-23
+
+### Added
+- **Android Suite path (slice 1):** on-device title resolve via YouTube oEmbed + noembed fallback; queue rows show title + URL; export JSON/JSONL may include `title` (`INTERNET` permission).
+- Docs: [docs/quest.md](docs/quest.md) on-headset smoke matrix (prox_close / VR passcode / Unknown Sources gate); smoke script tries `prox_close` + `cmd package unstop` before `am start`.
+
+### Changed
+- ROADMAP: v0.8.0 Android resolve+queue UX checked; remaining on-device yt-dlp/download stays Later. Quest on-headset SEND/EXPORT still needs one manual Unknown Sources open.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.8.0** / 4.
+
 ## [0.7.0] - 2026-10-23
 
 ### Added
@@ -270,7 +280,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.0...v0.6.1

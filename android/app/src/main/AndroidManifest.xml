@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- No INTERNET permission in v1: companion hands URLs to desktop; no cloud relay. -->
+    <!-- INTERNET: on-device oEmbed title resolve (YouTube / noembed). No cloud sync of the queue. -->
     <!-- No Google Play Services / FCM. Sideload via ADB works on GrapheneOS. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"
