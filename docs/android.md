@@ -1,6 +1,6 @@
 # Android companion (GrapheneOS-friendly)
 
-Lightweight **Suite path** companion for YTSDownloader with **on-device title resolve** (oEmbed, v0.8.0) and **on-device yt-dlp download** (Chaquopy, v0.9.0 slice 2). Desktop Suite remains the richest path (watermark, ffmpeg merge, format presets, cookies).
+Lightweight **Suite path** companion for YTSDownloader with **on-device title resolve** (oEmbed, v0.8.0), **on-device yt-dlp download** (Chaquopy, v0.9.0 slice 2), and **bundled ffmpeg merge** (v0.10.0 slice 3). Desktop Suite remains the richest path (watermark, multi-worker, format presets, cookies).
 
 ## What ships in this slice
 
@@ -10,12 +10,13 @@ Lightweight **Suite path** companion for YTSDownloader with **on-device title re
 | Share sheet (`ACTION_SEND` text) → queue | Yes |
 | On-device **title resolve** (YouTube oEmbed + noembed fallback) | Yes (v0.8.0) |
 | Queue rows show title + URL | Yes (v0.8.0) |
-| On-device **yt-dlp download** (single-file formats, Chaquopy Python 3.12) | Yes (v0.9.0) |
+| On-device **yt-dlp download** (Chaquopy Python 3.12) | Yes (v0.9.0) |
+| Bundled **arm64 ffmpeg merge** (`bestvideo+bestaudio` → mp4) | Yes (v0.10.0); single-file fallback if asset/ABI missing |
 | Queue download status (queued / downloading / done / error) | Yes (v0.9.0) |
 | Export JSON via Storage Access Framework (folder or create-document) | Yes |
 | Export to Downloads / app files (no SAF chooser); optional `title` in payload | Yes |
 | Share NDJSON / JSONL payload | Yes |
-| Bundled ffmpeg merge / watermark / desktop-class workers | No (Later) |
+| Watermark / desktop-class multi-worker / cookie + format-preset parity | No (Later) |
 | Google Play Services / FCM | None (ADB sideload only) |
 | Cleartext HTTP | Off by default (`usesCleartextTraffic=false` + network security config) |
 
@@ -44,7 +45,7 @@ Debug APK path:
 
 Application id (debug): `dev.voxhash.ytscompanion.debug`
 
-First Chaquopy build downloads the Python runtime + `yt-dlp==2026.10.21` into the APK (tens of MB; arm64-v8a + x86_64). Meta Quest 3 uses a separate flavor — see [quest.md](quest.md) / `./scripts/build_quest.sh` (same yt-dlp stack).
+First Chaquopy build downloads the Python runtime + `yt-dlp==2026.10.21` into the APK (tens of MB; arm64-v8a + x86_64). Build scripts also run `./scripts/fetch_android_ffmpeg.sh` to place a pinned LGPL arm64-v8a `ffmpeg` under `android/app/src/main/assets/ffmpeg/` (~16 MB; not committed — fetched at build time). Meta Quest 3 uses a separate flavor — see [quest.md](quest.md) / `./scripts/build_quest.sh` (same yt-dlp + ffmpeg stack).
 
 ## Install on GrapheneOS / Pixel (ADB sideload)
 
@@ -100,6 +101,8 @@ adb -s <pixel-serial> shell ls -la /sdcard/Android/data/dev.voxhash.ytscompanion
 
 Helper: `./scripts/smoke_android_download.sh` (builds must already exist; prefers Pixel `29211FDH300NEB`, scans farm adb ports for `cheetah`).
 
+**Device smoke (2026-10-24):** Pixel 7 Pro `29211FDH300NEB` / `cheetah` — install phone debug APK, SEND + `DOWNLOAD_QUEUE`, complete files under app `Movies/YTSCompanion/`, no `FATAL EXCEPTION`. If default `adb` (5037) is empty while `lsusb` shows the Pixel, reclaim farm ports or set `ANDROID_ADB_SERVER_PORT` (see troubleshooting).
+
 5. Preferred ADB **inbox** handoff (no SAF / share chooser): **Export to Downloads** — MediaStore `Download/YTSCompanion/*.json` plus app-files copy under `Android/data/.../files/Download/`.
 
 ```bash
@@ -138,4 +141,4 @@ A USB farm with many phones often leaves **extra `adb` servers** listening on po
 
 ## Desktop handoff reminder
 
-Inbox export still feeds the Suite queue. On-device yt-dlp (slice 2) writes media into app storage for local playback / pull; it does **not** replace desktop watermark / merge / preset workers. See [architecture.md](architecture.md#local-inbox-protocol-v1).
+Inbox export still feeds the Suite queue. On-device yt-dlp (slices 2–3) writes media into app storage for local playback / pull (with bundled ffmpeg merge when arm64 asset is present); it does **not** replace desktop watermark / multi-worker / cookie + preset workers. See [architecture.md](architecture.md#local-inbox-protocol-v1).

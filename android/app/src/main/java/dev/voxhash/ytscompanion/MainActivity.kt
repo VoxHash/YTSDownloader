@@ -111,7 +111,12 @@ open class MainActivity : AppCompatActivity() {
         persistAndRefresh()
         items.filter { it.title.isBlank() }.forEach { scheduleResolve(it.url) }
         // Warm Python/yt-dlp off the critical path.
-        Thread { runCatching { YtDlpBridge.ensureStarted(this) } }.start()
+        Thread {
+            runCatching {
+                YtDlpBridge.ensureStarted(this)
+                FfmpegBundle.ensure(this)
+            }
+        }.start()
         handleIncomingIntent(intent)
     }
 

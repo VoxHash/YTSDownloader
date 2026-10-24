@@ -134,6 +134,8 @@ android/.cxx/
 android/*.apk
 android/*.aab
 android/captures/
+# Fetched by scripts/fetch_android_ffmpeg.sh (LGPL arm64 binary; not committed)
+android/app/src/main/assets/ffmpeg/
 
 # Native sidecars (built by scripts/build_natives.sh)
 native/bin/

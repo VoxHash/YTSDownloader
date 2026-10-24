@@ -1,6 +1,7 @@
-"""On-device yt-dlp helpers for the Android Suite path (slice 2).
+"""On-device yt-dlp helpers for the Android Suite path.
 
-Single-file formats only — no ffmpeg merge / watermark in this slice.
+Slice 2: single-file formats (no ffmpeg).
+Slice 3: when *ffmpeg_location* is set, prefer bestvideo+bestaudio merge via bundled ffmpeg.
 """
 
 from __future__ import annotations
@@ -12,8 +13,20 @@ from typing import Any
 import yt_dlp
 
 
-# Progressive / single-file only — no ffmpeg merge in this slice.
-_FORMAT = "best[height<=720][ext=mp4]/best[ext=mp4]/best[height<=720]/best"
+# Progressive / single-file only — used when no ffmpeg binary is available.
+_FORMAT_SINGLE = "best[height<=720][ext=mp4]/best[ext=mp4]/best[height<=720]/best"
+# Separate A/V streams + remux (requires ffmpeg). Cap height to keep on-device work bounded.
+_FORMAT_MERGE = (
+    "bestvideo[height<=720]+bestaudio/"
+    "best[height<=720][ext=mp4]/best[ext=mp4]/best[height<=720]/best"
+)
+
+
+def format_selector(ffmpeg_location: str | None) -> str:
+    """Return the yt-dlp format expression for the given ffmpeg availability."""
+    if ffmpeg_location and os.path.isfile(ffmpeg_location) and os.access(ffmpeg_location, os.X_OK):
+        return _FORMAT_MERGE
+    return _FORMAT_SINGLE
 
 
 def _progress_hook(callback, d: dict[str, Any]) -> None:
@@ -37,16 +50,22 @@ def _progress_hook(callback, d: dict[str, Any]) -> None:
         callback.on_progress(100.0, "0")
 
 
-def download(url: str, out_dir: str, callback=None) -> str:
-    """Download *url* into *out_dir*. Returns JSON: ok/path/title/error."""
+def download(url: str, out_dir: str, callback=None, ffmpeg_location: str | None = None) -> str:
+    """Download *url* into *out_dir*. Returns JSON: ok/path/title/error/merged."""
     os.makedirs(out_dir, exist_ok=True)
     outtmpl = os.path.join(out_dir, "%(title).80B [%(id)s].%(ext)s")
     hooks = []
     if callback is not None:
         hooks.append(lambda d: _progress_hook(callback, d))
 
-    opts = {
-        "format": _FORMAT,
+    ff = (ffmpeg_location or "").strip() or None
+    if ff and not (os.path.isfile(ff) and os.access(ff, os.X_OK)):
+        ff = None
+    fmt = format_selector(ff)
+    merged = fmt == _FORMAT_MERGE
+
+    opts: dict[str, Any] = {
+        "format": fmt,
         "outtmpl": outtmpl,
         "noprogress": True,
         "quiet": True,
@@ -59,13 +78,16 @@ def download(url: str, out_dir: str, callback=None) -> str:
         # Avoid needing external JS runtimes on device for this slice.
         "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
     }
+    if merged and ff:
+        opts["ffmpeg_location"] = ff
+        opts["merge_output_format"] = "mp4"
 
     info: dict[str, Any] | None = None
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
             if info is None:
-                return json.dumps({"ok": False, "error": "no info"})
+                return json.dumps({"ok": False, "error": "no info", "merged": merged})
             path = ydl.prepare_filename(info)
             # prepare_filename may use the template before remux; prefer requested downloads.
             requested = info.get("requested_downloads") or []
@@ -73,20 +95,32 @@ def download(url: str, out_dir: str, callback=None) -> str:
                 cand = requested[0].get("filepath") or requested[0].get("_filename")
                 if cand:
                     path = cand
+            # After merge, extension is often forced to mp4 regardless of template.
+            if path and not os.path.isfile(path):
+                base, _ext = os.path.splitext(path)
+                for cand_ext in (".mp4", ".mkv", ".webm", ".m4a"):
+                    alt = base + cand_ext
+                    if os.path.isfile(alt):
+                        path = alt
+                        break
             if not path or not os.path.isfile(path):
-                # Fallback: newest file in out_dir
+                # Fallback: newest file in out_dir (skip partials).
                 files = [
                     os.path.join(out_dir, name)
                     for name in os.listdir(out_dir)
                     if os.path.isfile(os.path.join(out_dir, name))
+                    and not name.endswith(".part")
+                    and not name.endswith(".ytdl")
                 ]
                 if not files:
-                    return json.dumps({"ok": False, "error": "download finished but file missing"})
+                    return json.dumps(
+                        {"ok": False, "error": "download finished but file missing", "merged": merged}
+                    )
                 path = max(files, key=os.path.getmtime)
             title = (info.get("title") or "").strip()
-            return json.dumps({"ok": True, "path": path, "title": title})
+            return json.dumps({"ok": True, "path": path, "title": title, "merged": merged})
     except Exception as exc:  # noqa: BLE001 — surface to Kotlin UI
-        return json.dumps({"ok": False, "error": str(exc)})
+        return json.dumps({"ok": False, "error": str(exc), "merged": merged})
 
 
 def resolve_title(url: str) -> str:

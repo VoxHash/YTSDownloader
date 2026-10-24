@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-24
+
+### Added
+- **Android Suite path (slice 3):** bundled arm64-v8a LGPL ffmpeg (FFmpeg 8.1.1, `--disable-gpl`) via `scripts/fetch_android_ffmpeg.sh` + `FfmpegBundle`; yt-dlp prefers `bestvideo+bestaudio` merge with `merge_output_format=mp4` when the binary is available, else single-file fallback.
+- Host tests for merge vs single-file format selection and merge download with system ffmpeg (`tests/test_android_ytdlp_worker.py`).
+
+### Changed
+- ROADMAP: v0.10.0 Android ffmpeg merge checked; Pixel on-device download smoke verified 2026-10-24; Quest on-headset SEND still blocked by Horizon Error type 3 / empty a11y until manual Unknown Sources open.
+- Docs: [docs/android.md](docs/android.md) / [docs/quest.md](docs/quest.md) honesty on merge + device smoke.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.10.0** / 6.
+
+### Verified
+- Pixel 7 Pro (`29211FDH300NEB` / cheetah): `./scripts/smoke_android_download.sh` → media under app `Movies/YTSCompanion/` (complete `.mp4`), no `FATAL EXCEPTION`.
+- Quest 3 (`2G0YC5ZGB6031R` / eureka, farm ADB port): install + 2D registration OK; cold `am start` / SEND still **Error type 3**; uiautomator hierarchy empty (VR shell only).
+
 ## [0.9.0] - 2026-10-24
 
 ### Added
@@ -292,7 +307,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.2...v0.7.0

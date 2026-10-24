@@ -30,6 +30,9 @@ if [[ ! -f "$ANDROID_DIR/local.properties" ]]; then
   echo "Wrote $ANDROID_DIR/local.properties"
 fi
 
+# Bundled arm64 ffmpeg for yt-dlp merge (slice 3); skipped if already hashed.
+"$ROOT/scripts/fetch_android_ffmpeg.sh"
+
 cd "$ANDROID_DIR"
 if [[ ! -x ./gradlew ]]; then
   echo "Missing gradlew — generate with: gradle wrapper --gradle-version 8.11.1" >&2

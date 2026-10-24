@@ -10,8 +10,9 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Chaquopy bridge to on-device yt-dlp (Android Suite path slice 2).
+ * Chaquopy bridge to on-device yt-dlp (Android Suite path slices 2–3).
  * Uses the Unlicense yt-dlp package via pip — no third-party downloader UI code.
+ * Slice 3 passes a bundled arm64 ffmpeg path when available for A/V merge.
  */
 object YtDlpBridge {
     private const val TAG = "YtDlpBridge"
@@ -57,13 +58,19 @@ object YtDlpBridge {
                     ensureStarted(context)
                     val module = Python.getInstance().getModule("yts_dlp_worker")
                     val outDir = mediaDir(context).absolutePath
+                    val ffmpeg = FfmpegBundle.ensure(context)
                     val callback =
                         object : ProgressCallback {
                             override fun on_progress(pct: Double, eta: String) {
                                 onProgress(pct.toFloat())
                             }
                         }
-                    val raw = module.callAttr("download", url, outDir, callback).toString()
+                    val raw =
+                        if (ffmpeg.isNullOrBlank()) {
+                            module.callAttr("download", url, outDir, callback).toString()
+                        } else {
+                            module.callAttr("download", url, outDir, callback, ffmpeg).toString()
+                        }
                     parseResult(raw)
                 }.getOrElse { err ->
                     Log.e(TAG, "download failed", err)

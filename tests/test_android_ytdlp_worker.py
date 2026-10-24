@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -31,6 +33,19 @@ class AndroidYtDlpWorkerTests(unittest.TestCase):
         except ImportError as exc:
             raise unittest.SkipTest(f"yt-dlp not installed: {exc}") from exc
         cls.worker = _load_worker()
+        cls.system_ffmpeg = shutil.which("ffmpeg")
+
+    def test_format_selector_single_without_ffmpeg(self) -> None:
+        fmt = self.worker.format_selector(None)
+        self.assertNotIn("+", fmt)
+        self.assertEqual(fmt, self.worker.format_selector("/no/such/ffmpeg"))
+
+    def test_format_selector_merge_with_executable_ffmpeg(self) -> None:
+        if not self.system_ffmpeg:
+            self.skipTest("system ffmpeg not on PATH")
+        fmt = self.worker.format_selector(self.system_ffmpeg)
+        self.assertIn("bestvideo", fmt)
+        self.assertIn("+", fmt)
 
     def test_resolve_title_real_video(self) -> None:
         # Me at the zoo — stable public short used across smokes.
@@ -51,6 +66,26 @@ class AndroidYtDlpWorkerTests(unittest.TestCase):
             self.assertTrue(path.is_file(), path)
             self.assertGreater(path.stat().st_size, 1000)
             self.assertTrue(str(payload.get("title") or "").strip())
+            self.assertFalse(payload.get("merged"), "no ffmpeg_location → single-file")
+
+    def test_download_merge_with_system_ffmpeg(self) -> None:
+        if not self.system_ffmpeg:
+            self.skipTest("system ffmpeg not on PATH")
+        with tempfile.TemporaryDirectory(prefix="yts-android-merge-") as tmp:
+            raw = self.worker.download(
+                "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+                tmp,
+                callback=None,
+                ffmpeg_location=self.system_ffmpeg,
+            )
+            payload = json.loads(raw)
+            self.assertTrue(payload.get("ok"), payload)
+            self.assertTrue(payload.get("merged"), payload)
+            path = Path(payload["path"])
+            self.assertTrue(path.is_file(), path)
+            self.assertGreater(path.stat().st_size, 1000)
+            # Merge path should leave a single playable container (mp4 preferred).
+            self.assertIn(path.suffix.lower(), {".mp4", ".mkv", ".webm"})
 
 
 if __name__ == "__main__":
