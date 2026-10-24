@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">YTS Quest Companion</string>
-    <string name="parity_note">Desktop Suite remains the downloader. This Quest 2D panel only collects URLs for inbox handoff. Immersive OpenXR / store packaging is later. On-device media download is not included.</string>
+    <string name="parity_note">Quest 2D panel: oEmbed titles + on-device yt-dlp download (single-file). Immersive OpenXR / Horizon Store packaging is later. Watermark / ffmpeg merge still later. Desktop Suite remains the richest path.</string>
     <string name="empty_queue">Queue is empty. Paste a URL (or ADB SEND) into this panel.</string>
     <string name="export_folder_none">Export folder: not set — use Export to Downloads for ADB pull</string>
 </resources>

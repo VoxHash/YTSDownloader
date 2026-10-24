@@ -20,6 +20,7 @@ import com.google.android.material.textfield.TextInputEditText
 import android.widget.TextView
 import java.io.File
 import java.io.OutputStreamWriter
+import java.util.ArrayDeque
 
 open class MainActivity : AppCompatActivity() {
     private lateinit var store: QueueStore
@@ -29,6 +30,8 @@ open class MainActivity : AppCompatActivity() {
     private lateinit var adapter: QueueAdapter
     private val items = mutableListOf<QueueItem>()
     private val resolving = mutableSetOf<String>()
+    private val downloadQueue = ArrayDeque<String>()
+    private var downloadActive = false
 
     private val createDocument =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -53,22 +56,43 @@ open class MainActivity : AppCompatActivity() {
         store = QueueStore(this)
         items.clear()
         items.addAll(store.load())
+        // Reset in-flight states after process death.
+        for (i in items.indices) {
+            val st = items[i].downloadStatus
+            if (st == DownloadStatus.DOWNLOADING || st == DownloadStatus.QUEUED) {
+                items[i] =
+                    items[i].copy(
+                        downloadStatus = DownloadStatus.IDLE,
+                        progress = 0f,
+                        error = "",
+                    )
+            }
+        }
 
         urlInput = findViewById(R.id.urlInput)
         emptyLabel = findViewById(R.id.emptyLabel)
         exportFolderLabel = findViewById(R.id.exportFolderLabel)
         val queueList = findViewById<RecyclerView>(R.id.queueList)
 
-        adapter = QueueAdapter(items, resolving) { index ->
-            items.removeAt(index)
-            persistAndRefresh()
-        }
+        adapter =
+            QueueAdapter(
+                items,
+                resolving,
+                onRemove = { index ->
+                    items.removeAt(index)
+                    persistAndRefresh()
+                },
+                onDownload = { index ->
+                    if (index in items.indices) enqueueDownload(items[index].url)
+                },
+            )
         queueList.layoutManager = LinearLayoutManager(this)
         queueList.adapter = adapter
 
         findViewById<MaterialButton>(R.id.addButton).setOnClickListener { addFromInput() }
         findViewById<MaterialButton>(R.id.clearButton).setOnClickListener {
             items.clear()
+            downloadQueue.clear()
             persistAndRefresh()
         }
         findViewById<MaterialButton>(R.id.pickFolderButton).setOnClickListener {
@@ -79,10 +103,15 @@ open class MainActivity : AppCompatActivity() {
             exportToDownloads()
         }
         findViewById<MaterialButton>(R.id.shareButton).setOnClickListener { sharePayload() }
+        findViewById<MaterialButton>(R.id.downloadQueueButton).setOnClickListener {
+            enqueueAllDownloads()
+        }
 
         refreshExportFolderLabel()
         persistAndRefresh()
         items.filter { it.title.isBlank() }.forEach { scheduleResolve(it.url) }
+        // Warm Python/yt-dlp off the critical path.
+        Thread { runCatching { YtDlpBridge.ensureStarted(this) } }.start()
         handleIncomingIntent(intent)
     }
 
@@ -107,9 +136,15 @@ open class MainActivity : AppCompatActivity() {
             ACTION_EXPORT_DOWNLOADS -> {
                 exportToDownloads()
             }
+            ACTION_DOWNLOAD_QUEUE -> {
+                enqueueAllDownloads()
+            }
         }
         if (intent.getBooleanExtra(EXTRA_EXPORT_DOWNLOADS, false)) {
             exportToDownloads()
+        }
+        if (intent.getBooleanExtra(EXTRA_DOWNLOAD_QUEUE, false)) {
+            enqueueAllDownloads()
         }
     }
 
@@ -153,6 +188,125 @@ open class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun enqueueAllDownloads() {
+        if (items.isEmpty()) {
+            Toast.makeText(this, R.string.empty_queue, Toast.LENGTH_SHORT).show()
+            return
+        }
+        var added = 0
+        items.forEach { item ->
+            if (item.downloadStatus != DownloadStatus.DONE &&
+                item.downloadStatus != DownloadStatus.DOWNLOADING &&
+                item.downloadStatus != DownloadStatus.QUEUED
+            ) {
+                if (enqueueDownload(item.url, toast = false)) added++
+            }
+        }
+        if (added > 0) {
+            Toast.makeText(this, R.string.download_started, Toast.LENGTH_SHORT).show()
+        } else if (downloadActive || downloadQueue.isNotEmpty()) {
+            Toast.makeText(this, R.string.download_busy, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun enqueueDownload(url: String, toast: Boolean = true): Boolean {
+        val idx = items.indexOfFirst { it.url.equals(url, ignoreCase = true) }
+        if (idx < 0) return false
+        val cur = items[idx]
+        if (cur.downloadStatus == DownloadStatus.DOWNLOADING ||
+            cur.downloadStatus == DownloadStatus.QUEUED
+        ) {
+            if (toast) Toast.makeText(this, R.string.download_busy, Toast.LENGTH_SHORT).show()
+            return false
+        }
+        if (downloadQueue.any { it.equals(url, ignoreCase = true) }) return false
+        items[idx] =
+            cur.copy(
+                downloadStatus = DownloadStatus.QUEUED,
+                progress = 0f,
+                error = "",
+            )
+        downloadQueue.addLast(url)
+        persistAndRefresh()
+        if (toast) Toast.makeText(this, R.string.download_started, Toast.LENGTH_SHORT).show()
+        pumpDownloads()
+        return true
+    }
+
+    private fun pumpDownloads() {
+        if (downloadActive) return
+        val next = downloadQueue.pollFirst() ?: return
+        val idx = items.indexOfFirst { it.url.equals(next, ignoreCase = true) }
+        if (idx < 0) {
+            pumpDownloads()
+            return
+        }
+        downloadActive = true
+        items[idx] =
+            items[idx].copy(
+                downloadStatus = DownloadStatus.DOWNLOADING,
+                progress = 0f,
+                error = "",
+            )
+        persistAndRefresh()
+        val url = items[idx].url
+        YtDlpBridge.downloadAsync(
+            this,
+            url,
+            onProgress = { pct ->
+                runOnUiThread {
+                    val i = items.indexOfFirst { it.url.equals(url, ignoreCase = true) }
+                    if (i < 0) return@runOnUiThread
+                    items[i] =
+                        items[i].copy(
+                            downloadStatus = DownloadStatus.DOWNLOADING,
+                            progress = pct,
+                        )
+                    adapter.notifyItemChanged(i)
+                }
+            },
+            onDone = { result ->
+                runOnUiThread {
+                    downloadActive = false
+                    val i = items.indexOfFirst { it.url.equals(url, ignoreCase = true) }
+                    if (i >= 0) {
+                        if (result.ok) {
+                            val title =
+                                result.title.takeIf { it.isNotBlank() } ?: items[i].title
+                            items[i] =
+                                items[i].copy(
+                                    title = title,
+                                    downloadStatus = DownloadStatus.DONE,
+                                    progress = 100f,
+                                    localPath = result.path,
+                                    error = "",
+                                )
+                            Toast.makeText(
+                                this,
+                                getString(R.string.download_done, File(result.path).name),
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        } else {
+                            val err = result.error.ifBlank { "unknown error" }
+                            items[i] =
+                                items[i].copy(
+                                    downloadStatus = DownloadStatus.ERROR,
+                                    error = err,
+                                )
+                            Toast.makeText(
+                                this,
+                                getString(R.string.download_failed, err),
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                        persistAndRefresh()
+                    }
+                    pumpDownloads()
+                }
+            },
+        )
     }
 
     private fun persistAndRefresh() {
@@ -286,10 +440,13 @@ open class MainActivity : AppCompatActivity() {
         private val rows: List<QueueItem>,
         private val resolving: Set<String>,
         private val onRemove: (Int) -> Unit,
+        private val onDownload: (Int) -> Unit,
     ) : RecyclerView.Adapter<QueueAdapter.VH>() {
         class VH(val root: android.view.View) : RecyclerView.ViewHolder(root) {
             val title: TextView = root.findViewById(R.id.itemTitle)
             val url: TextView = root.findViewById(R.id.itemUrl)
+            val status: TextView = root.findViewById(R.id.itemStatus)
+            val download: MaterialButton = root.findViewById(R.id.downloadButton)
             val remove: MaterialButton = root.findViewById(R.id.removeButton)
         }
 
@@ -318,6 +475,41 @@ open class MainActivity : AppCompatActivity() {
                 } else {
                     android.view.View.GONE
                 }
+
+            val ctx = holder.root.context
+            val statusText =
+                when (item.downloadStatus) {
+                    DownloadStatus.IDLE ->
+                        if (item.localPath.isNotBlank()) {
+                            ctx.getString(R.string.status_done)
+                        } else {
+                            null
+                        }
+                    DownloadStatus.QUEUED -> ctx.getString(R.string.status_queued)
+                    DownloadStatus.DOWNLOADING ->
+                        ctx.getString(R.string.status_downloading, item.progress.toInt())
+                    DownloadStatus.DONE ->
+                        ctx.getString(R.string.status_done) +
+                            if (item.localPath.isNotBlank()) " · ${File(item.localPath).name}" else ""
+                    DownloadStatus.ERROR ->
+                        ctx.getString(R.string.status_error) +
+                            if (item.error.isNotBlank()) ": ${item.error}" else ""
+                }
+            if (statusText.isNullOrBlank()) {
+                holder.status.visibility = android.view.View.GONE
+            } else {
+                holder.status.visibility = android.view.View.VISIBLE
+                holder.status.text = statusText
+            }
+
+            val busy =
+                item.downloadStatus == DownloadStatus.DOWNLOADING ||
+                    item.downloadStatus == DownloadStatus.QUEUED
+            holder.download.isEnabled = !busy
+            holder.download.setOnClickListener {
+                val pos = holder.bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) onDownload(pos)
+            }
             holder.remove.setOnClickListener {
                 val pos = holder.bindingAdapterPosition
                 if (pos != RecyclerView.NO_POSITION) onRemove(pos)
@@ -330,5 +522,7 @@ open class MainActivity : AppCompatActivity() {
     companion object {
         const val ACTION_EXPORT_DOWNLOADS = "dev.voxhash.ytscompanion.action.EXPORT_DOWNLOADS"
         const val EXTRA_EXPORT_DOWNLOADS = "yts_export_downloads"
+        const val ACTION_DOWNLOAD_QUEUE = "dev.voxhash.ytscompanion.action.DOWNLOAD_QUEUE"
+        const val EXTRA_DOWNLOAD_QUEUE = "yts_download_queue"
     }
 }

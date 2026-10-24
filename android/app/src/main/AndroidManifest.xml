@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- INTERNET: on-device oEmbed title resolve (YouTube / noembed). No cloud sync of the queue. -->
+    <!-- INTERNET: oEmbed title resolve + on-device yt-dlp. No cloud sync of the queue. -->
     <!-- No Google Play Services / FCM. Sideload via ADB works on GrapheneOS. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
@@ -30,6 +30,11 @@
             <!-- ADB / automation: write inbox JSON without SAF or share chooser. -->
             <intent-filter>
                 <action android:name="dev.voxhash.ytscompanion.action.EXPORT_DOWNLOADS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <!-- ADB: start on-device yt-dlp for queued URLs (slice 2). -->
+            <intent-filter>
+                <action android:name="dev.voxhash.ytscompanion.action.DOWNLOAD_QUEUE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

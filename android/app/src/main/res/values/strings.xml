@@ -8,6 +8,8 @@
     <string name="export_downloads">Export to Downloads</string>
     <string name="share_payload">Share payload</string>
     <string name="clear_queue">Clear queue</string>
+    <string name="download_queue">Download queue</string>
+    <string name="download_one">DL</string>
     <string name="pick_export_folder">Choose export folder (SAF)</string>
     <string name="export_folder_label">Export folder: %1$s</string>
     <string name="export_folder_none">Export folder: not set (share, Downloads, or create document)</string>
@@ -17,8 +19,16 @@
     <string name="exported">Wrote companion inbox payload</string>
     <string name="exported_downloads">Wrote %1$s (Downloads + app files)</string>
     <string name="export_failed">Export failed</string>
-    <string name="parity_note">On-device title resolve (oEmbed) + local queue. Desktop Suite remains the downloader — no on-device yt-dlp / watermark yet.</string>
+    <string name="parity_note">On-device oEmbed titles + yt-dlp download (single-file). Watermark / ffmpeg merge / full desktop queue parity still later. Desktop Suite remains the richest path.</string>
     <string name="remove">Remove</string>
     <string name="resolving_title">Resolving title…</string>
     <string name="resolve_failed">Title unavailable (URL kept)</string>
+    <string name="download_started">On-device download started</string>
+    <string name="download_done">Saved %1$s</string>
+    <string name="download_failed">Download failed: %1$s</string>
+    <string name="download_busy">Already downloading</string>
+    <string name="status_queued">Queued</string>
+    <string name="status_downloading">Downloading %1$d%%</string>
+    <string name="status_done">Downloaded</string>
+    <string name="status_error">Error</string>
 </resources>

@@ -12,8 +12,8 @@ Desktop tool by **VoxHash Technologies** for downloading short-form videos from 
 - [CLI Notes](cli.md)
 - [API Surface](api.md)
 - [Architecture](architecture.md) (includes [browser companion handoff](architecture.md#browser-companion-handoff-contract))
-- [Android companion](android.md) (oEmbed title resolve + queue; GrapheneOS ADB sideload; desktop remains the downloader)
-- [Meta Quest 3 companion](quest.md) (Horizon OS 2D panel queue shell; desktop remains the downloader)
+- [Android companion](android.md) (oEmbed titles + on-device yt-dlp single-file download; GrapheneOS ADB sideload; desktop remains the richest path)
+- [Meta Quest 3 companion](quest.md) (Horizon OS 2D panel queue shell + shared yt-dlp stack; immersive / Store later)
 - [Troubleshooting](troubleshooting.md)
 - [FAQ](faq.md)
 

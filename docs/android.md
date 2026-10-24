@@ -1,8 +1,6 @@
 # Android companion (GrapheneOS-friendly)
 
-Lightweight **URL companion** for YTSDownloader with **on-device title resolve** (v0.8.0 Suite path slice 1). The desktop Suite remains the primary downloader; this app collects media page URLs (and optional titles) and exports companion-inbox payloads the Suite already understands.
-
-**Not** full Suite feature parity (yt-dlp download, watermark, desktop-class queue workers). Remaining work stays under ROADMAP → Later.
+Lightweight **Suite path** companion for YTSDownloader with **on-device title resolve** (oEmbed, v0.8.0) and **on-device yt-dlp download** (Chaquopy, v0.9.0 slice 2). Desktop Suite remains the richest path (watermark, ffmpeg merge, format presets, cookies).
 
 ## What ships in this slice
 
@@ -12,19 +10,22 @@ Lightweight **URL companion** for YTSDownloader with **on-device title resolve**
 | Share sheet (`ACTION_SEND` text) → queue | Yes |
 | On-device **title resolve** (YouTube oEmbed + noembed fallback) | Yes (v0.8.0) |
 | Queue rows show title + URL | Yes (v0.8.0) |
+| On-device **yt-dlp download** (single-file formats, Chaquopy Python 3.12) | Yes (v0.9.0) |
+| Queue download status (queued / downloading / done / error) | Yes (v0.9.0) |
 | Export JSON via Storage Access Framework (folder or create-document) | Yes |
 | Export to Downloads / app files (no SAF chooser); optional `title` in payload | Yes |
 | Share NDJSON / JSONL payload | Yes |
-| On-device yt-dlp download / extract / watermark | No (desktop Suite) |
+| Bundled ffmpeg merge / watermark / desktop-class workers | No (Later) |
 | Google Play Services / FCM | None (ADB sideload only) |
 | Cleartext HTTP | Off by default (`usesCleartextTraffic=false` + network security config) |
 
-Payload shapes match [Architecture → Browser companion handoff](architecture.md#browser-companion-handoff-contract) (`schema: 1`, `url`, `source: android-companion`).
+Payload shapes match [Architecture → Browser companion handoff](architecture.md#browser-companion-handoff-contract) (`schema: 1`, `url`, `source: android-companion`). Media files stay on-device under app-specific storage; inbox export remains the handoff for desktop Suite enqueue.
 
 ## Prerequisites
 
 - JDK **17** (`JAVA_HOME`)
-- Android SDK with **platform 36** (or 35) and **build-tools 35.x** already installed under `ANDROID_HOME` (the scaffold targets compileSdk 36 / build-tools 35.0.0 so it does not need a writable SDK to download packages)
+- Android SDK with **platform 36** (or 35) and **build-tools 35.x** already installed under `ANDROID_HOME`
+- Host **Python 3.12** on `PATH` (or `CHAQUOPY_PYTHON`) — Chaquopy pip-installs yt-dlp at build time
 - `adb` for install / smoke
 
 ## Build
@@ -35,13 +36,15 @@ From the repo root (fish-safe — invoke the script; do not `source` bash activa
 ./scripts/build_android.sh
 ```
 
+Optional: `export CHAQUOPY_PYTHON=/path/to/python3.12` if `python3.12` is not discovered.
+
 Debug APK path:
 
 `android/app/build/outputs/apk/phone/debug/app-phone-debug.apk`
 
 Application id (debug): `dev.voxhash.ytscompanion.debug`
 
-Meta Quest 3 uses a separate flavor — see [quest.md](quest.md) / `./scripts/build_quest.sh`.
+First Chaquopy build downloads the Python runtime + `yt-dlp==2026.10.21` into the APK (tens of MB; arm64-v8a + x86_64). Meta Quest 3 uses a separate flavor — see [quest.md](quest.md) / `./scripts/build_quest.sh` (same yt-dlp stack).
 
 ## Install on GrapheneOS / Pixel (ADB sideload)
 
@@ -82,11 +85,22 @@ adb shell am start -n dev.voxhash.ytscompanion.debug/dev.voxhash.ytscompanion.Ma
 ```bash
 adb -s <pixel-serial> shell am start -n dev.voxhash.ytscompanion.debug/dev.voxhash.ytscompanion.MainActivity \
   -a android.intent.action.SEND -t 'text/plain' \
-  --es android.intent.extra.TEXT 'https://example.com/watch?v=test'
+  --es android.intent.extra.TEXT 'https://www.youtube.com/watch?v=jNQXAC9IVRw'
 ```
 
 3. Confirm queue prefs: `run-as` → `shared_prefs/yts_companion.xml` (`queue_urls`).
-4. Preferred ADB handoff (no SAF / share chooser): **Export to Downloads** — MediaStore `Download/YTSCompanion/*.json` plus app-files copy under `Android/data/.../files/Download/`.
+4. **On-device download** (v0.9.0): tap **Download queue** / per-row **DL**, or ADB:
+
+```bash
+adb -s <pixel-serial> shell am start -n dev.voxhash.ytscompanion.debug/dev.voxhash.ytscompanion.MainActivity \
+  -a dev.voxhash.ytscompanion.action.DOWNLOAD_QUEUE
+
+adb -s <pixel-serial> shell ls -la /sdcard/Android/data/dev.voxhash.ytscompanion.debug/files/Movies/YTSCompanion/
+```
+
+Helper: `./scripts/smoke_android_download.sh` (builds must already exist; prefers Pixel `29211FDH300NEB`, scans farm adb ports for `cheetah`).
+
+5. Preferred ADB **inbox** handoff (no SAF / share chooser): **Export to Downloads** — MediaStore `Download/YTSCompanion/*.json` plus app-files copy under `Android/data/.../files/Download/`.
 
 ```bash
 adb -s <pixel-serial> shell am start -n dev.voxhash.ytscompanion.debug/dev.voxhash.ytscompanion.MainActivity \
@@ -98,18 +112,20 @@ adb -s <pixel-serial> pull /sdcard/Download/YTSCompanion/yts_companion_<stamp>.j
 
 Or tap **Export to Downloads** in the app. Equivalent extra: `--ez yts_export_downloads true`.
 
-5. Optional on-device paths (verified on Pixel 7 Pro / Android 17 with **uiautomator2**; stock `adb shell uiautomator dump` often omits `ChooserActivity` / DocumentsUI details):
+6. Optional on-device paths (verified on Pixel 7 Pro / Android 17 with **uiautomator2**; stock `adb shell uiautomator dump` often omits `ChooserActivity` / DocumentsUI details):
    - **Share payload** — opens system chooser with NDJSON/`text/plain`; Copy / Keep notes / Files targets work; Google “Save” rejects raw text.
    - **Choose export folder (SAF)** — pick `Download/YTSCompanion` (or another writable folder) → Allow → label shows `content://…/tree/…`; **Export inbox file** writes JSON into that tree.
    - **Create document** — with export folder unset, **Export inbox file** opens DocumentsUI SAVE; confirm into Downloads (or the last browsed folder) and `adb pull`.
-6. On desktop, drop the JSON into `.ytsdownloader/inbox/` (or append NDJSON to `companion_inbox.jsonl`) while the Suite is running — or verify with `consume_companion_inbox` / `parse_companion_payload` (`schema: 1`, `source: android-companion`).
-7. Confirm the Suite enqueues the URL (same path as Link Grabber / drop zone).
+7. On desktop, drop the JSON into `.ytsdownloader/inbox/` (or append NDJSON to `companion_inbox.jsonl`) while the Suite is running — or verify with `consume_companion_inbox` / `parse_companion_payload` (`schema: 1`, `source: android-companion`).
+8. Confirm the Suite enqueues the URL (same path as Link Grabber / drop zone).
 
 Logcat (errors only):
 
 ```bash
 adb logcat -d --pid="$(adb shell pidof -s dev.voxhash.ytscompanion.debug)" '*:E'
 ```
+
+Also useful: `python.stderr` / `YtDlpBridge` tags when diagnosing on-device yt-dlp.
 
 ### Troubleshooting: Pixel in `lsusb` but not in `adb devices`
 
@@ -122,4 +138,4 @@ A USB farm with many phones often leaves **extra `adb` servers** listening on po
 
 ## Desktop handoff reminder
 
-Companions must not download media bytes. Write complete inbox files; the Suite polls and resolves with yt-dlp. See [architecture.md](architecture.md#local-inbox-protocol-v1).
+Inbox export still feeds the Suite queue. On-device yt-dlp (slice 2) writes media into app storage for local playback / pull; it does **not** replace desktop watermark / merge / preset workers. See [architecture.md](architecture.md#local-inbox-protocol-v1).

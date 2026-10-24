@@ -1,10 +1,10 @@
 # Roadmap
 
-Current product baseline: **v0.8.0** — Android / GrapheneOS companion **on-device title resolve + queue UX** (oEmbed) on the phone flavor, plus Meta Quest 3 **browse/queue shell** (v0.7.x). Desktop Suite remains primary downloader. Pixel 7 Pro and Quest 3 ADB handoff paths documented.
+Current product baseline: **v0.9.0** — Android / GrapheneOS companion **on-device yt-dlp download workers** (Chaquopy + single-file formats) plus oEmbed titles (v0.8.0) and Meta Quest 3 **browse/queue shell** (v0.7.x). Desktop Suite remains the richest downloader (watermark / ffmpeg merge / full queue parity still later).
 
-## Now (v0.8.x)
+## Now (v0.9.x)
 
-- [x] **Android / GrapheneOS** Suite path — **slice 1**: on-device title resolve (YouTube oEmbed + noembed fallback) and queue rows showing title + URL; export payloads may include `title`. On-device yt-dlp download / watermark / full worker parity **not** done — desktop Suite remains the downloader. See [docs/android.md](docs/android.md).
+- [x] **Android / GrapheneOS** Suite path — **slice 2**: on-device yt-dlp download via Chaquopy (pinned `yt-dlp==2026.10.21`), queue status (queued / downloading / done / error), per-row + **Download queue** actions, files under app `Movies/YTSCompanion/`, ADB `DOWNLOAD_QUEUE`. Single-file formats only (no bundled ffmpeg merge). Watermark / full desktop-class workers **not** done. See [docs/android.md](docs/android.md).
 
 ## Next
 
@@ -14,9 +14,9 @@ _(no active desktop milestone — see Later)_
 
 ### Platforms
 
-- [ ] **Android / GrapheneOS** Suite path — remaining: on-device yt-dlp resolve/download workers, watermark, full queue parity with desktop. Companion handoff + oEmbed titles (v0.8.0) are the interim bridge.
+- [ ] **Android / GrapheneOS** Suite path — remaining: bundled ffmpeg merge, watermark overlay, desktop-class multi-worker / format presets / cookie parity. Slice 1 (oEmbed) + slice 2 (yt-dlp single-file download) ship as the on-device bridge.
 - [ ] **Meta Quest 3** immersive / Horizon Store packaging — OpenXR or Spatial SDK beyond the 2D panel Unknown Sources shell; downloads still constrained by store policies and local storage.
-- [x] **Meta Quest 3** browse/queue shell (scaffold) — Horizon OS 2D panel product flavor (`quest`); landscape / larger hit targets; inbox `source: quest-companion`; `./scripts/build_quest.sh` + [docs/quest.md](docs/quest.md). Quest ADB install + 2D registration verified (`eureka` / `2G0YC5ZGB6031R`). **On-headset SEND/EXPORT** still needs one manual **Library → Unknown Sources** open after install (Horizon filters cold `am start` / `metavr app launch` with Error type 3; VR passcode + Meta-button Library are not automatable without the Store PIN / worn session). Smoke falls back to Pixel with the same Quest APK. Immersive OpenXR / Horizon Store / on-device download **not** done.
+- [x] **Meta Quest 3** browse/queue shell (scaffold) — Horizon OS 2D panel product flavor (`quest`); landscape / larger hit targets; inbox `source: quest-companion`; `./scripts/build_quest.sh` + [docs/quest.md](docs/quest.md). Quest ADB install + 2D registration verified (`eureka` / `2G0YC5ZGB6031R`). **On-headset SEND/EXPORT** still needs one manual **Library → Unknown Sources** open after install (Horizon filters cold `am start` / `metavr app launch` with Error type 3; VR passcode + Meta-button Library are not automatable without the Store PIN / worn session). Smoke falls back to Pixel with the same Quest APK. Immersive OpenXR / Horizon Store **not** done (on-device yt-dlp now shared with phone flavor via slice 2).
 
 ### Native / core (deferred with rationale)
 

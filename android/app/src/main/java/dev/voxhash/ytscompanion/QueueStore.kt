@@ -22,7 +22,16 @@ class QueueStore(context: Context) {
                 is JSONObject -> {
                     val url = value.optString("url").trim()
                     if (url.isEmpty()) continue
-                    out.add(QueueItem(url = url, title = value.optString("title").trim()))
+                    out.add(
+                        QueueItem(
+                            url = url,
+                            title = value.optString("title").trim(),
+                            downloadStatus = DownloadStatus.fromWire(value.optString("downloadStatus")),
+                            progress = value.optDouble("progress", 0.0).toFloat(),
+                            localPath = value.optString("localPath").trim(),
+                            error = value.optString("error").trim(),
+                        ),
+                    )
                 }
             }
         }
@@ -35,7 +44,11 @@ class QueueStore(context: Context) {
             arr.put(
                 JSONObject()
                     .put("url", item.url)
-                    .put("title", item.title),
+                    .put("title", item.title)
+                    .put("downloadStatus", item.downloadStatus.name)
+                    .put("progress", item.progress.toDouble())
+                    .put("localPath", item.localPath)
+                    .put("error", item.error),
             )
         }
         prefs.edit().putString(KEY_URLS, arr.toString()).apply()

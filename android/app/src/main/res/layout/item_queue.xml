@@ -27,7 +27,24 @@
             android:ellipsize="middle"
             android:maxLines="2"
             android:textAppearance="?attr/textAppearanceCaption" />
+
+        <TextView
+            android:id="@+id/itemStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAppearance="?attr/textAppearanceCaption"
+            android:visibility="gone" />
     </LinearLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/downloadButton"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minWidth="0dp"
+        android:text="@string/download_one" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/removeButton"

@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.chaquo.python")
 }
 
 android {
@@ -13,10 +14,14 @@ android {
         applicationId = "dev.voxhash.ytscompanion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.8.0"
+        versionCode = 5
+        versionName = "0.9.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "COMPANION_SOURCE", "\"android-companion\"")
+        ndk {
+            // Chaquopy Python 3.12+: 64-bit only. Pixel 7 Pro + Quest 3 are arm64-v8a.
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
     }
 
     flavorDimensions += "device"
@@ -62,8 +67,30 @@ android {
     }
 
     packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+}
+
+chaquopy {
+    defaultConfig {
+        version = "3.12"
+        // Prefer CHAQUOPY_PYTHON, then common python3.12 locations (fish-safe builds).
+        val py =
+            sequenceOf(
+                System.getenv("CHAQUOPY_PYTHON"),
+                "/home/raider/.local/bin/python3.12",
+                "/usr/bin/python3.12",
+            ).firstOrNull { !it.isNullOrBlank() && file(it!!).exists() }
+                ?: "python3.12"
+        buildPython(py)
+        pip {
+            // Pin to the same yt-dlp line the desktop Suite uses in this checkout.
+            install("yt-dlp==2026.10.21")
         }
     }
 }

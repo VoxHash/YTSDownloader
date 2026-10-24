@@ -51,7 +51,7 @@ object UrlResolver {
             readTimeout = 8_000
             requestMethod = "GET"
             setRequestProperty("Accept", "application/json")
-            setRequestProperty("User-Agent", "YTSCompanion/0.8 (+https://github.com/VoxHash/YTSDownloader)")
+            setRequestProperty("User-Agent", "YTSCompanion/0.9 (+https://github.com/VoxHash/YTSDownloader)")
             instanceFollowRedirects = true
         }
         try {

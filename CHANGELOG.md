@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-24
+
+### Added
+- **Android Suite path (slice 2):** on-device yt-dlp download via Chaquopy (Python 3.12 + pinned `yt-dlp==2026.10.21`); queue status + per-row / **Download queue** actions; media under app `Movies/YTSCompanion/`; ADB action `dev.voxhash.ytscompanion.action.DOWNLOAD_QUEUE`.
+- `./scripts/smoke_android_download.sh` — install + SEND + DOWNLOAD_QUEUE smoke (Pixel serial preferred; farm-port scan for `cheetah`).
+- Host unit coverage for the Android `yts_dlp_worker` module (`tests/test_android_ytdlp_worker.py`).
+
+### Changed
+- ROADMAP: v0.9.0 Android yt-dlp single-file download checked; watermark / ffmpeg merge / full desktop parity stays Later.
+- Docs: [docs/android.md](docs/android.md) download path + honesty on single-file limits.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.9.0** / 5.
+
 ## [0.8.0] - 2026-10-23
 
 ### Added
@@ -280,7 +292,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.1...v0.6.2

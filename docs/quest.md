@@ -2,7 +2,7 @@
 
 Headset-side **browse/queue shell** for YTSDownloader. The desktop Suite remains the primary downloader; this panel collects media page URLs and exports companion-inbox payloads (`source: quest-companion`).
 
-**Not** immersive OpenXR, Horizon Store packaging, or on-device yt-dlp download. Store policies and local headset storage still constrain any future download path.
+**Not** immersive OpenXR or Horizon Store packaging. On-device yt-dlp single-file download is shared with the phone flavor (v0.9.0); watermark / ffmpeg merge still later. Store policies and headset storage still constrain immersive packaging.
 
 ## What ships in this slice
 
@@ -122,4 +122,4 @@ adb -s "$QUEST_SERIAL" logcat -d \
 
 ## Desktop handoff reminder
 
-Companions must not download media bytes. Write complete inbox files; the Suite polls and resolves with yt-dlp. See [architecture.md](architecture.md#local-inbox-protocol-v1).
+Inbox export still feeds the desktop Suite. On-device yt-dlp (when the panel is open via Unknown Sources) writes media under app storage; desktop remains the richest watermark / merge path. See [architecture.md](architecture.md#local-inbox-protocol-v1).
