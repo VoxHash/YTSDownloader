@@ -66,10 +66,38 @@ class QueueStore(context: Context) {
         prefs.edit().putBoolean(KEY_WATERMARK, enabled).apply()
     }
 
+    fun getExportPreset(): String =
+        ExportPresets.normalize(prefs.getString(KEY_PRESET, ExportPresets.VIDEO_AUDIO))
+
+    fun setExportPreset(preset: String) {
+        val normalized = ExportPresets.normalize(preset)
+        prefs.edit().putString(KEY_PRESET, normalized).apply()
+        // Keep legacy watermark flag in sync for ADB / older smoke paths.
+        setWatermarkEnabled(ExportPresets.usesWatermark(normalized))
+    }
+
+    /** Bounded concurrent download workers (desktop MAX_WORKERS default = 2). */
+    fun getMaxWorkers(): Int =
+        prefs.getInt(KEY_MAX_WORKERS, DEFAULT_MAX_WORKERS).coerceIn(1, YtDlpBridge.MAX_POOL_WORKERS)
+
+    fun setMaxWorkers(n: Int) {
+        prefs.edit().putInt(KEY_MAX_WORKERS, n.coerceIn(1, YtDlpBridge.MAX_POOL_WORKERS)).apply()
+    }
+
+    fun hasCookieFile(): Boolean = prefs.getBoolean(KEY_COOKIES_IMPORTED, false)
+
+    fun setCookieImported(imported: Boolean) {
+        prefs.edit().putBoolean(KEY_COOKIES_IMPORTED, imported).apply()
+    }
+
     companion object {
         private const val PREFS = "yts_companion"
         private const val KEY_URLS = "queue_urls"
         private const val KEY_TREE_URI = "export_tree_uri"
         private const val KEY_WATERMARK = "watermark_enabled"
+        private const val KEY_PRESET = "export_preset"
+        private const val KEY_MAX_WORKERS = "max_workers"
+        private const val KEY_COOKIES_IMPORTED = "cookies_imported"
+        const val DEFAULT_MAX_WORKERS = 2
     }
 }

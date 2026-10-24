@@ -1,6 +1,6 @@
 # Android companion (GrapheneOS-friendly)
 
-Lightweight **Suite path** companion for YTSDownloader with **on-device title resolve** (oEmbed, v0.8.0), **on-device yt-dlp download** (Chaquopy, v0.9.0 slice 2), **bundled ffmpeg merge** (v0.10.0 slice 3), and **optional PNG watermark overlay** (v0.11.0 slice 4). Desktop Suite remains the richest path (multi-worker, format presets, cookies).
+Lightweight **Suite path** companion for YTSDownloader with **on-device title resolve** (oEmbed, v0.8.0), **on-device yt-dlp download** (Chaquopy, v0.9.0 slice 2), **bundled ffmpeg merge** (v0.10.0 slice 3), **optional PNG watermark overlay** (v0.11.0 slice 4), and **multi-worker + SAF cookies + export presets** (v0.12.0 slice 5). Desktop Suite remains richest for deep crawl and cookies-from-browser profiles.
 
 ## What ships in this slice
 
@@ -12,16 +12,30 @@ Lightweight **Suite path** companion for YTSDownloader with **on-device title re
 | Queue rows show title + URL | Yes (v0.8.0) |
 | On-device **yt-dlp download** (Chaquopy Python 3.12) | Yes (v0.9.0) |
 | Bundled **arm64 ffmpeg merge** (`bestvideo+bestaudio` → mp4) | Yes (v0.10.0); single-file fallback if asset/ABI missing |
-| Optional **PNG watermark overlay** (full-frame stretch via bundled ffmpeg) | Yes (v0.11.0); UI switch + ADB `--ez yts_watermark true` |
+| Optional **PNG watermark overlay** (full-frame stretch via bundled ffmpeg) | Yes (v0.11.0); preset `watermark` or ADB `--ez yts_watermark true` |
+| **Multi-worker** concurrent downloads (bounded 1–4, default 2) | Yes (v0.12.0); spinner + ADB `--ei yts_max_workers N` |
+| **Export presets** `audio_only` / `video_audio` / `watermark` | Yes (v0.12.0); spinner + ADB `--es yts_preset …` |
+| **Cookies** Netscape `cookies.txt` via SAF (no Play Services) | Yes (v0.12.0); Pick cookies → app-private copy |
 | Queue download status (queued / downloading / done / error) | Yes (v0.9.0) |
 | Export JSON via Storage Access Framework (folder or create-document) | Yes |
 | Export to Downloads / app files (no SAF chooser); optional `title` in payload | Yes |
 | Share NDJSON / JSONL payload | Yes |
-| Desktop-class multi-worker / cookie + format-preset parity | No (Later) |
+| Cookies-from-browser profiles / deep crawl | Desktop only |
 | Google Play Services / FCM | None (ADB sideload only) |
 | Cleartext HTTP | Off by default (`usesCleartextTraffic=false` + network security config) |
 
 Payload shapes match [Architecture → Browser companion handoff](architecture.md#browser-companion-handoff-contract) (`schema: 1`, `url`, `source: android-companion`). Media files stay on-device under app-specific storage; inbox export remains the handoff for desktop Suite enqueue.
+
+## Cookies on GrapheneOS (no Play Services)
+
+On-device yt-dlp accepts a **Netscape `cookies.txt`** file only (same as desktop `COOKIES_FILE`). There is no cookies-from-browser path on phone/Quest.
+
+1. On a desktop browser you trust, export cookies for the site (Netscape format) to `cookies.txt`.
+2. Copy the file onto the phone (Files, USB, etc.).
+3. In YTS Companion: **Pick cookies.txt (SAF)** → select the file. The app copies it into private storage (`files/cookies/cookies.txt`).
+4. **Clear cookies** removes the app copy.
+
+Do not commit cookie files. Private / age-gated media still needs a valid export; public smoke URLs work without cookies.
 
 ## Prerequisites
 
@@ -91,18 +105,24 @@ adb -s <pixel-serial> shell am start -n dev.voxhash.ytscompanion.debug/dev.voxha
 ```
 
 3. Confirm queue prefs: `run-as` → `shared_prefs/yts_companion.xml` (`queue_urls`).
-4. **On-device download** (v0.9.0): tap **Download queue** / per-row **DL**, or ADB:
+4. **On-device download** (v0.9.0+): tap **Download queue** / per-row **DL**, or ADB:
 
 ```bash
 adb -s <pixel-serial> shell am start -n dev.voxhash.ytscompanion.debug/dev.voxhash.ytscompanion.MainActivity \
-  -a dev.voxhash.ytscompanion.action.DOWNLOAD_QUEUE
+  -a dev.voxhash.ytscompanion.action.DOWNLOAD_QUEUE \
+  --es yts_preset video_audio \
+  --ei yts_max_workers 2
 
 adb -s <pixel-serial> shell ls -la /sdcard/Android/data/dev.voxhash.ytscompanion.debug/files/Movies/YTSCompanion/
 ```
 
-Helper: `./scripts/smoke_android_download.sh` (builds must already exist; prefers Pixel `29211FDH300NEB`, scans farm adb ports for `cheetah`). Watermark path: `WATERMARK=1 ./scripts/smoke_android_download.sh` (expects `*_wm.*` under app Movies).
+Helper: `./scripts/smoke_android_download.sh` (builds must already exist; prefers Pixel `29211FDH300NEB`, scans farm adb ports for `cheetah`).
 
-**Device smoke (2026-10-24):** Pixel 7 Pro `29211FDH300NEB` / `cheetah` — install phone debug APK, SEND + `DOWNLOAD_QUEUE`, complete files under app `Movies/YTSCompanion/` (merge + optional watermark overlay), no `FATAL EXCEPTION`. If default `adb` (5037) is empty while `lsusb` shows the Pixel, reclaim farm ports or set `ANDROID_ADB_SERVER_PORT` (see troubleshooting).
+- Watermark: `WATERMARK=1` or `PRESET=watermark ./scripts/smoke_android_download.sh`
+- Audio only: `PRESET=audio_only ./scripts/smoke_android_download.sh`
+- Workers: `MAX_WORKERS=3 ./scripts/smoke_android_download.sh`
+
+**Device smoke (2026-10-24):** Pixel 7 Pro `29211FDH300NEB` / `cheetah` — install phone debug APK, SEND + `DOWNLOAD_QUEUE`, complete files under app `Movies/YTSCompanion/` (merge / preset / optional watermark), no `FATAL EXCEPTION`. If default `adb` (5037) is empty while `lsusb` shows the Pixel, reclaim farm ports or set `ANDROID_ADB_SERVER_PORT` (see troubleshooting).
 
 5. Preferred ADB **inbox** handoff (no SAF / share chooser): **Export to Downloads** — MediaStore `Download/YTSCompanion/*.json` plus app-files copy under `Android/data/.../files/Download/`.
 
@@ -120,6 +140,7 @@ Or tap **Export to Downloads** in the app. Equivalent extra: `--ez yts_export_do
    - **Share payload** — opens system chooser with NDJSON/`text/plain`; Copy / Keep notes / Files targets work; Google “Save” rejects raw text.
    - **Choose export folder (SAF)** — pick `Download/YTSCompanion` (or another writable folder) → Allow → label shows `content://…/tree/…`; **Export inbox file** writes JSON into that tree.
    - **Create document** — with export folder unset, **Export inbox file** opens DocumentsUI SAVE; confirm into Downloads (or the last browsed folder) and `adb pull`.
+   - **Pick cookies.txt (SAF)** — select a Netscape export; label shows the app-private copy name.
 7. On desktop, drop the JSON into `.ytsdownloader/inbox/` (or append NDJSON to `companion_inbox.jsonl`) while the Suite is running — or verify with `consume_companion_inbox` / `parse_companion_payload` (`schema: 1`, `source: android-companion`).
 8. Confirm the Suite enqueues the URL (same path as Link Grabber / drop zone).
 
@@ -142,4 +163,4 @@ A USB farm with many phones often leaves **extra `adb` servers** listening on po
 
 ## Desktop handoff reminder
 
-Inbox export still feeds the Suite queue. On-device yt-dlp (slices 2–4) writes media into app storage for local playback / pull (bundled ffmpeg merge + optional full-frame PNG watermark when enabled); it does **not** replace desktop multi-worker / cookie + preset workers. See [architecture.md](architecture.md#local-inbox-protocol-v1).
+Inbox export still feeds the Suite queue. On-device yt-dlp (slices 2–5) writes media into app storage for local playback / pull (merge, presets, multi-worker, optional watermark, optional SAF cookies). Desktop remains richest for deep crawl and cookies-from-browser. See [architecture.md](architecture.md#local-inbox-protocol-v1).

@@ -3,6 +3,8 @@
 Slice 2: single-file formats (no ffmpeg).
 Slice 3: when *ffmpeg_location* is set, prefer bestvideo+bestaudio merge via bundled ffmpeg.
 Slice 4: optional full-frame PNG watermark overlay via the same bundled ffmpeg.
+Slice 5 (v0.12): export presets (audio_only / video_audio / watermark), optional Netscape
+cookiefile (SAF / browser export — no Play Services), concurrent downloads bounded in Kotlin.
 """
 
 from __future__ import annotations
@@ -22,14 +24,52 @@ _FORMAT_MERGE = (
     "bestvideo[height<=720]+bestaudio/"
     "best[height<=720][ext=mp4]/best[ext=mp4]/best[height<=720]/best"
 )
+# On-device: reuse progressive single-file selection (DASH bestaudio often hits
+# Errno 104 on phone networks). Strip to audio after download via ffmpeg.
+_FORMAT_AUDIO = _FORMAT_SINGLE
 
 # Full-frame stretch overlay (matches desktop Suite watermark semantics).
 # scale2ref stretches the PNG to the video frame; overlay composites at 0,0.
 _WM_FILTER = "[1:v][0:v]scale2ref[wm][base];[base][wm]overlay=0:0"
 
+_VALID_PRESETS = frozenset({"audio_only", "video_audio", "watermark"})
 
-def format_selector(ffmpeg_location: str | None) -> str:
-    """Return the yt-dlp format expression for the given ffmpeg availability."""
+
+def resolve_preset(preset: str | None) -> dict[str, Any]:
+    """Map a preset id to media / container / watermark flags (desktop Suite parity)."""
+    key = (preset or "video_audio").strip().lower() or "video_audio"
+    if key not in _VALID_PRESETS:
+        key = "video_audio"
+    if key == "audio_only":
+        return {
+            "preset": "audio_only",
+            "media": "audio",
+            "output_format": "m4a",
+            "use_watermark": False,
+        }
+    if key == "watermark":
+        return {
+            "preset": "watermark",
+            "media": "video",
+            "output_format": "mp4",
+            "use_watermark": True,
+        }
+    return {
+        "preset": "video_audio",
+        "media": "video",
+        "output_format": "mp4",
+        "use_watermark": False,
+    }
+
+
+def format_selector(
+    ffmpeg_location: str | None,
+    *,
+    media: str = "video",
+) -> str:
+    """Return the yt-dlp format expression for media type + ffmpeg availability."""
+    if (media or "video").strip().lower() == "audio":
+        return _FORMAT_AUDIO
     if ffmpeg_location and os.path.isfile(ffmpeg_location) and os.access(ffmpeg_location, os.X_OK):
         return _FORMAT_MERGE
     return _FORMAT_SINGLE
@@ -39,6 +79,13 @@ def _usable_ffmpeg(ffmpeg_location: str | None) -> str | None:
     ff = (ffmpeg_location or "").strip() or None
     if ff and os.path.isfile(ff) and os.access(ff, os.X_OK):
         return ff
+    return None
+
+
+def _usable_cookiefile(cookiefile: str | None) -> str | None:
+    path = (cookiefile or "").strip() or None
+    if path and os.path.isfile(path) and os.path.getsize(path) > 0:
+        return path
     return None
 
 
@@ -150,23 +197,108 @@ def _progress_hook(callback, d: dict[str, Any]) -> None:
         callback.on_progress(100.0, "0")
 
 
+def _maybe_remux_audio(path: str, ffmpeg_location: str, preferred: str = "m4a") -> str | None:
+    """If *path* is not already a common audio file, remux/extract via linker-safe ffmpeg."""
+    ext = os.path.splitext(path)[1].lower().lstrip(".")
+    if ext in ("m4a", "aac", "mp3", "opus", "ogg", "flac", "wav"):
+        return path
+    ff = _usable_ffmpeg(ffmpeg_location)
+    if not ff:
+        return path
+    codec = (preferred or "m4a").strip().lower() or "m4a"
+    out = os.path.splitext(path)[0] + f".{codec}"
+    # -vn drop video if a low-res video fallback was selected; copy audio when possible.
+    cmd = _ffmpeg_argv(
+        ff,
+        "-y",
+        "-i",
+        path,
+        "-vn",
+        "-c:a",
+        "copy" if codec in ("m4a", "aac", "opus", "ogg") else "aac",
+        out,
+    )
+    if codec == "mp3":
+        cmd = _ffmpeg_argv(ff, "-y", "-i", path, "-vn", "-c:a", "libmp3lame", "-q:a", "4", out)
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300, check=False)
+        if proc.returncode == 0 and os.path.isfile(out) and os.path.getsize(out) > 200:
+            if os.path.abspath(out) != os.path.abspath(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            return out
+        # Retry with re-encode if stream copy failed.
+        cmd2 = _ffmpeg_argv(ff, "-y", "-i", path, "-vn", "-c:a", "aac", "-b:a", "192k", out)
+        proc2 = subprocess.run(cmd2, capture_output=True, text=True, timeout=300, check=False)
+        if proc2.returncode == 0 and os.path.isfile(out) and os.path.getsize(out) > 200:
+            if os.path.abspath(out) != os.path.abspath(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            return out
+    except Exception:  # noqa: BLE001
+        return path
+    return path
+
+
+def _resolve_downloaded_path(ydl: yt_dlp.YoutubeDL, info: dict[str, Any], out_dir: str) -> str | None:
+    path = ydl.prepare_filename(info)
+    requested = info.get("requested_downloads") or []
+    if requested:
+        cand = requested[0].get("filepath") or requested[0].get("_filename")
+        if cand:
+            path = cand
+    if path and not os.path.isfile(path):
+        base, _ext = os.path.splitext(path)
+        for cand_ext in (".mp4", ".mkv", ".webm", ".m4a", ".opus", ".mp3"):
+            alt = base + cand_ext
+            if os.path.isfile(alt):
+                path = alt
+                break
+    if path and os.path.isfile(path):
+        return path
+    files = [
+        os.path.join(out_dir, name)
+        for name in os.listdir(out_dir)
+        if os.path.isfile(os.path.join(out_dir, name))
+        and not name.endswith(".part")
+        and not name.endswith(".ytdl")
+    ]
+    if not files:
+        return None
+    return max(files, key=os.path.getmtime)
+
+
 def download(
     url: str,
     out_dir: str,
     callback=None,
     ffmpeg_location: str | None = None,
     watermark_path: str | None = None,
+    cookiefile: str | None = None,
+    preset: str | None = None,
 ) -> str:
-    """Download *url* into *out_dir*. Returns JSON: ok/path/title/error/merged/watermarked."""
+    """Download *url* into *out_dir*.
+
+    Returns JSON: ok/path/title/error/merged/watermarked/preset/media.
+    Empty strings for optional paths are treated as unset (Chaquopy positional args).
+    """
     os.makedirs(out_dir, exist_ok=True)
     outtmpl = os.path.join(out_dir, "%(title).80B [%(id)s].%(ext)s")
     hooks = []
     if callback is not None:
         hooks.append(lambda d: _progress_hook(callback, d))
 
+    resolved = resolve_preset(preset)
+    media = resolved["media"]
+    use_wm = bool(resolved["use_watermark"])
     ff = _usable_ffmpeg(ffmpeg_location)
-    fmt = format_selector(ff)
-    merged = fmt == _FORMAT_MERGE
+    cookies = _usable_cookiefile(cookiefile)
+    fmt = format_selector(ff, media=media)
+    merged = media == "video" and fmt == _FORMAT_MERGE
     watermarked = False
 
     opts: dict[str, Any] = {
@@ -183,7 +315,15 @@ def download(
         # Avoid needing external JS runtimes on device for this slice.
         "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
     }
-    if merged and ff:
+    if cookies:
+        opts["cookiefile"] = cookies
+    if media == "audio":
+        # Prefer progressive download; remux/strip after download via linker-safe ffmpeg.
+        if ff:
+            opts["ffmpeg_location"] = ff
+        # If the selected format is a low progressive mp4 fallback, still ok —
+        # _maybe_remux_audio will -vn extract.
+    elif merged and ff:
         opts["ffmpeg_location"] = ff
         opts["merge_output_format"] = "mp4"
 
@@ -193,45 +333,32 @@ def download(
             info = ydl.extract_info(url, download=True)
             if info is None:
                 return json.dumps(
-                    {"ok": False, "error": "no info", "merged": merged, "watermarked": False}
+                    {
+                        "ok": False,
+                        "error": "no info",
+                        "merged": merged,
+                        "watermarked": False,
+                        "preset": resolved["preset"],
+                        "media": media,
+                    }
                 )
-            path = ydl.prepare_filename(info)
-            # prepare_filename may use the template before remux; prefer requested downloads.
-            requested = info.get("requested_downloads") or []
-            if requested:
-                cand = requested[0].get("filepath") or requested[0].get("_filename")
-                if cand:
-                    path = cand
-            # After merge, extension is often forced to mp4 regardless of template.
-            if path and not os.path.isfile(path):
-                base, _ext = os.path.splitext(path)
-                for cand_ext in (".mp4", ".mkv", ".webm", ".m4a"):
-                    alt = base + cand_ext
-                    if os.path.isfile(alt):
-                        path = alt
-                        break
-            if not path or not os.path.isfile(path):
-                # Fallback: newest file in out_dir (skip partials).
-                files = [
-                    os.path.join(out_dir, name)
-                    for name in os.listdir(out_dir)
-                    if os.path.isfile(os.path.join(out_dir, name))
-                    and not name.endswith(".part")
-                    and not name.endswith(".ytdl")
-                ]
-                if not files:
-                    return json.dumps(
-                        {
-                            "ok": False,
-                            "error": "download finished but file missing",
-                            "merged": merged,
-                            "watermarked": False,
-                        }
-                    )
-                path = max(files, key=os.path.getmtime)
+            path = _resolve_downloaded_path(ydl, info, out_dir)
+            if not path:
+                return json.dumps(
+                    {
+                        "ok": False,
+                        "error": "download finished but file missing",
+                        "merged": merged,
+                        "watermarked": False,
+                        "preset": resolved["preset"],
+                        "media": media,
+                    }
+                )
             title = (info.get("title") or "").strip()
+            if media == "audio" and ff and path:
+                path = _maybe_remux_audio(path, ff, resolved["output_format"] or "m4a") or path
             wm = (watermark_path or "").strip() or None
-            if wm and ff:
+            if use_wm and wm and ff and media == "video":
                 raw_wm = apply_watermark(path, wm, ff)
                 wm_payload = json.loads(raw_wm)
                 if wm_payload.get("ok") and wm_payload.get("path"):
@@ -246,6 +373,8 @@ def download(
                             "watermarked": False,
                             "path": path,
                             "title": title,
+                            "preset": resolved["preset"],
+                            "media": media,
                         }
                     )
             return json.dumps(
@@ -255,23 +384,35 @@ def download(
                     "title": title,
                     "merged": merged,
                     "watermarked": watermarked,
+                    "preset": resolved["preset"],
+                    "media": media,
                 }
             )
     except Exception as exc:  # noqa: BLE001 — surface to Kotlin UI
         return json.dumps(
-            {"ok": False, "error": str(exc), "merged": merged, "watermarked": watermarked}
+            {
+                "ok": False,
+                "error": str(exc),
+                "merged": merged,
+                "watermarked": watermarked,
+                "preset": resolved["preset"],
+                "media": media,
+            }
         )
 
 
-def resolve_title(url: str) -> str:
+def resolve_title(url: str, cookiefile: str | None = None) -> str:
     """Optional yt-dlp title resolve (richer than oEmbed; may be slower)."""
-    opts = {
+    opts: dict[str, Any] = {
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
         "noplaylist": True,
         "extractor_args": {"youtube": {"player_client": ["android", "web"]}},
     }
+    cookies = _usable_cookiefile(cookiefile)
+    if cookies:
+        opts["cookiefile"] = cookies
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)

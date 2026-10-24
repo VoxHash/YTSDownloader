@@ -2,7 +2,7 @@
 
 Headset-side **browse/queue shell** for YTSDownloader. The desktop Suite remains the primary downloader; this panel collects media page URLs and exports companion-inbox payloads (`source: quest-companion`).
 
-**Not** immersive OpenXR or Horizon Store packaging. On-device yt-dlp + bundled ffmpeg merge + optional PNG watermark are shared with the phone flavor (v0.9.0–v0.11.0); multi-worker / cookie + format-preset parity still later. Store policies and headset storage still constrain immersive packaging.
+**Not** immersive OpenXR or Horizon Store packaging. On-device yt-dlp + bundled ffmpeg merge + watermark + multi-worker / presets / SAF cookies are shared with the phone flavor (v0.9.0–v0.12.0). Store policies and headset storage still constrain immersive packaging.
 
 ## What ships in this slice
 
@@ -124,4 +124,4 @@ adb -s "$QUEST_SERIAL" logcat -d \
 
 ## Desktop handoff reminder
 
-Inbox export still feeds the desktop Suite. On-device yt-dlp (when the panel is open via Unknown Sources) writes media under app storage with the same merge + optional watermark path as the phone flavor; desktop remains the richest multi-worker / cookie + preset path. See [architecture.md](architecture.md#local-inbox-protocol-v1).
+Inbox export still feeds the desktop Suite. On-device yt-dlp (when the panel is open via Unknown Sources) writes media under app storage with the same merge / preset / multi-worker / SAF-cookie path as the phone flavor; desktop remains richest for deep crawl / cookies-from-browser. See [architecture.md](architecture.md#local-inbox-protocol-v1).

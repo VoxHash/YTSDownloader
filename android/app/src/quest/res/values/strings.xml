@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">YTS Quest Companion</string>
-    <string name="parity_note">Quest 2D panel: oEmbed titles + on-device yt-dlp + ffmpeg merge + optional PNG watermark. Immersive OpenXR / Horizon Store packaging is later. Multi-worker / cookie + preset parity still later. Desktop Suite remains the richest path.</string>
+    <string name="parity_note">Quest 2D panel: oEmbed + yt-dlp + ffmpeg merge + watermark + multi-worker + presets + SAF cookies (shared with phone). Immersive OpenXR / Horizon Store packaging is later.</string>
     <string name="empty_queue">Queue is empty. Paste a URL (or ADB SEND) into this panel.</string>
     <string name="export_folder_none">Export folder: not set — use Export to Downloads for ADB pull</string>
 </resources>

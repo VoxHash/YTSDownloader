@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-24
+
+### Added
+- **Android Suite path (slice 5):** bounded multi-worker downloads (1–4, default 2); Netscape `cookies.txt` via SAF (`CookieBundle`, no Play Services); export presets `audio_only` / `video_audio` / `watermark` wired into `yts_dlp_worker` + UI spinners; ADB `--es yts_preset` / `--ei yts_max_workers`.
+- Host tests for preset resolve, audio-only download, and missing-cookiefile ignore (`tests/test_android_ytdlp_worker.py`).
+- Smoke extras: `PRESET=…` / `MAX_WORKERS=…` in `./scripts/smoke_android_download.sh`.
+
+### Changed
+- ROADMAP: v0.12.0 Android multi-worker / cookie + format-preset parity checked; desktop remains richest for deep crawl / cookies-from-browser profiles.
+- Docs: [docs/android.md](docs/android.md) / [docs/quest.md](docs/quest.md) honesty on workers, presets, SAF cookies.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.12.0** / 8.
+
+### Verified
+- Host: full Suite `unittest discover` green (incl. Android worker preset / audio / watermark / cookie-miss).
+- Pixel 7 Pro (`29211FDH300NEB` / cheetah, `ANDROID_ADB_SERVER_PORT=5137`): `video_audio`, `PRESET=audio_only`, and `WATERMARK=1` / `PRESET=watermark` download smokes passed (`.mp4` / `.m4a` / `*_wm.mp4` under app Movies). Occasional on-device CDN `Errno 104` / SSL timeouts remain intermittent under farm USB load.
+
 ## [0.11.0] - 2026-10-24
 
 ### Added
@@ -323,7 +339,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.8.0...v0.9.0

@@ -35,10 +35,32 @@ class AndroidYtDlpWorkerTests(unittest.TestCase):
         cls.worker = _load_worker()
         cls.system_ffmpeg = shutil.which("ffmpeg")
 
+    def test_resolve_preset_ids(self) -> None:
+        audio = self.worker.resolve_preset("audio_only")
+        self.assertEqual(audio["media"], "audio")
+        self.assertFalse(audio["use_watermark"])
+        video = self.worker.resolve_preset("video_audio")
+        self.assertEqual(video["media"], "video")
+        self.assertFalse(video["use_watermark"])
+        wm = self.worker.resolve_preset("watermark")
+        self.assertEqual(wm["media"], "video")
+        self.assertTrue(wm["use_watermark"])
+        self.assertEqual(self.worker.resolve_preset("nope")["preset"], "video_audio")
+
     def test_format_selector_single_without_ffmpeg(self) -> None:
         fmt = self.worker.format_selector(None)
         self.assertNotIn("+", fmt)
         self.assertEqual(fmt, self.worker.format_selector("/no/such/ffmpeg"))
+
+    def test_format_selector_audio(self) -> None:
+        # On-device audio uses progressive single-file then ffmpeg strip (not DASH bestaudio).
+        fmt = self.worker.format_selector(None, media="audio")
+        self.assertNotIn("bestvideo", fmt)
+        self.assertEqual(fmt, self.worker.format_selector(None, media="video"))
+        if self.system_ffmpeg:
+            # With ffmpeg, video prefers merge; audio stays on progressive single-file.
+            self.assertNotIn("+", self.worker.format_selector(self.system_ffmpeg, media="audio"))
+            self.assertIn("+", self.worker.format_selector(self.system_ffmpeg, media="video"))
 
     def test_format_selector_merge_with_executable_ffmpeg(self) -> None:
         if not self.system_ffmpeg:
@@ -164,14 +186,51 @@ class AndroidYtDlpWorkerTests(unittest.TestCase):
                 callback=None,
                 ffmpeg_location=self.system_ffmpeg,
                 watermark_path=str(wm_asset),
+                preset="watermark",
             )
             payload = json.loads(raw)
             self.assertTrue(payload.get("ok"), payload)
             self.assertTrue(payload.get("watermarked"), payload)
+            self.assertEqual(payload.get("preset"), "watermark")
             path = Path(payload["path"])
             self.assertTrue(path.is_file(), path)
             self.assertGreater(path.stat().st_size, 1000)
             self.assertTrue(path.name.endswith("_wm.mp4") or "_wm." in path.name, path.name)
+
+    def test_download_audio_only_preset(self) -> None:
+        if not self.system_ffmpeg:
+            self.skipTest("system ffmpeg not on PATH")
+        with tempfile.TemporaryDirectory(prefix="yts-android-audio-") as tmp:
+            raw = self.worker.download(
+                "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+                tmp,
+                callback=None,
+                ffmpeg_location=self.system_ffmpeg,
+                preset="audio_only",
+            )
+            payload = json.loads(raw)
+            self.assertTrue(payload.get("ok"), payload)
+            self.assertEqual(payload.get("media"), "audio")
+            self.assertEqual(payload.get("preset"), "audio_only")
+            self.assertFalse(payload.get("watermarked"), payload)
+            path = Path(payload["path"])
+            self.assertTrue(path.is_file(), path)
+            self.assertGreater(path.stat().st_size, 500)
+            self.assertIn(path.suffix.lower(), {".m4a", ".opus", ".webm", ".mp3", ".ogg"})
+
+    def test_cookiefile_missing_ignored(self) -> None:
+        """Absent cookie path must not crash option build (public videos still work)."""
+        with tempfile.TemporaryDirectory(prefix="yts-android-cookie-") as tmp:
+            raw = self.worker.download(
+                "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+                tmp,
+                callback=None,
+                cookiefile="/no/such/cookies.txt",
+                preset="video_audio",
+            )
+            payload = json.loads(raw)
+            self.assertTrue(payload.get("ok"), payload)
+            self.assertEqual(payload.get("preset"), "video_audio")
 
 
 if __name__ == "__main__":

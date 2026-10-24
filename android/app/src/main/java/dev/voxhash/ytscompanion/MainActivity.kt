@@ -9,6 +9,9 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.Spinner
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -28,12 +31,16 @@ open class MainActivity : AppCompatActivity() {
     private lateinit var urlInput: TextInputEditText
     private lateinit var emptyLabel: TextView
     private lateinit var exportFolderLabel: TextView
+    private lateinit var cookieLabel: TextView
     private lateinit var watermarkSwitch: SwitchMaterial
+    private lateinit var presetSpinner: Spinner
+    private lateinit var workersSpinner: Spinner
     private lateinit var adapter: QueueAdapter
     private val items = mutableListOf<QueueItem>()
     private val resolving = mutableSetOf<String>()
     private val downloadQueue = ArrayDeque<String>()
-    private var downloadActive = false
+    private var activeDownloads = 0
+    private var syncingUi = false
 
     private val createDocument =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -49,6 +56,21 @@ open class MainActivity : AppCompatActivity() {
                 )
                 store.setExportTreeUri(uri.toString())
                 refreshExportFolderLabel()
+            }
+        }
+
+    private val openCookies =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            val path = CookieBundle.importFromUri(this, uri)
+            if (path != null) {
+                store.setCookieImported(true)
+                refreshCookieLabel()
+                Toast.makeText(this, R.string.cookies_imported, Toast.LENGTH_SHORT).show()
+            } else {
+                store.setCookieImported(false)
+                refreshCookieLabel()
+                Toast.makeText(this, R.string.cookies_import_failed, Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -74,11 +96,26 @@ open class MainActivity : AppCompatActivity() {
         urlInput = findViewById(R.id.urlInput)
         emptyLabel = findViewById(R.id.emptyLabel)
         exportFolderLabel = findViewById(R.id.exportFolderLabel)
+        cookieLabel = findViewById(R.id.cookieLabel)
         watermarkSwitch = findViewById(R.id.watermarkSwitch)
-        watermarkSwitch.isChecked = store.isWatermarkEnabled()
+        presetSpinner = findViewById(R.id.presetSpinner)
+        workersSpinner = findViewById(R.id.workersSpinner)
+
+        setupPresetSpinner()
+        setupWorkersSpinner()
+        syncWatermarkSwitchFromPreset()
+
         watermarkSwitch.setOnCheckedChangeListener { _, checked ->
-            store.setWatermarkEnabled(checked)
+            if (syncingUi) return@setOnCheckedChangeListener
+            // Legacy ADB / toggle: map onto watermark vs video_audio presets.
+            val next =
+                if (checked) ExportPresets.WATERMARK else ExportPresets.VIDEO_AUDIO
+            store.setExportPreset(next)
+            syncingUi = true
+            selectPresetInSpinner(next)
+            syncingUi = false
         }
+
         val queueList = findViewById<RecyclerView>(R.id.queueList)
 
         adapter =
@@ -105,6 +142,15 @@ open class MainActivity : AppCompatActivity() {
         findViewById<MaterialButton>(R.id.pickFolderButton).setOnClickListener {
             openTree.launch(null)
         }
+        findViewById<MaterialButton>(R.id.pickCookiesButton).setOnClickListener {
+            openCookies.launch(arrayOf("text/*", "application/octet-stream", "*/*"))
+        }
+        findViewById<MaterialButton>(R.id.clearCookiesButton).setOnClickListener {
+            CookieBundle.clear(this)
+            store.setCookieImported(false)
+            refreshCookieLabel()
+            Toast.makeText(this, R.string.cookies_cleared, Toast.LENGTH_SHORT).show()
+        }
         findViewById<MaterialButton>(R.id.exportButton).setOnClickListener { exportInbox() }
         findViewById<MaterialButton>(R.id.exportDownloadsButton).setOnClickListener {
             exportToDownloads()
@@ -115,6 +161,7 @@ open class MainActivity : AppCompatActivity() {
         }
 
         refreshExportFolderLabel()
+        refreshCookieLabel()
         persistAndRefresh()
         items.filter { it.title.isBlank() }.forEach { scheduleResolve(it.url) }
         // Warm Python/yt-dlp off the critical path.
@@ -126,6 +173,63 @@ open class MainActivity : AppCompatActivity() {
             }
         }.start()
         handleIncomingIntent(intent)
+    }
+
+    private fun setupPresetSpinner() {
+        val labels = ExportPresets.ALL.map { ExportPresets.displayName(it) }
+        presetSpinner.adapter =
+            ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, labels)
+        selectPresetInSpinner(store.getExportPreset())
+        presetSpinner.onItemSelectedListener =
+            object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>?,
+                    view: android.view.View?,
+                    position: Int,
+                    id: Long,
+                ) {
+                    if (syncingUi) return
+                    val preset = ExportPresets.ALL.getOrElse(position) { ExportPresets.VIDEO_AUDIO }
+                    store.setExportPreset(preset)
+                    syncWatermarkSwitchFromPreset()
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
+    }
+
+    private fun setupWorkersSpinner() {
+        val choices = (1..YtDlpBridge.MAX_POOL_WORKERS).map { it.toString() }
+        workersSpinner.adapter =
+            ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, choices)
+        val current = store.getMaxWorkers()
+        workersSpinner.setSelection((current - 1).coerceIn(0, choices.lastIndex))
+        workersSpinner.onItemSelectedListener =
+            object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>?,
+                    view: android.view.View?,
+                    position: Int,
+                    id: Long,
+                ) {
+                    if (syncingUi) return
+                    store.setMaxWorkers(position + 1)
+                    pumpDownloads()
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
+    }
+
+    private fun selectPresetInSpinner(preset: String) {
+        val idx = ExportPresets.ALL.indexOf(ExportPresets.normalize(preset))
+        if (idx >= 0) presetSpinner.setSelection(idx)
+    }
+
+    private fun syncWatermarkSwitchFromPreset() {
+        syncingUi = true
+        watermarkSwitch.isChecked = ExportPresets.usesWatermark(store.getExportPreset())
+        syncingUi = false
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -153,11 +257,37 @@ open class MainActivity : AppCompatActivity() {
                 enqueueAllDownloads()
             }
         }
-        if (intent.hasExtra(EXTRA_WATERMARK)) {
+        // Prefer explicit preset; do not let yts_watermark=false clobber yts_preset.
+        if (intent.hasExtra(EXTRA_PRESET)) {
+            val preset = ExportPresets.normalize(intent.getStringExtra(EXTRA_PRESET))
+            store.setExportPreset(preset)
+            if (::presetSpinner.isInitialized) {
+                syncingUi = true
+                selectPresetInSpinner(preset)
+                syncingUi = false
+                syncWatermarkSwitchFromPreset()
+            }
+        } else if (intent.hasExtra(EXTRA_WATERMARK)) {
             val enabled = intent.getBooleanExtra(EXTRA_WATERMARK, false)
-            store.setWatermarkEnabled(enabled)
-            if (::watermarkSwitch.isInitialized) {
-                watermarkSwitch.isChecked = enabled
+            val preset =
+                if (enabled) ExportPresets.WATERMARK else ExportPresets.VIDEO_AUDIO
+            store.setExportPreset(preset)
+            if (::presetSpinner.isInitialized) {
+                syncingUi = true
+                selectPresetInSpinner(preset)
+                syncingUi = false
+                syncWatermarkSwitchFromPreset()
+            }
+        }
+        if (intent.hasExtra(EXTRA_MAX_WORKERS)) {
+            val n = intent.getIntExtra(EXTRA_MAX_WORKERS, QueueStore.DEFAULT_MAX_WORKERS)
+            store.setMaxWorkers(n)
+            if (::workersSpinner.isInitialized) {
+                syncingUi = true
+                workersSpinner.setSelection(
+                    (store.getMaxWorkers() - 1).coerceIn(0, YtDlpBridge.MAX_POOL_WORKERS - 1),
+                )
+                syncingUi = false
             }
         }
         if (intent.getBooleanExtra(EXTRA_EXPORT_DOWNLOADS, false)) {
@@ -226,7 +356,7 @@ open class MainActivity : AppCompatActivity() {
         }
         if (added > 0) {
             Toast.makeText(this, R.string.download_started, Toast.LENGTH_SHORT).show()
-        } else if (downloadActive || downloadQueue.isNotEmpty()) {
+        } else if (activeDownloads > 0 || downloadQueue.isNotEmpty()) {
             Toast.makeText(this, R.string.download_busy, Toast.LENGTH_SHORT).show()
         }
     }
@@ -256,83 +386,92 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private fun pumpDownloads() {
-        if (downloadActive) return
-        val next = downloadQueue.pollFirst() ?: return
-        val idx = items.indexOfFirst { it.url.equals(next, ignoreCase = true) }
-        if (idx < 0) {
-            pumpDownloads()
-            return
-        }
-        downloadActive = true
-        items[idx] =
-            items[idx].copy(
-                downloadStatus = DownloadStatus.DOWNLOADING,
-                progress = 0f,
-                error = "",
-            )
-        persistAndRefresh()
-        val url = items[idx].url
-        YtDlpBridge.downloadAsync(
-            this,
-            url,
-            applyWatermark = store.isWatermarkEnabled(),
-            onProgress = { pct ->
-                runOnUiThread {
-                    val i = items.indexOfFirst { it.url.equals(url, ignoreCase = true) }
-                    if (i < 0) return@runOnUiThread
-                    items[i] =
-                        items[i].copy(
-                            downloadStatus = DownloadStatus.DOWNLOADING,
-                            progress = pct,
-                        )
-                    adapter.notifyItemChanged(i)
-                }
-            },
-            onDone = { result ->
-                runOnUiThread {
-                    downloadActive = false
-                    val i = items.indexOfFirst { it.url.equals(url, ignoreCase = true) }
-                    if (i >= 0) {
-                        if (result.ok) {
-                            val title =
-                                result.title.takeIf { it.isNotBlank() } ?: items[i].title
-                            items[i] =
-                                items[i].copy(
-                                    title = title,
-                                    downloadStatus = DownloadStatus.DONE,
-                                    progress = 100f,
-                                    localPath = result.path,
-                                    error = "",
-                                )
-                            val doneMsg =
-                                if (result.watermarked) {
-                                    getString(
-                                        R.string.download_done_watermarked,
-                                        File(result.path).name,
-                                    )
-                                } else {
-                                    getString(R.string.download_done, File(result.path).name)
-                                }
-                            Toast.makeText(this, doneMsg, Toast.LENGTH_LONG).show()
-                        } else {
-                            val err = result.error.ifBlank { "unknown error" }
-                            items[i] =
-                                items[i].copy(
-                                    downloadStatus = DownloadStatus.ERROR,
-                                    error = err,
-                                )
-                            Toast.makeText(
-                                this,
-                                getString(R.string.download_failed, err),
-                                Toast.LENGTH_LONG,
-                            ).show()
-                        }
-                        persistAndRefresh()
+        val limit = store.getMaxWorkers()
+        while (activeDownloads < limit) {
+            val next = downloadQueue.pollFirst() ?: break
+            val idx = items.indexOfFirst { it.url.equals(next, ignoreCase = true) }
+            if (idx < 0) continue
+            activeDownloads++
+            items[idx] =
+                items[idx].copy(
+                    downloadStatus = DownloadStatus.DOWNLOADING,
+                    progress = 0f,
+                    error = "",
+                )
+            persistAndRefresh()
+            val url = items[idx].url
+            val preset = store.getExportPreset()
+            val cookies = CookieBundle.existingPath(this)
+            if (cookies != null) store.setCookieImported(true)
+            YtDlpBridge.downloadAsync(
+                this,
+                url,
+                preset = preset,
+                cookiefile = cookies,
+                onProgress = { pct ->
+                    runOnUiThread {
+                        val i = items.indexOfFirst { it.url.equals(url, ignoreCase = true) }
+                        if (i < 0) return@runOnUiThread
+                        items[i] =
+                            items[i].copy(
+                                downloadStatus = DownloadStatus.DOWNLOADING,
+                                progress = pct,
+                            )
+                        adapter.notifyItemChanged(i)
                     }
-                    pumpDownloads()
-                }
-            },
-        )
+                },
+                onDone = { result ->
+                    runOnUiThread {
+                        activeDownloads = (activeDownloads - 1).coerceAtLeast(0)
+                        val i = items.indexOfFirst { it.url.equals(url, ignoreCase = true) }
+                        if (i >= 0) {
+                            if (result.ok) {
+                                val title =
+                                    result.title.takeIf { it.isNotBlank() } ?: items[i].title
+                                items[i] =
+                                    items[i].copy(
+                                        title = title,
+                                        downloadStatus = DownloadStatus.DONE,
+                                        progress = 100f,
+                                        localPath = result.path,
+                                        error = "",
+                                    )
+                                val doneMsg =
+                                    when {
+                                        result.watermarked ->
+                                            getString(
+                                                R.string.download_done_watermarked,
+                                                File(result.path).name,
+                                            )
+                                        ExportPresets.isAudio(result.preset) ->
+                                            getString(
+                                                R.string.download_done_audio,
+                                                File(result.path).name,
+                                            )
+                                        else ->
+                                            getString(R.string.download_done, File(result.path).name)
+                                    }
+                                Toast.makeText(this, doneMsg, Toast.LENGTH_LONG).show()
+                            } else {
+                                val err = result.error.ifBlank { "unknown error" }
+                                items[i] =
+                                    items[i].copy(
+                                        downloadStatus = DownloadStatus.ERROR,
+                                        error = err,
+                                    )
+                                Toast.makeText(
+                                    this,
+                                    getString(R.string.download_failed, err),
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                            persistAndRefresh()
+                        }
+                        pumpDownloads()
+                    }
+                },
+            )
+        }
     }
 
     private fun persistAndRefresh() {
@@ -349,6 +488,17 @@ open class MainActivity : AppCompatActivity() {
             } else {
                 getString(R.string.export_folder_label, tree)
             }
+    }
+
+    private fun refreshCookieLabel() {
+        val path = CookieBundle.existingPath(this)
+        if (path != null && store.hasCookieFile()) {
+            cookieLabel.text = getString(R.string.cookies_label_set, File(path).name)
+        } else {
+            // Heal prefs if file was deleted out of band.
+            if (store.hasCookieFile()) store.setCookieImported(false)
+            cookieLabel.text = getString(R.string.cookies_label_none)
+        }
     }
 
     private fun exportInbox() {
@@ -551,5 +701,7 @@ open class MainActivity : AppCompatActivity() {
         const val ACTION_DOWNLOAD_QUEUE = "dev.voxhash.ytscompanion.action.DOWNLOAD_QUEUE"
         const val EXTRA_DOWNLOAD_QUEUE = "yts_download_queue"
         const val EXTRA_WATERMARK = "yts_watermark"
+        const val EXTRA_PRESET = "yts_preset"
+        const val EXTRA_MAX_WORKERS = "yts_max_workers"
     }
 }
