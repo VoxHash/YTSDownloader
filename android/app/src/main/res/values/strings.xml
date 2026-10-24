@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">YTS Companion</string>
+    <string name="url_hint">Paste media page URL</string>
+    <string name="add_url">Add</string>
+    <string name="queue_title">Local queue</string>
+    <string name="export_inbox">Export inbox file</string>
+    <string name="share_payload">Share payload</string>
+    <string name="clear_queue">Clear queue</string>
+    <string name="pick_export_folder">Choose export folder (SAF)</string>
+    <string name="export_folder_label">Export folder: %1$s</string>
+    <string name="export_folder_none">Export folder: not set (share or create document)</string>
+    <string name="empty_queue">Queue is empty. Paste a URL or share a link into this app.</string>
+    <string name="added">Added to queue</string>
+    <string name="invalid_url">Need an http(s) URL</string>
+    <string name="exported">Wrote companion inbox payload</string>
+    <string name="export_failed">Export failed</string>
+    <string name="parity_note">Desktop Suite remains the downloader. This app only collects URLs for inbox handoff. Full Suite feature parity is later.</string>
+    <string name="remove">Remove</string>
+</resources>

@@ -125,6 +125,16 @@ push-all.sh
 cookies.txt
 cookies.json
 
+# Android companion (local SDK path + Gradle outputs)
+android/local.properties
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/.cxx/
+android/*.apk
+android/*.aab
+android/captures/
+
 # Native sidecars (built by scripts/build_natives.sh)
 native/bin/
 native/rust/**/target/

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-23
+
+### Added
+- **Android companion** (`android/`): Kotlin / Material app for GrapheneOS-friendly ADB sideload — local URL queue (paste + `ACTION_SEND`), Storage Access Framework export folder / create-document, share NDJSON/JSON inbox payloads for the desktop Suite. No Google Play Services / FCM; cleartext HTTP disabled by default.
+- `./scripts/build_android.sh` — fish-safe debug APK build helper (`JAVA_HOME` JDK 17, `ANDROID_HOME`).
+- Docs: [docs/android.md](docs/android.md) (build, GrapheneOS install, smoke checklist, parity disclaimer).
+
+### Changed
+- ROADMAP: companion scaffold marked done under Now; full Android Suite path stays Later; Pixel 7 Pro e2e tracked until that device appears on ADB.
+
 ## [0.5.2] - 2026-10-23
 
 ### Added
@@ -235,7 +245,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.5...v0.5.0

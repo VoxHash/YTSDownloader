@@ -112,6 +112,10 @@ Runtime knobs:
 
 Frozen builds: the freeze helpers copy `native/bin/` into `dist/YTSDownloader/native/bin/` when the repo tree is non-empty (`BUNDLE_NATIVES=auto`, default). Force with `BUNDLE_NATIVES=1`, skip with `BUNDLE_NATIVES=0`. At runtime the Suite looks for sidecars next to the frozen executable (`<onedir>/native/bin`), then the checkout path, then `./native/bin`, or `YTS_NATIVE_DIR`. Natives are **not** required for the freeze to run (Python fallbacks).
 
+## Optional Android companion
+
+Kotlin companion under `android/` (GrapheneOS-friendly ADB sideload; no Play Services). Desktop Suite stays the downloader — the phone app exports inbox payloads. Build: `./scripts/build_android.sh`. Full steps: [android.md](android.md).
+
 ## Packaging (Windows / macOS / Linux distributables)
 
 Ship frozen desktop builds with **PyInstaller** (`onedir`). PyInstaller has maintained PyQt6 hooks, does not cross-compile (build on each OS), and matches how most PyQt6 + heavy native-dep apps are frozen today. Prefer `onedir` over `onefile` for Qt plugin layout, faster cold start, and easier debugging.

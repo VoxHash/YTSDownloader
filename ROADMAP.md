@@ -1,17 +1,11 @@
 # Roadmap
 
-Current product baseline: **v0.5.2** — Suite Settings shows native sidecar discovery status (`native_status`); freeze helpers still bundle optional `native/bin/` beside PyInstaller onedir with Python soft-fallback.
+Current product baseline: **v0.6.0** — Android companion scaffold (`android/`) ships: paste/share URL queue + SAF/share inbox export for desktop handoff. Desktop Suite remains primary. Pixel 7 Pro e2e pending when that device is on ADB.
 
-## Now (v0.5.x)
+## Now (v0.6.x)
 
-- [x] Optional hybrid natives: Rust normalize, C/`zig cc` priority helper, Go inbox consumer, Ruby JSON filter — fail soft to Python.
-- [x] Bounded workers + optional idle I/O / nice on Start Queue (`PROCESS_IDLE_IO` / `PROCESS_NICE`).
-- [x] Deeper social profile crawl modes behind cookie auth (legally constrained surfaces only).
-- [x] CI scripted offscreen smoke (`unittest` + `QT_QPA_PLATFORM=offscreen` on GitHub Actions).
-- [x] Manual per-OS PyInstaller freeze path complete (`scripts/build_pyinstaller.sh` / `.ps1`, packaging docs, optional Ubuntu-only `freeze.yml` via `workflow_dispatch`).
-- [x] Queue context menu (remove / force download), Clear All, and volume sidebar on output-folder Browse.
-- [x] Bundle or document `native/bin/` next to PyInstaller freezes per OS (optional artifact step; `BUNDLE_NATIVES` + freeze-adjacent discovery).
-- [x] Settings UI surface for native discovery status (`ytscore.native_bridge.native_status`).
+- [x] Android / GrapheneOS **companion scaffold** — Kotlin app under `android/`; queue + paste/share; SAF export / share payload matching desktop inbox contract; no Play Services / FCM; cleartext off. Docs: [docs/android.md](docs/android.md). Full Suite feature parity **not** done.
+- [ ] Pixel 7 Pro connected ADB smoke (install / launch / paste-URL / export) when the device is online — blocked until `adb devices` shows Pixel (`product:cheetah` / `Pixel_7_Pro`).
 
 ## Next
 
@@ -21,7 +15,7 @@ _(no active desktop milestone — see Later)_
 
 ### Platforms
 
-- [ ] **Android / GrapheneOS** app — resolve + queue UX on hardened Android; desktop remains the primary downloader for companion handoff until a dedicated mobile path exists.
+- [ ] **Android / GrapheneOS** full Suite path — on-device resolve + queue UX on hardened Android; desktop remains primary until that dedicated path exists. Companion handoff (v0.6.0 scaffold) is the interim bridge.
 - [ ] **Meta Quest 3** app — headset-side browse/queue shell; downloads still constrained by store policies and local storage.
 
 ### Native / core (deferred with rationale)

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.YTSCompanion" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <item name="colorPrimary">#1B5E4A</item>
+        <item name="colorPrimaryVariant">#0F3D30</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#3D7A6A</item>
+        <item name="android:statusBarColor">#0F3D30</item>
+    </style>
+</resources>
