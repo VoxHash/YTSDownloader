@@ -16,6 +16,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
 import android.widget.TextView
 import java.io.File
@@ -27,6 +28,7 @@ open class MainActivity : AppCompatActivity() {
     private lateinit var urlInput: TextInputEditText
     private lateinit var emptyLabel: TextView
     private lateinit var exportFolderLabel: TextView
+    private lateinit var watermarkSwitch: SwitchMaterial
     private lateinit var adapter: QueueAdapter
     private val items = mutableListOf<QueueItem>()
     private val resolving = mutableSetOf<String>()
@@ -72,6 +74,11 @@ open class MainActivity : AppCompatActivity() {
         urlInput = findViewById(R.id.urlInput)
         emptyLabel = findViewById(R.id.emptyLabel)
         exportFolderLabel = findViewById(R.id.exportFolderLabel)
+        watermarkSwitch = findViewById(R.id.watermarkSwitch)
+        watermarkSwitch.isChecked = store.isWatermarkEnabled()
+        watermarkSwitch.setOnCheckedChangeListener { _, checked ->
+            store.setWatermarkEnabled(checked)
+        }
         val queueList = findViewById<RecyclerView>(R.id.queueList)
 
         adapter =
@@ -115,6 +122,7 @@ open class MainActivity : AppCompatActivity() {
             runCatching {
                 YtDlpBridge.ensureStarted(this)
                 FfmpegBundle.ensure(this)
+                WatermarkBundle.ensure(this)
             }
         }.start()
         handleIncomingIntent(intent)
@@ -143,6 +151,13 @@ open class MainActivity : AppCompatActivity() {
             }
             ACTION_DOWNLOAD_QUEUE -> {
                 enqueueAllDownloads()
+            }
+        }
+        if (intent.hasExtra(EXTRA_WATERMARK)) {
+            val enabled = intent.getBooleanExtra(EXTRA_WATERMARK, false)
+            store.setWatermarkEnabled(enabled)
+            if (::watermarkSwitch.isInitialized) {
+                watermarkSwitch.isChecked = enabled
             }
         }
         if (intent.getBooleanExtra(EXTRA_EXPORT_DOWNLOADS, false)) {
@@ -260,6 +275,7 @@ open class MainActivity : AppCompatActivity() {
         YtDlpBridge.downloadAsync(
             this,
             url,
+            applyWatermark = store.isWatermarkEnabled(),
             onProgress = { pct ->
                 runOnUiThread {
                     val i = items.indexOfFirst { it.url.equals(url, ignoreCase = true) }
@@ -288,11 +304,16 @@ open class MainActivity : AppCompatActivity() {
                                     localPath = result.path,
                                     error = "",
                                 )
-                            Toast.makeText(
-                                this,
-                                getString(R.string.download_done, File(result.path).name),
-                                Toast.LENGTH_LONG,
-                            ).show()
+                            val doneMsg =
+                                if (result.watermarked) {
+                                    getString(
+                                        R.string.download_done_watermarked,
+                                        File(result.path).name,
+                                    )
+                                } else {
+                                    getString(R.string.download_done, File(result.path).name)
+                                }
+                            Toast.makeText(this, doneMsg, Toast.LENGTH_LONG).show()
                         } else {
                             val err = result.error.ifBlank { "unknown error" }
                             items[i] =
@@ -529,5 +550,6 @@ open class MainActivity : AppCompatActivity() {
         const val EXTRA_EXPORT_DOWNLOADS = "yts_export_downloads"
         const val ACTION_DOWNLOAD_QUEUE = "dev.voxhash.ytscompanion.action.DOWNLOAD_QUEUE"
         const val EXTRA_DOWNLOAD_QUEUE = "yts_download_queue"
+        const val EXTRA_WATERMARK = "yts_watermark"
     }
 }

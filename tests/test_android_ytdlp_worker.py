@@ -86,6 +86,92 @@ class AndroidYtDlpWorkerTests(unittest.TestCase):
             self.assertGreater(path.stat().st_size, 1000)
             # Merge path should leave a single playable container (mp4 preferred).
             self.assertIn(path.suffix.lower(), {".mp4", ".mkv", ".webm"})
+            self.assertFalse(payload.get("watermarked"), payload)
+
+    def test_apply_watermark_full_frame(self) -> None:
+        if not self.system_ffmpeg:
+            self.skipTest("system ffmpeg not on PATH")
+        wm_asset = (
+            ROOT
+            / "android"
+            / "app"
+            / "src"
+            / "main"
+            / "assets"
+            / "watermark"
+            / "default_watermark.png"
+        )
+        if not wm_asset.is_file():
+            self.skipTest(f"missing watermark asset {wm_asset}")
+        with tempfile.TemporaryDirectory(prefix="yts-android-wm-") as tmp:
+            base = Path(tmp) / "base.mp4"
+            # Short synthetic clip (no network).
+            import subprocess
+
+            proc = None
+            for vcodec in ("libx264", "mpeg4"):
+                gen = [
+                    self.system_ffmpeg,
+                    "-y",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "color=c=blue:s=320x240:d=1",
+                    "-c:v",
+                    vcodec,
+                    "-pix_fmt",
+                    "yuv420p",
+                    str(base),
+                ]
+                proc = subprocess.run(gen, capture_output=True, text=True, check=False)
+                if proc.returncode == 0 and base.is_file():
+                    break
+            self.assertIsNotNone(proc)
+            assert proc is not None
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            out = Path(tmp) / "out_wm.mp4"
+            raw = self.worker.apply_watermark(
+                str(base),
+                str(wm_asset),
+                self.system_ffmpeg,
+                str(out),
+            )
+            payload = json.loads(raw)
+            self.assertTrue(payload.get("ok"), payload)
+            path = Path(payload["path"])
+            self.assertTrue(path.is_file(), path)
+            self.assertGreater(path.stat().st_size, 1000)
+
+    def test_download_with_watermark_asset(self) -> None:
+        if not self.system_ffmpeg:
+            self.skipTest("system ffmpeg not on PATH")
+        wm_asset = (
+            ROOT
+            / "android"
+            / "app"
+            / "src"
+            / "main"
+            / "assets"
+            / "watermark"
+            / "default_watermark.png"
+        )
+        if not wm_asset.is_file():
+            self.skipTest(f"missing watermark asset {wm_asset}")
+        with tempfile.TemporaryDirectory(prefix="yts-android-dl-wm-") as tmp:
+            raw = self.worker.download(
+                "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+                tmp,
+                callback=None,
+                ffmpeg_location=self.system_ffmpeg,
+                watermark_path=str(wm_asset),
+            )
+            payload = json.loads(raw)
+            self.assertTrue(payload.get("ok"), payload)
+            self.assertTrue(payload.get("watermarked"), payload)
+            path = Path(payload["path"])
+            self.assertTrue(path.is_file(), path)
+            self.assertGreater(path.stat().st_size, 1000)
+            self.assertTrue(path.name.endswith("_wm.mp4") or "_wm." in path.name, path.name)
 
 
 if __name__ == "__main__":

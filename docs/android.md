@@ -1,6 +1,6 @@
 # Android companion (GrapheneOS-friendly)
 
-Lightweight **Suite path** companion for YTSDownloader with **on-device title resolve** (oEmbed, v0.8.0), **on-device yt-dlp download** (Chaquopy, v0.9.0 slice 2), and **bundled ffmpeg merge** (v0.10.0 slice 3). Desktop Suite remains the richest path (watermark, multi-worker, format presets, cookies).
+Lightweight **Suite path** companion for YTSDownloader with **on-device title resolve** (oEmbed, v0.8.0), **on-device yt-dlp download** (Chaquopy, v0.9.0 slice 2), **bundled ffmpeg merge** (v0.10.0 slice 3), and **optional PNG watermark overlay** (v0.11.0 slice 4). Desktop Suite remains the richest path (multi-worker, format presets, cookies).
 
 ## What ships in this slice
 
@@ -12,11 +12,12 @@ Lightweight **Suite path** companion for YTSDownloader with **on-device title re
 | Queue rows show title + URL | Yes (v0.8.0) |
 | On-device **yt-dlp download** (Chaquopy Python 3.12) | Yes (v0.9.0) |
 | Bundled **arm64 ffmpeg merge** (`bestvideo+bestaudio` → mp4) | Yes (v0.10.0); single-file fallback if asset/ABI missing |
+| Optional **PNG watermark overlay** (full-frame stretch via bundled ffmpeg) | Yes (v0.11.0); UI switch + ADB `--ez yts_watermark true` |
 | Queue download status (queued / downloading / done / error) | Yes (v0.9.0) |
 | Export JSON via Storage Access Framework (folder or create-document) | Yes |
 | Export to Downloads / app files (no SAF chooser); optional `title` in payload | Yes |
 | Share NDJSON / JSONL payload | Yes |
-| Watermark / desktop-class multi-worker / cookie + format-preset parity | No (Later) |
+| Desktop-class multi-worker / cookie + format-preset parity | No (Later) |
 | Google Play Services / FCM | None (ADB sideload only) |
 | Cleartext HTTP | Off by default (`usesCleartextTraffic=false` + network security config) |
 
@@ -99,9 +100,9 @@ adb -s <pixel-serial> shell am start -n dev.voxhash.ytscompanion.debug/dev.voxha
 adb -s <pixel-serial> shell ls -la /sdcard/Android/data/dev.voxhash.ytscompanion.debug/files/Movies/YTSCompanion/
 ```
 
-Helper: `./scripts/smoke_android_download.sh` (builds must already exist; prefers Pixel `29211FDH300NEB`, scans farm adb ports for `cheetah`).
+Helper: `./scripts/smoke_android_download.sh` (builds must already exist; prefers Pixel `29211FDH300NEB`, scans farm adb ports for `cheetah`). Watermark path: `WATERMARK=1 ./scripts/smoke_android_download.sh` (expects `*_wm.*` under app Movies).
 
-**Device smoke (2026-10-24):** Pixel 7 Pro `29211FDH300NEB` / `cheetah` — install phone debug APK, SEND + `DOWNLOAD_QUEUE`, complete files under app `Movies/YTSCompanion/`, no `FATAL EXCEPTION`. If default `adb` (5037) is empty while `lsusb` shows the Pixel, reclaim farm ports or set `ANDROID_ADB_SERVER_PORT` (see troubleshooting).
+**Device smoke (2026-10-24):** Pixel 7 Pro `29211FDH300NEB` / `cheetah` — install phone debug APK, SEND + `DOWNLOAD_QUEUE`, complete files under app `Movies/YTSCompanion/` (merge + optional watermark overlay), no `FATAL EXCEPTION`. If default `adb` (5037) is empty while `lsusb` shows the Pixel, reclaim farm ports or set `ANDROID_ADB_SERVER_PORT` (see troubleshooting).
 
 5. Preferred ADB **inbox** handoff (no SAF / share chooser): **Export to Downloads** — MediaStore `Download/YTSCompanion/*.json` plus app-files copy under `Android/data/.../files/Download/`.
 
@@ -141,4 +142,4 @@ A USB farm with many phones often leaves **extra `adb` servers** listening on po
 
 ## Desktop handoff reminder
 
-Inbox export still feeds the Suite queue. On-device yt-dlp (slices 2–3) writes media into app storage for local playback / pull (with bundled ffmpeg merge when arm64 asset is present); it does **not** replace desktop watermark / multi-worker / cookie + preset workers. See [architecture.md](architecture.md#local-inbox-protocol-v1).
+Inbox export still feeds the Suite queue. On-device yt-dlp (slices 2–4) writes media into app storage for local playback / pull (bundled ffmpeg merge + optional full-frame PNG watermark when enabled); it does **not** replace desktop multi-worker / cookie + preset workers. See [architecture.md](architecture.md#local-inbox-protocol-v1).

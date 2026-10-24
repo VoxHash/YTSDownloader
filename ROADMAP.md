@@ -1,10 +1,10 @@
 # Roadmap
 
-Current product baseline: **v0.10.0** — Android / GrapheneOS companion **bundled ffmpeg merge** (slice 3) on top of on-device yt-dlp workers (v0.9.0) plus oEmbed titles (v0.8.0) and Meta Quest 3 **browse/queue shell** (v0.7.x). Desktop Suite remains the richest downloader (watermark / multi-worker / cookie + format-preset parity still later).
+Current product baseline: **v0.11.0** — Android / GrapheneOS companion **optional PNG watermark overlay** (slice 4) on top of bundled ffmpeg merge (v0.10.0), on-device yt-dlp (v0.9.0), oEmbed titles (v0.8.0), and Meta Quest 3 **browse/queue shell** (v0.7.x). Desktop Suite remains the richest downloader (multi-worker / cookie + format-preset parity still later).
 
-## Now (v0.10.x)
+## Now (v0.11.x)
 
-- [x] **Android / GrapheneOS** Suite path — **slice 3**: bundled arm64-v8a LGPL ffmpeg asset (`scripts/fetch_android_ffmpeg.sh`) + yt-dlp `bestvideo+bestaudio` merge when the binary unpacks; single-file fallback when ABI/asset missing. Pixel 7 Pro on-device download smoke verified (2026-10-24). Watermark / desktop-class multi-worker / cookie + format-preset parity **not** done. See [docs/android.md](docs/android.md).
+- [x] **Android / GrapheneOS** Suite path — **slice 4**: optional full-frame PNG watermark overlay via bundled LGPL ffmpeg (`WatermarkBundle` + worker `apply_watermark`); UI switch + ADB `--ez yts_watermark true`. Pixel 7 Pro watermark download smoke verified (2026-10-24). Multi-worker / cookie + format-preset parity **not** done. See [docs/android.md](docs/android.md).
 
 ## Next
 
@@ -14,9 +14,9 @@ _(no active desktop milestone — see Later)_
 
 ### Platforms
 
-- [ ] **Android / GrapheneOS** Suite path — remaining: watermark overlay, desktop-class multi-worker / format presets / cookie parity. Slices 1–3 (oEmbed + yt-dlp single-file + bundled ffmpeg merge) ship as the on-device bridge.
+- [ ] **Android / GrapheneOS** Suite path — remaining: desktop-class multi-worker / format presets / cookie parity. Slices 1–4 (oEmbed + yt-dlp + ffmpeg merge + watermark overlay) ship as the on-device bridge.
 - [ ] **Meta Quest 3** immersive / Horizon Store packaging — OpenXR or Spatial SDK beyond the 2D panel Unknown Sources shell; downloads still constrained by store policies and local storage.
-- [x] **Meta Quest 3** browse/queue shell (scaffold) — Horizon OS 2D panel product flavor (`quest`); landscape / larger hit targets; inbox `source: quest-companion`; `./scripts/build_quest.sh` + [docs/quest.md](docs/quest.md). Quest ADB install + 2D registration verified (`eureka` / `2G0YC5ZGB6031R`). **On-headset SEND/EXPORT** still needs one manual **Library → Unknown Sources** open after install (Horizon filters cold `am start` / `metavr app launch` with Error type 3; VR passcode + Meta-button Library are not automatable without the Store PIN / worn session). Smoke falls back to Pixel with the same Quest APK. Immersive OpenXR / Horizon Store **not** done (on-device yt-dlp + ffmpeg merge now shared with phone flavor via slices 2–3).
+- [x] **Meta Quest 3** browse/queue shell (scaffold) — Horizon OS 2D panel product flavor (`quest`); landscape / larger hit targets; inbox `source: quest-companion`; `./scripts/build_quest.sh` + [docs/quest.md](docs/quest.md). Quest ADB install + 2D registration verified (`eureka` / `2G0YC5ZGB6031R`). **On-headset SEND/EXPORT** verified 2026-10-24 after first Unknown Sources open (`SKIP_INSTALL=1 ./scripts/smoke_quest.sh` on-device). Immersive OpenXR / Horizon Store **not** done (on-device yt-dlp + ffmpeg merge + watermark now shared with phone flavor via slices 2–4).
 
 ### Native / core (deferred with rationale)
 

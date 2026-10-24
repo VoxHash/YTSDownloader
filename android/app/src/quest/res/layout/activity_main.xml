@@ -114,6 +114,15 @@
                 android:text="@string/download_queue"
                 android:textSize="16sp" />
 
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/watermarkSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/quest_btn_min_height"
+                android:layout_marginStart="@dimen/quest_gap"
+                android:minWidth="200dp"
+                android:text="@string/watermark_toggle"
+                android:textSize="16sp" />
+
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/clearButton"
                 style="@style/Widget.MaterialComponents.Button.TextButton"

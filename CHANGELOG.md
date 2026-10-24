@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-24
+
+### Added
+- **Android Suite path (slice 4):** optional full-frame PNG watermark overlay via bundled LGPL ffmpeg (`WatermarkBundle` + `apply_watermark` in `yts_dlp_worker`); UI switch + ADB `--ez yts_watermark true`; bundled `assets/watermark/default_watermark.png`.
+- Host tests for watermark composite + download-with-watermark (`tests/test_android_ytdlp_worker.py`).
+- `WATERMARK=1` support in `./scripts/smoke_android_download.sh`.
+
+### Changed
+- ROADMAP: v0.11.0 Android watermark overlay checked; Quest on-headset SEND/EXPORT verified 2026-10-24 after Unknown Sources open.
+- Docs: [docs/android.md](docs/android.md) / [docs/quest.md](docs/quest.md) honesty on watermark + Quest smoke.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.11.0** / 7.
+
+### Verified
+- Quest 3 (`2G0YC5ZGB6031R` / eureka, `ANDROID_ADB_SERVER_PORT=5137`): cold `am start` / monkey / SEND / EXPORT on-device after Unknown Sources gate cleared; `SKIP_INSTALL=1 ./scripts/smoke_quest.sh` passed.
+- Pixel 7 Pro (`29211FDH300NEB` / cheetah): watermark download smoke (`WATERMARK=1 ./scripts/smoke_android_download.sh`) when device present.
+
 ## [0.10.0] - 2026-10-24
 
 ### Added
@@ -307,7 +323,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.7.0...v0.8.0

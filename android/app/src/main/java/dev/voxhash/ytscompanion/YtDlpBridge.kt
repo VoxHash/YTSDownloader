@@ -10,9 +10,9 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Chaquopy bridge to on-device yt-dlp (Android Suite path slices 2–3).
+ * Chaquopy bridge to on-device yt-dlp (Android Suite path slices 2–4).
  * Uses the Unlicense yt-dlp package via pip — no third-party downloader UI code.
- * Slice 3 passes a bundled arm64 ffmpeg path when available for A/V merge.
+ * Slice 3 passes bundled arm64 ffmpeg for A/V merge; slice 4 optional PNG watermark.
  */
 object YtDlpBridge {
     private const val TAG = "YtDlpBridge"
@@ -49,6 +49,7 @@ object YtDlpBridge {
     fun downloadAsync(
         context: Context,
         url: String,
+        applyWatermark: Boolean,
         onProgress: (Float) -> Unit,
         onDone: (Result) -> Unit,
     ) {
@@ -59,6 +60,8 @@ object YtDlpBridge {
                     val module = Python.getInstance().getModule("yts_dlp_worker")
                     val outDir = mediaDir(context).absolutePath
                     val ffmpeg = FfmpegBundle.ensure(context)
+                    val watermark =
+                        if (applyWatermark) WatermarkBundle.ensure(context) else null
                     val callback =
                         object : ProgressCallback {
                             override fun on_progress(pct: Double, eta: String) {
@@ -66,10 +69,21 @@ object YtDlpBridge {
                             }
                         }
                     val raw =
-                        if (ffmpeg.isNullOrBlank()) {
-                            module.callAttr("download", url, outDir, callback).toString()
-                        } else {
-                            module.callAttr("download", url, outDir, callback, ffmpeg).toString()
+                        when {
+                            !ffmpeg.isNullOrBlank() && !watermark.isNullOrBlank() ->
+                                module
+                                    .callAttr(
+                                        "download",
+                                        url,
+                                        outDir,
+                                        callback,
+                                        ffmpeg,
+                                        watermark,
+                                    ).toString()
+                            !ffmpeg.isNullOrBlank() ->
+                                module.callAttr("download", url, outDir, callback, ffmpeg).toString()
+                            else ->
+                                module.callAttr("download", url, outDir, callback).toString()
                         }
                     parseResult(raw)
                 }.getOrElse { err ->
@@ -87,6 +101,7 @@ object YtDlpBridge {
             path = json.optString("path").trim(),
             title = json.optString("title").trim(),
             error = json.optString("error").trim(),
+            watermarked = json.optBoolean("watermarked", false),
         )
     }
 
@@ -95,5 +110,6 @@ object YtDlpBridge {
         val path: String = "",
         val title: String = "",
         val error: String = "",
+        val watermarked: Boolean = false,
     )
 }

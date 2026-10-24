@@ -60,9 +60,16 @@ class QueueStore(context: Context) {
         prefs.edit().putString(KEY_TREE_URI, uri).apply()
     }
 
+    fun isWatermarkEnabled(): Boolean = prefs.getBoolean(KEY_WATERMARK, false)
+
+    fun setWatermarkEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_WATERMARK, enabled).apply()
+    }
+
     companion object {
         private const val PREFS = "yts_companion"
         private const val KEY_URLS = "queue_urls"
         private const val KEY_TREE_URI = "export_tree_uri"
+        private const val KEY_WATERMARK = "watermark_enabled"
     }
 }

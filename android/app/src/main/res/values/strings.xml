@@ -19,12 +19,14 @@
     <string name="exported">Wrote companion inbox payload</string>
     <string name="exported_downloads">Wrote %1$s (Downloads + app files)</string>
     <string name="export_failed">Export failed</string>
-    <string name="parity_note">On-device oEmbed titles + yt-dlp download (single-file). Watermark / ffmpeg merge / full desktop queue parity still later. Desktop Suite remains the richest path.</string>
+    <string name="parity_note">On-device oEmbed titles + yt-dlp download + bundled ffmpeg merge + optional PNG watermark overlay. Multi-worker / cookie + format-preset parity still later. Desktop Suite remains the richest path.</string>
+    <string name="watermark_toggle">Watermark overlay (bundled PNG)</string>
     <string name="remove">Remove</string>
     <string name="resolving_title">Resolving title…</string>
     <string name="resolve_failed">Title unavailable (URL kept)</string>
     <string name="download_started">On-device download started</string>
     <string name="download_done">Saved %1$s</string>
+    <string name="download_done_watermarked">Saved %1$s (watermarked)</string>
     <string name="download_failed">Download failed: %1$s</string>
     <string name="download_busy">Already downloading</string>
     <string name="status_queued">Queued</string>

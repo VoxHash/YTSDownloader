@@ -53,6 +53,14 @@
         android:text="@string/export_folder_none"
         android:textAppearance="?attr/textAppearanceCaption" />
 
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/watermarkSwitch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:text="@string/watermark_toggle" />
+
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

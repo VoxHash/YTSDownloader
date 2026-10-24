@@ -2,7 +2,7 @@
 
 Headset-side **browse/queue shell** for YTSDownloader. The desktop Suite remains the primary downloader; this panel collects media page URLs and exports companion-inbox payloads (`source: quest-companion`).
 
-**Not** immersive OpenXR or Horizon Store packaging. On-device yt-dlp + bundled ffmpeg merge are shared with the phone flavor (v0.9.0 / v0.10.0); watermark / multi-worker / cookie parity still later. Store policies and headset storage still constrain immersive packaging.
+**Not** immersive OpenXR or Horizon Store packaging. On-device yt-dlp + bundled ffmpeg merge + optional PNG watermark are shared with the phone flavor (v0.9.0–v0.11.0); multi-worker / cookie + format-preset parity still later. Store policies and headset storage still constrain immersive packaging.
 
 ## What ships in this slice
 
@@ -64,22 +64,22 @@ adb -s "$QUEST_SERIAL" shell am start -n \
 
 Sideloaded apps appear under **Library → Unknown Sources** on the headset.
 
-**ADB cold-start note (Horizon OS):** after a fresh `adb install`, `am start -n …` (and `metavr app launch`) return **Error type 3** (`Activity class … does not exist` / no launchable activity) even though `dumpsys package` lists the activity and `com.oculus.intent.category.2D`. Horizon filters sideloaded apps from ActivityManager resolution until the first **Library → Unknown Sources** open.
+**ADB cold-start note (Horizon OS):** after a fresh `adb install`, `am start -n …` (and `metavr app launch`) may return **Error type 3** until the first **Library → Unknown Sources** open. After that gate is cleared, cold `am start` / `monkey` / SEND / EXPORT work on-headset.
 
-Verified on Quest 3 `2G0YC5ZGB6031R` (2026-10-23; re-checked 2026-10-24):
+Verified on Quest 3 `2G0YC5ZGB6031R` (2026-10-24 on-headset smoke passed; farm ADB often on `ANDROID_ADB_SERVER_PORT=5137`):
 
 | Step | Result |
 | --- | --- |
-| `adb` reclaim + wake | OK (`product:eureka`, wakefulness Awake). Device may appear on a farm ADB port (e.g. `ANDROID_ADB_SERVER_PORT=5133`) while Pixel is on another. |
+| `adb` reclaim + wake | OK (`product:eureka`, wakefulness Awake). Device may appear on a farm ADB port while Pixel shares the same server. |
 | Quest debug APK install | OK (`app-quest-debug.apk`); `dumpsys package` lists `MainActivity` + `com.oculus.intent.category.2D` |
-| Cold `am start` / SEND | **Error type 3** — Horizon filters sideloaded activities until first Unknown Sources open |
-| `am broadcast …prox_close` (simulate worn) | OK when tested (`sys.hmt.mounted=1`, `HEADSET_MOUNTED`) |
-| VR passcode UI | Blocks automation until entered (uiautomator2 sees keypad; Store PIN / `content://com.oculus.rc` not available on this device) |
-| Library / Unknown Sources via ADB / metavr / uiautomator | Not reachable — home is VR-composited (empty / tiny a11y tree under `com.oculus.vrshell`) |
-| On-headset SEND/EXPORT / DOWNLOAD | **Not** verified until one manual Unknown Sources launch |
-| Pixel fallback with Quest APK | Proves binary + `quest-companion` parse/consume |
+| Cold `am start` / `monkey` / SEND / EXPORT | **OK** after Unknown Sources gate cleared (uiautomator shows `YTS Quest Companion` 2D panel; queue prefs + Downloads export verified) |
+| `am broadcast …prox_close` | Completes; `sys.hmt.mounted` may stay `0` without privilege |
+| VR passcode UI | Can block automation until entered when the headset is locked |
+| Library / Unknown Sources via ADB / metavr / empty a11y | Still not automatable for the *first* open — Meta-button Library remains VR-composited |
+| On-headset SEND/EXPORT | **Verified** — `SKIP_INSTALL=1 ./scripts/smoke_quest.sh` passed on-device 2026-10-24 |
+| Pixel fallback with Quest APK | Still available if cold start is blocked again after reinstall |
 
-Manual once: unlock passcode if shown → wear headset → Meta button → **Library → Unknown Sources → YTS Quest Companion**. Then `SKIP_INSTALL=1 ./scripts/smoke_quest.sh`. The smoke script always checks install + 2D registration on the Quest; if cold start is blocked it falls back to Pixel.
+Manual once after install/reinstall: unlock passcode if shown → wear headset → Meta button → **Library → Unknown Sources → YTS Quest Companion**. Then `ANDROID_ADB_SERVER_PORT=… SKIP_INSTALL=1 ./scripts/smoke_quest.sh`.
 
 ## Smoke e2e checklist
 
@@ -124,4 +124,4 @@ adb -s "$QUEST_SERIAL" logcat -d \
 
 ## Desktop handoff reminder
 
-Inbox export still feeds the desktop Suite. On-device yt-dlp (when the panel is open via Unknown Sources) writes media under app storage; desktop remains the richest watermark / merge path. See [architecture.md](architecture.md#local-inbox-protocol-v1).
+Inbox export still feeds the desktop Suite. On-device yt-dlp (when the panel is open via Unknown Sources) writes media under app storage with the same merge + optional watermark path as the phone flavor; desktop remains the richest multi-worker / cookie + preset path. See [architecture.md](architecture.md#local-inbox-protocol-v1).
