@@ -1,12 +1,13 @@
 # Roadmap
 
-Current product baseline: **v0.6.2** — Android companion scaffold (`android/`) ships: paste/share URL queue + SAF/share + **Export to Downloads** (ADB-pullable) inbox export for desktop handoff. Desktop Suite remains primary. Pixel 7 Pro Share/SAF→inbox handoff verified via Downloads export (`cheetah` / `29211FDH300NEB`).
+Current product baseline: **v0.6.2** — Android companion scaffold (`android/`) ships: paste/share URL queue + SAF/share + **Export to Downloads** (ADB-pullable) inbox export for desktop handoff. Desktop Suite remains primary. Pixel 7 Pro handoff verified end-to-end (`cheetah` / `29211FDH300NEB`): Downloads export, SAF folder + create-document, and Share chooser (uiautomator2).
 
 ## Now (v0.6.x)
 
 - [x] Android / GrapheneOS **companion scaffold** — Kotlin app under `android/`; queue + paste/share; SAF export / share payload matching desktop inbox contract; no Play Services / FCM; cleartext off. Docs: [docs/android.md](docs/android.md). Full Suite feature parity **not** done.
-- [x] Pixel 7 Pro ADB smoke e2e — install / launch / `ACTION_SEND` + `ACTION_VIEW` URL queue / prefs persistence / no package FATAL (`product:cheetah` / `model:Pixel_7_Pro`). SAF folder pick + Share chooser remain manual on-device taps.
+- [x] Pixel 7 Pro ADB smoke e2e — install / launch / `ACTION_SEND` + `ACTION_VIEW` URL queue / prefs persistence / no package FATAL (`product:cheetah` / `model:Pixel_7_Pro`).
 - [x] Pixel 7 Pro companion inbox handoff — **Export to Downloads** (`EXPORT_DOWNLOADS` / MediaStore `Download/YTSCompanion/`) → `adb pull` → `.ytsdownloader/inbox/` → desktop `consume_companion_inbox` accepts `schema: 1` / `source: android-companion`.
+- [x] Pixel 7 Pro **Share + SAF** on-device flows — Share chooser opened with NDJSON preview (Copy / Keep notes targets exercised); SAF **Choose export folder** → `Download/YTSCompanion` + persistable URI; **Export inbox** via tree URI; **Create document** SAVE → pullable JSON. Stock `uiautomator dump` still blind to `ChooserActivity`; use **uiautomator2** (or screenshot taps) for automation.
 
 ## Next
 

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- ROADMAP / [docs/android.md](docs/android.md): Pixel 7 Pro Share chooser + SAF folder/create-document paths verified (uiautomator2); stock `uiautomator dump` still insufficient for ChooserActivity.
+
 ## [0.6.2] - 2026-10-23
 
 ### Added

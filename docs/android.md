@@ -94,7 +94,10 @@ adb -s <pixel-serial> pull /sdcard/Download/YTSCompanion/yts_companion_<stamp>.j
 
 Or tap **Export to Downloads** in the app. Equivalent extra: `--ez yts_export_downloads true`.
 
-5. Optional: **Choose export folder (SAF)** / **Export inbox file** / **Share payload** — Share and SAF create-document still require on-device taps. On Android 17 / Pixel (`uiautomator dump` often fails; chooser UI is not reliably scriptable over ADB alone).
+5. Optional on-device paths (verified on Pixel 7 Pro / Android 17 with **uiautomator2**; stock `adb shell uiautomator dump` often omits `ChooserActivity` / DocumentsUI details):
+   - **Share payload** — opens system chooser with NDJSON/`text/plain`; Copy / Keep notes / Files targets work; Google “Save” rejects raw text.
+   - **Choose export folder (SAF)** — pick `Download/YTSCompanion` (or another writable folder) → Allow → label shows `content://…/tree/…`; **Export inbox file** writes JSON into that tree.
+   - **Create document** — with export folder unset, **Export inbox file** opens DocumentsUI SAVE; confirm into Downloads (or the last browsed folder) and `adb pull`.
 6. On desktop, drop the JSON into `.ytsdownloader/inbox/` (or append NDJSON to `companion_inbox.jsonl`) while the Suite is running — or verify with `consume_companion_inbox` / `parse_companion_payload` (`schema: 1`, `source: android-companion`).
 7. Confirm the Suite enqueues the URL (same path as Link Grabber / drop zone).
 
