@@ -49,8 +49,14 @@ adb devices -l
 
 You want a line with `device` (not `unauthorized` / `offline`). Pixel 7 Pro typically shows `product:cheetah` / `model:Pixel_7_Pro`.
 
+When several phones share the host, always target the Pixel serial (example: `29211FDH300NEB`):
+
+```bash
+adb -s 29211FDH300NEB install -r android/app/build/outputs/apk/debug/app-debug.apk
+```
+
 3. If **unauthorized**: unlock the phone, accept the RSA fingerprint dialog, run `adb kill-server && adb start-server && adb devices` again.
-4. If **offline** / missing: try another cable/port, disable/enable USB debugging, or select **File transfer / Android Auto** USB mode.
+4. If **offline** / missing: try another cable/port, disable/enable USB debugging, or select **File transfer / Android Auto** USB mode. Confirm USB still sees the phone with `lsusb -d 18d1:` (Pixel vendor). If `lsusb` shows `Pixel 7 Pro` / `18d1:4ee7` but `adb devices` does not, other `adb` servers on non-default ports may own the USB node — see troubleshooting below.
 5. Install (replace existing debug build):
 
 ```bash
@@ -66,17 +72,34 @@ adb shell am start -n dev.voxhash.ytscompanion.debug/dev.voxhash.ytscompanion.Ma
 ## Smoke e2e checklist
 
 1. Open **YTS Companion**.
-2. Paste an `https://` media page URL → **Add** (row appears in Local queue).
-3. Optional: **Choose export folder (SAF)** → pick a directory GrapheneOS allows.
-4. **Export inbox file** or **Share payload** → copy the file onto the desktop machine.
-5. On desktop, drop the JSON into `.ytsdownloader/inbox/` (or append NDJSON to `companion_inbox.jsonl`) while the Suite is running.
-6. Confirm the Suite enqueues the URL (same path as Link Grabber / drop zone).
+2. Paste an `https://` media page URL → **Add** (row appears in Local queue), **or** inject via ADB:
+
+```bash
+adb -s <pixel-serial> shell am start -n dev.voxhash.ytscompanion.debug/dev.voxhash.ytscompanion.MainActivity \
+  -a android.intent.action.SEND -t 'text/plain' \
+  --es android.intent.extra.TEXT 'https://example.com/watch?v=test'
+```
+
+3. Confirm queue prefs: `run-as` → `shared_prefs/yts_companion.xml` (`queue_urls`).
+4. Optional: **Choose export folder (SAF)** → pick a directory GrapheneOS allows (manual on-device).
+5. **Export inbox file** or **Share payload** → copy the file onto the desktop machine (Share/SAF choosers are manual taps).
+6. On desktop, drop the JSON into `.ytsdownloader/inbox/` (or append NDJSON to `companion_inbox.jsonl`) while the Suite is running.
+7. Confirm the Suite enqueues the URL (same path as Link Grabber / drop zone).
 
 Logcat (errors only):
 
 ```bash
 adb logcat -d --pid="$(adb shell pidof -s dev.voxhash.ytscompanion.debug)" '*:E'
 ```
+
+### Troubleshooting: Pixel in `lsusb` but not in `adb devices`
+
+A USB farm with many phones often leaves **extra `adb` servers** listening on ports other than `5037`. One of those can open the Pixel’s `/dev/bus/usb/...` node while the default client still shows only other devices.
+
+1. `lsusb -d 18d1:` — confirm `Pixel 7 Pro` / `18d1:4ee7` (charging + debug).
+2. `fuser -v /dev/bus/usb/<bus>/<dev>` — see which `adb -L tcp:NNNN` holds the node.
+3. `ANDROID_ADB_SERVER_PORT=NNNN adb devices -l` — list devices on that server (look for `product:cheetah`).
+4. Or stop every server and reopen one clean listener: `pkill -x adb`; `usbreset 18d1:4ee7`; `adb start-server`; `adb devices -l`.
 
 ## Desktop handoff reminder
 

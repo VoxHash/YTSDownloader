@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-23
+
+### Changed
+- ROADMAP: Pixel 7 Pro ADB smoke e2e marked done (`cheetah` install / launch / SEND+VIEW queue / prefs / no package FATAL).
+- [docs/android.md](docs/android.md): multi-`adb`-server USB farm troubleshooting when Pixel appears in `lsusb` but not default `adb devices`; ADB SEND smoke snippet.
+
 ## [0.6.0] - 2026-10-23
 
 ### Added
