@@ -11,6 +11,10 @@ on:
         description: "Offscreen binary smoke after Linux freeze (SMOKE=1)"
         type: boolean
         default: true
+      bundle_natives:
+        description: "Best-effort build natives and copy native/bin into the onedir artifact"
+        type: boolean
+        default: true
 
 concurrency:
   group: freeze-${{ github.workflow }}-${{ github.ref }}
@@ -42,6 +46,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             ffmpeg \
+            gcc \
+            golang-go \
             libegl1 \
             libgl1 \
             libdbus-1-3 \
@@ -63,11 +69,20 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
+      - name: Build optional natives (best-effort)
+        if: ${{ inputs.bundle_natives }}
+        run: |
+          chmod +x scripts/build_natives.sh
+          # Fail soft per toolchain (cargo may be absent); freeze still ships Python fallbacks.
+          ./scripts/build_natives.sh || true
+          ls -la native/bin || true
+
       - name: Freeze with PyInstaller (onedir)
         env:
           # setup-python puts `python` on PATH; script defaults to .venv otherwise.
           YTS_PYTHON: python
           SMOKE: ${{ inputs.smoke && '1' || '0' }}
+          BUNDLE_NATIVES: ${{ inputs.bundle_natives && '1' || '0' }}
         run: |
           chmod +x scripts/build_pyinstaller.sh
           ./scripts/build_pyinstaller.sh

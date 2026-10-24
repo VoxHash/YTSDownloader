@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
 import unittest
+from unittest import mock
 
 from ytscore import native_bridge
 from ytscore.companion import CompanionItem, consume_companion_inbox, parse_companion_payload
@@ -141,6 +143,52 @@ class NativeBridgeFallbackTests(unittest.TestCase):
             self.assertEqual(status["via"], "native")
             self.assertEqual(status["nice"], 5)
             self.assertTrue(status["ionice_idle"])
+
+    def test_freeze_adjacent_native_bin_discovery(self) -> None:
+        """PyInstaller onedir layout: <exe_dir>/native/bin/<sidecar>."""
+        with tempfile.TemporaryDirectory() as tmp:
+            exe_dir = os.path.join(tmp, "YTSDownloader")
+            bin_dir = os.path.join(exe_dir, "native", "bin")
+            os.makedirs(bin_dir)
+            fake = os.path.join(bin_dir, "yts-normalize")
+            with open(fake, "w", encoding="utf-8") as fh:
+                fh.write(
+                    "#!/bin/sh\n"
+                    "echo '{\"ok\":true,\"items\":[\"https://from-freeze.example/z\"]}'\n"
+                )
+            os.chmod(fake, 0o755)
+            fake_exe = os.path.join(exe_dir, "YTSDownloader")
+            with open(fake_exe, "w", encoding="utf-8") as fh:
+                fh.write("#!/bin/sh\n")
+            os.chmod(fake_exe, 0o755)
+
+            os.environ.pop("YTS_NATIVE_DIR", None)
+            os.environ["YTS_USE_NATIVE"] = "1"
+            native_bridge.clear_native_cache()
+            with mock.patch.object(sys, "frozen", True, create=True), mock.patch.object(
+                sys, "executable", fake_exe
+            ):
+                candidates = native_bridge.native_bin_candidates()
+                self.assertIn(os.path.abspath(bin_dir), candidates)
+                self.assertEqual(native_bridge.native_bin_dir(), os.path.abspath(bin_dir))
+                found = native_bridge.find_binary("yts-normalize")
+                self.assertEqual(found, os.path.abspath(fake))
+                urls = normalize_urls(["https://ignored.example/a"])
+                self.assertEqual(urls, ["https://from-freeze.example/z"])
+
+    def test_cwd_native_bin_is_in_candidates(self) -> None:
+        """Launch-from-onedir: ./native/bin is a discovery candidate (after repo path)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            bin_dir = os.path.join(tmp, "native", "bin")
+            os.makedirs(bin_dir)
+            os.environ.pop("YTS_NATIVE_DIR", None)
+            prev = os.getcwd()
+            try:
+                os.chdir(tmp)
+                cands = native_bridge.native_bin_candidates()
+                self.assertIn(os.path.abspath(bin_dir), cands)
+            finally:
+                os.chdir(prev)
 
 
 class NativeNormalizeParityTests(unittest.TestCase):

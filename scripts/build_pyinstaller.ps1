@@ -2,6 +2,8 @@
 # Run on Windows — PyInstaller does not cross-compile.
 # Invoke from repo root:  .\scripts\build_pyinstaller.ps1
 # No Activate.ps1 required; uses .venv\Scripts\python.exe directly.
+# Optional: $env:BUNDLE_NATIVES = "auto"|"1"|"0" — copy native\bin next to the freeze
+#   (auto=default: copy if repo native\bin is non-empty; 1=require; 0=skip).
 $ErrorActionPreference = "Stop"
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -82,7 +84,32 @@ if (Test-Path -LiteralPath $OutAssets) {
 }
 Copy-Item -LiteralPath $Assets -Destination $OutAssets -Recurse -Force
 
+# Optional native sidecars: ship as <onedir>\native\bin\ (Suite discovers via native_bridge).
+$SrcNative = Join-Path $Root "native\bin"
+$BundleMode = if ($env:BUNDLE_NATIVES) { $env:BUNDLE_NATIVES } else { "auto" }
+if ($BundleMode -ne "0") {
+    $HasNatives = $false
+    if (Test-Path -LiteralPath $SrcNative -PathType Container) {
+        $HasNatives = @(Get-ChildItem -LiteralPath $SrcNative -Force -ErrorAction SilentlyContinue).Count -gt 0
+    }
+    if ($HasNatives) {
+        $OutNativeRoot = Join-Path $Out "native"
+        if (Test-Path -LiteralPath $OutNativeRoot) {
+            Remove-Item -LiteralPath $OutNativeRoot -Recurse -Force
+        }
+        $OutNativeBin = Join-Path $OutNativeRoot "bin"
+        New-Item -ItemType Directory -Path $OutNativeBin -Force | Out-Null
+        Copy-Item -LiteralPath (Join-Path $SrcNative "*") -Destination $OutNativeBin -Recurse -Force
+        Write-Host "Bundled native\bin\ → $OutNativeBin\"
+    } elseif ($BundleMode -eq "1") {
+        Write-Warning "BUNDLE_NATIVES=1 but $SrcNative is empty — run .\scripts\build_natives.sh (or WSL) first"
+    } else {
+        Write-Host "Note: no native\bin\ to bundle (Python fallbacks). Build natives then re-freeze, or set BUNDLE_NATIVES=0 to silence."
+    }
+}
+
 Write-Host ""
 Write-Host "Built: $Out\"
 Write-Host "Ship the entire folder. Runtime still needs ffmpeg and ffprobe on PATH."
+Write-Host "Optional natives live under native\bin\ next to the binary when bundled."
 Write-Host "Try:  cd dist\YTSDownloader; .\YTSDownloader.exe"

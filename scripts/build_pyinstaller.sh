@@ -4,6 +4,8 @@
 # Fish-safe: invoke as ./scripts/build_pyinstaller.sh (no venv activate required).
 # Optional: YTS_PYTHON=/path/to/python  (defaults to .venv/bin/python)
 # Optional: SMOKE=1  — after freeze, run an offscreen launch smoke (needs Qt plugins).
+# Optional: BUNDLE_NATIVES=auto|1|0 — copy native/bin/ next to the freeze when present
+#   (auto=default: copy if repo native/bin/ is non-empty; 1=require; 0=skip).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -68,9 +70,26 @@ cp -a "$ROOT/themes" "$OUT/themes"
 rm -rf "$OUT/assets"
 cp -a "$ROOT/assets" "$OUT/assets"
 
+# Optional native sidecars: ship as <onedir>/native/bin/ (Suite discovers via native_bridge).
+SRC_NATIVE="$ROOT/native/bin"
+BUNDLE_MODE="${BUNDLE_NATIVES:-auto}"
+if [[ "$BUNDLE_MODE" != "0" ]]; then
+  if [[ -d "$SRC_NATIVE" ]] && [[ -n "$(find "$SRC_NATIVE" -mindepth 1 -maxdepth 1 2>/dev/null | head -n 1)" ]]; then
+    rm -rf "$OUT/native"
+    mkdir -p "$OUT/native"
+    cp -a "$SRC_NATIVE" "$OUT/native/bin"
+    echo "Bundled native/bin/ → $OUT/native/bin/"
+  elif [[ "$BUNDLE_MODE" == "1" ]]; then
+    echo "warning: BUNDLE_NATIVES=1 but $SRC_NATIVE is empty — run ./scripts/build_natives.sh first" >&2
+  else
+    echo "Note: no native/bin/ to bundle (Python fallbacks). Build with ./scripts/build_natives.sh then re-freeze, or set BUNDLE_NATIVES=0 to silence."
+  fi
+fi
+
 echo
 echo "Built: $OUT/"
 echo "Ship the entire folder. Runtime still needs ffmpeg and ffprobe on PATH."
+echo "Optional natives live under native/bin/ next to the binary when bundled."
 echo "Try:  cd dist/YTSDownloader && ./YTSDownloader"
 
 if [[ "${SMOKE:-0}" == "1" ]]; then

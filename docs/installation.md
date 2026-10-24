@@ -110,7 +110,7 @@ Runtime knobs:
 | `PROCESS_NICE` | CPU nice on Start Queue (`0` = unchanged; Settings spinbox) |
 | `PROCESS_IDLE_IO` | Linux idle I/O class on Start Queue (default `true`) |
 
-Frozen builds: after PyInstaller, optionally copy `native/bin/` next to the executable (or set `YTS_NATIVE_DIR`). Natives are **not** required for the freeze to run.
+Frozen builds: the freeze helpers copy `native/bin/` into `dist/YTSDownloader/native/bin/` when the repo tree is non-empty (`BUNDLE_NATIVES=auto`, default). Force with `BUNDLE_NATIVES=1`, skip with `BUNDLE_NATIVES=0`. At runtime the Suite looks for sidecars next to the frozen executable (`<onedir>/native/bin`), then the checkout path, then `./native/bin`, or `YTS_NATIVE_DIR`. Natives are **not** required for the freeze to run (Python fallbacks).
 
 ## Packaging (Windows / macOS / Linux distributables)
 
@@ -146,14 +146,19 @@ From the repo root, with the project venv already holding `requirements.txt`:
 
 ```bash
 # Linux / macOS (fish-safe — no activate required)
-./scripts/build_pyinstaller.sh
-# optional offscreen start smoke:
-SMOKE=1 ./scripts/build_pyinstaller.sh
+./scripts/build_natives.sh          # optional; skip for Python-only
+./scripts/build_pyinstaller.sh      # auto-bundles native/bin/ when present
+# optional offscreen start smoke + force/skip natives:
+SMOKE=1 BUNDLE_NATIVES=1 ./scripts/build_pyinstaller.sh
+BUNDLE_NATIVES=0 ./scripts/build_pyinstaller.sh
 ```
 
 ```powershell
 # Windows PowerShell
+# Build natives on WSL/Linux or a Windows toolchain first into native\bin
 .\scripts\build_pyinstaller.ps1
+# $env:BUNDLE_NATIVES = "1"   # require native\bin
+# $env:BUNDLE_NATIVES = "0"   # skip bundling
 ```
 
 Override the interpreter when you are not using `.venv` (CI / custom envs):
@@ -193,6 +198,18 @@ Use absolute paths for `--add-data` when `--specpath` is outside the repo root l
 
 Output: `dist/YTSDownloader/` (executable + `_internal/` on recent PyInstaller). **Ship the whole folder**; do not move the binary alone. `build/` and `dist/` stay gitignored.
 
+When natives were built before the freeze, the tree also contains:
+
+```text
+dist/YTSDownloader/
+  YTSDownloader          # or YTSDownloader.exe
+  config.ini
+  themes/
+  assets/
+  native/bin/            # optional sidecars (yts-normalize, yts-prio, …)
+  _internal/
+```
+
 Launch from that folder (writable cwd for `.ytsdownloader/` queue state):
 
 ```bash
@@ -200,6 +217,8 @@ cd dist/YTSDownloader
 ./YTSDownloader
 # smoke (no display):
 QT_QPA_PLATFORM=offscreen timeout 8 ./YTSDownloader
+# confirm native discovery (fish-safe from a checkout with the same tree):
+YTS_NATIVE_DIR="$(pwd)/native/bin" .venv/bin/python -c "from ytscore.native_bridge import native_status; print(native_status())"
 ```
 
 ```powershell
@@ -213,7 +232,7 @@ cd dist\YTSDownloader
 2. Preserve **symlinks** when copying or archiving PyInstaller 6+ trees (`cp -a`, `tar`, or `zip -y`).
 3. Optional packaging of the folder: AppImage / `.tar.gz` / Briefcase `system_runtime_requires` including `ffmpeg`.
 4. Metadata bridge still needs `dbus-send` or `busctl` on the user machine when that feature is used.
-5. Optional manual GitHub Actions freeze: **Actions → Freeze (manual) → Run workflow** (`.github/workflows/freeze.yml`, `workflow_dispatch` only, Ubuntu artifact). Not a required PR check. If the run stays **Queued**, hosted runners may be unavailable for the org — freeze locally instead.
+5. Optional manual GitHub Actions freeze: **Actions → Freeze (manual) → Run workflow** (`.github/workflows/freeze.yml`, `workflow_dispatch` only, Ubuntu artifact). Inputs: offscreen smoke and **bundle natives** (best-effort `gcc` / `golang-go` build into the artifact’s `native/bin/`). Not a required PR check. If the run stays **Queued**, hosted runners may be unavailable for the org — freeze locally instead.
 
 ### macOS
 
@@ -264,4 +283,4 @@ python -m venv .venv
 - [ ] One short download + optional watermark completes
 - [ ] Cookies / Node notes documented for end users when platforms require them
 - [ ] Built with `scripts/build_pyinstaller.sh` or `scripts/build_pyinstaller.ps1` on that OS
-- [ ] Optional: `./scripts/build_natives.sh` and copy `native/bin/` beside the freeze (or document Python-only fallback)
+- [ ] Optional: `./scripts/build_natives.sh` then freeze (auto-bundles `native/bin/`), or ship Python-only with `BUNDLE_NATIVES=0`

@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -18,14 +19,50 @@ RUBY_FILTER = "yts_json_filter.rb"
 _DEFAULT_TIMEOUT = 30.0
 
 
-def native_bin_dir() -> str:
-    """Directory for built sidecars (override with YTS_NATIVE_DIR)."""
+def native_bin_candidates() -> List[str]:
+    """
+    Ordered search paths for sidecars.
+
+    1. ``YTS_NATIVE_DIR`` (explicit override)
+    2. PyInstaller onedir: ``<exe_dir>/native/bin`` (bundled next to the freeze)
+    3. Repo checkout: ``<repo>/native/bin``
+    4. Process cwd: ``./native/bin`` (launch from the shipped folder)
+    """
+    seen: set[str] = set()
+    out: List[str] = []
+
+    def _add(path: str) -> None:
+        abs_path = os.path.abspath(path)
+        if abs_path not in seen:
+            seen.add(abs_path)
+            out.append(abs_path)
+
     override = os.environ.get("YTS_NATIVE_DIR", "").strip()
     if override:
-        return os.path.abspath(override)
-    # Prefer repo-relative native/bin when running from a checkout.
-    here = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "native", "bin"))
-    return here
+        _add(override)
+
+    if getattr(sys, "frozen", False):
+        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+        _add(os.path.join(exe_dir, "native", "bin"))
+
+    _add(os.path.join(os.path.dirname(__file__), "..", "native", "bin"))
+    _add(os.path.join(os.getcwd(), "native", "bin"))
+    return out
+
+
+def native_bin_dir() -> str:
+    """
+    Primary directory for built sidecars.
+
+    Prefer ``YTS_NATIVE_DIR``, else the first existing candidate (freeze-adjacent
+    ``native/bin/``, repo checkout, or cwd). If none exist yet, return the preferred
+    layout path (freeze ``native/bin`` when frozen, else repo ``native/bin``).
+    """
+    candidates = native_bin_candidates()
+    for path in candidates:
+        if os.path.isdir(path):
+            return path
+    return candidates[0]
 
 
 def natives_enabled() -> bool:
@@ -39,9 +76,10 @@ def find_binary(name: str) -> Optional[str]:
     """Return absolute path to a sidecar binary, or None if missing."""
     if not natives_enabled():
         return None
-    local = os.path.join(native_bin_dir(), name)
-    if os.path.isfile(local) and os.access(local, os.X_OK):
-        return local
+    for bin_dir in native_bin_candidates():
+        local = os.path.join(bin_dir, name)
+        if os.path.isfile(local) and os.access(local, os.X_OK):
+            return local
     found = shutil.which(name)
     if found and os.access(found, os.X_OK):
         return found
@@ -56,12 +94,12 @@ def find_ruby_filter() -> Optional[str]:
     ruby = shutil.which("ruby")
     if not ruby:
         return None
-    candidates = [
-        os.path.join(native_bin_dir(), RUBY_FILTER),
+    candidates = [os.path.join(d, RUBY_FILTER) for d in native_bin_candidates()]
+    candidates.append(
         os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", "native", "ruby", RUBY_FILTER)
-        ),
-    ]
+        )
+    )
     for path in candidates:
         if os.path.isfile(path):
             return path

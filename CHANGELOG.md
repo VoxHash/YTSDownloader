@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-23
+
+### Added
+- PyInstaller freeze helpers auto-bundle `native/bin/` into `dist/YTSDownloader/native/bin/` when present (`BUNDLE_NATIVES=auto|1|0` on `scripts/build_pyinstaller.sh` / `.ps1`).
+- `ytscore.native_bridge` discovers freeze-adjacent and cwd `native/bin/` (plus `YTS_NATIVE_DIR` / checkout).
+- Optional `freeze.yml` input **bundle natives** (best-effort `gcc` / Go build into the Ubuntu onedir artifact).
+
+### Changed
+- Packaging docs describe the onedir `native/bin/` layout and `BUNDLE_NATIVES` knobs.
+
 ## [0.5.0] - 2026-10-23
 
 ### Added
@@ -216,7 +226,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.5...v0.5.0
 [0.4.5]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.3...v0.4.4

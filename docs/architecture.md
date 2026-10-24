@@ -123,4 +123,4 @@ Rules:
 - **System**: ffmpeg + ffprobe (mux/encode / probe), optional Node.js for extractor JS challenges
 - **Optional**: session bus tools (`dbus-send` / `busctl`) for the metadata bridge on Linux
 - **Optional natives**: Rust / C (or `zig cc`) / Go / Ruby sidecars under `native/` — see [Installation → Native sidecars](installation.md#optional-native-sidecars)
-- **Distributables**: freeze with PyInstaller `onedir` per OS; ffmpeg/ffprobe remain external; optionally copy `native/bin/` next to the freeze — see [Installation → Packaging](installation.md#packaging-windows--macos--linux-distributables)
+- **Distributables**: freeze with PyInstaller `onedir` per OS; ffmpeg/ffprobe remain external; freeze helpers auto-bundle `native/bin/` next to the binary when present (`BUNDLE_NATIVES`) — see [Installation → Packaging](installation.md#packaging-windows--macos--linux-distributables)
