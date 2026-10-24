@@ -11,6 +11,7 @@ Lightweight **URL companion** for YTSDownloader. The desktop Suite remains the p
 | Paste URL → local queue | Yes |
 | Share sheet (`ACTION_SEND` text) → queue | Yes |
 | Export JSON via Storage Access Framework (folder or create-document) | Yes |
+| Export to Downloads / app files (no SAF chooser) | Yes |
 | Share NDJSON / JSONL payload | Yes |
 | On-device download / extract | No (desktop Suite) |
 | Google Play Services / FCM | None (ADB sideload only) |
@@ -81,9 +82,20 @@ adb -s <pixel-serial> shell am start -n dev.voxhash.ytscompanion.debug/dev.voxha
 ```
 
 3. Confirm queue prefs: `run-as` → `shared_prefs/yts_companion.xml` (`queue_urls`).
-4. Optional: **Choose export folder (SAF)** → pick a directory GrapheneOS allows (manual on-device).
-5. **Export inbox file** or **Share payload** → copy the file onto the desktop machine (Share/SAF choosers are manual taps).
-6. On desktop, drop the JSON into `.ytsdownloader/inbox/` (or append NDJSON to `companion_inbox.jsonl`) while the Suite is running.
+4. Preferred ADB handoff (no SAF / share chooser): **Export to Downloads** — MediaStore `Download/YTSCompanion/*.json` plus app-files copy under `Android/data/.../files/Download/`.
+
+```bash
+adb -s <pixel-serial> shell am start -n dev.voxhash.ytscompanion.debug/dev.voxhash.ytscompanion.MainActivity \
+  -a dev.voxhash.ytscompanion.action.EXPORT_DOWNLOADS
+
+adb -s <pixel-serial> shell ls -la /sdcard/Download/YTSCompanion/
+adb -s <pixel-serial> pull /sdcard/Download/YTSCompanion/yts_companion_<stamp>.json .ytsdownloader/inbox/
+```
+
+Or tap **Export to Downloads** in the app. Equivalent extra: `--ez yts_export_downloads true`.
+
+5. Optional: **Choose export folder (SAF)** / **Export inbox file** / **Share payload** — Share and SAF create-document still require on-device taps. On Android 17 / Pixel (`uiautomator dump` often fails; chooser UI is not reliably scriptable over ADB alone).
+6. On desktop, drop the JSON into `.ytsdownloader/inbox/` (or append NDJSON to `companion_inbox.jsonl`) while the Suite is running — or verify with `consume_companion_inbox` / `parse_companion_payload` (`schema: 1`, `source: android-companion`).
 7. Confirm the Suite enqueues the URL (same path as Link Grabber / drop zone).
 
 Logcat (errors only):

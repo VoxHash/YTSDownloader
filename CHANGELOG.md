@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-10-23
+
+### Added
+- Android companion **Export to Downloads**: writes schema-1 `android-companion` JSON to MediaStore `Download/YTSCompanion/` and app-specific `files/Download/` without SAF or share chooser; ADB action `dev.voxhash.ytscompanion.action.EXPORT_DOWNLOADS` (or `--ez yts_export_downloads true`).
+
+### Changed
+- ROADMAP / [docs/android.md](docs/android.md): Pixel handoff verified via Downloads export; note Android 17 `uiautomator dump` / SAF-chooser automation limits.
+
 ## [0.6.1] - 2026-10-23
 
 ### Changed
@@ -251,7 +259,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.0...v0.5.1

@@ -1,11 +1,12 @@
 # Roadmap
 
-Current product baseline: **v0.6.1** — Android companion scaffold (`android/`) ships: paste/share URL queue + SAF/share inbox export for desktop handoff. Desktop Suite remains primary. Pixel 7 Pro ADB smoke e2e verified (`cheetah` / `29211FDH300NEB`).
+Current product baseline: **v0.6.2** — Android companion scaffold (`android/`) ships: paste/share URL queue + SAF/share + **Export to Downloads** (ADB-pullable) inbox export for desktop handoff. Desktop Suite remains primary. Pixel 7 Pro Share/SAF→inbox handoff verified via Downloads export (`cheetah` / `29211FDH300NEB`).
 
 ## Now (v0.6.x)
 
 - [x] Android / GrapheneOS **companion scaffold** — Kotlin app under `android/`; queue + paste/share; SAF export / share payload matching desktop inbox contract; no Play Services / FCM; cleartext off. Docs: [docs/android.md](docs/android.md). Full Suite feature parity **not** done.
 - [x] Pixel 7 Pro ADB smoke e2e — install / launch / `ACTION_SEND` + `ACTION_VIEW` URL queue / prefs persistence / no package FATAL (`product:cheetah` / `model:Pixel_7_Pro`). SAF folder pick + Share chooser remain manual on-device taps.
+- [x] Pixel 7 Pro companion inbox handoff — **Export to Downloads** (`EXPORT_DOWNLOADS` / MediaStore `Download/YTSCompanion/`) → `adb pull` → `.ytsdownloader/inbox/` → desktop `consume_companion_inbox` accepts `schema: 1` / `source: android-companion`.
 
 ## Next
 

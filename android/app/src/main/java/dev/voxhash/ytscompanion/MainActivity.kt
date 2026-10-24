@@ -1,8 +1,12 @@
 package dev.voxhash.ytscompanion
 
+import android.content.ContentValues
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.Toast
@@ -14,6 +18,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import android.widget.TextView
+import java.io.File
 import java.io.OutputStreamWriter
 
 class MainActivity : AppCompatActivity() {
@@ -69,6 +74,9 @@ class MainActivity : AppCompatActivity() {
             openTree.launch(null)
         }
         findViewById<MaterialButton>(R.id.exportButton).setOnClickListener { exportInbox() }
+        findViewById<MaterialButton>(R.id.exportDownloadsButton).setOnClickListener {
+            exportToDownloads()
+        }
         findViewById<MaterialButton>(R.id.shareButton).setOnClickListener { sharePayload() }
 
         refreshExportFolderLabel()
@@ -94,6 +102,12 @@ class MainActivity : AppCompatActivity() {
             Intent.ACTION_VIEW -> {
                 intent.dataString?.let { addUrl(it) }
             }
+            ACTION_EXPORT_DOWNLOADS -> {
+                exportToDownloads()
+            }
+        }
+        if (intent.getBooleanExtra(EXTRA_EXPORT_DOWNLOADS, false)) {
+            exportToDownloads()
         }
     }
 
@@ -166,6 +180,70 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Write companion JSON without SAF / share chooser (ADB-friendly).
+     * Public Downloads via MediaStore + app-specific external files copy.
+     */
+    private fun exportToDownloads() {
+        if (urls.isEmpty()) {
+            Toast.makeText(this, R.string.empty_queue, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val name = CompanionPayload.suggestedFileName()
+        val body = CompanionPayload.toJsonDocument(urls)
+        try {
+            val appDir =
+                getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                    ?: getExternalFilesDir(null)
+                    ?: filesDir
+            val appFile = File(appDir, name)
+            appFile.parentFile?.mkdirs()
+            appFile.writeText(body, Charsets.UTF_8)
+
+            var publicOk = false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values =
+                    ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                        put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
+                        put(
+                            MediaStore.MediaColumns.RELATIVE_PATH,
+                            Environment.DIRECTORY_DOWNLOADS + "/YTSCompanion",
+                        )
+                    }
+                val uri =
+                    contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                if (uri != null) {
+                    contentResolver.openOutputStream(uri)?.use { os ->
+                        OutputStreamWriter(os, Charsets.UTF_8).use { it.write(body) }
+                    }
+                    publicOk = true
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                val legacy =
+                    File(
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                        "YTSCompanion",
+                    )
+                legacy.mkdirs()
+                File(legacy, name).writeText(body, Charsets.UTF_8)
+                publicOk = true
+            }
+
+            val shown =
+                if (publicOk) {
+                    "Download/YTSCompanion/$name"
+                } else {
+                    appFile.absolutePath
+                }
+            Toast.makeText(this, getString(R.string.exported_downloads, shown), Toast.LENGTH_LONG)
+                .show()
+        } catch (_: Exception) {
+            Toast.makeText(this, R.string.export_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun sharePayload() {
         if (urls.isEmpty()) {
             Toast.makeText(this, R.string.empty_queue, Toast.LENGTH_SHORT).show()
@@ -204,5 +282,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         override fun getItemCount(): Int = items.size
+    }
+
+    companion object {
+        const val ACTION_EXPORT_DOWNLOADS = "dev.voxhash.ytscompanion.action.EXPORT_DOWNLOADS"
+        const val EXTRA_EXPORT_DOWNLOADS = "yts_export_downloads"
     }
 }

@@ -26,6 +26,11 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <!-- ADB / automation: write inbox JSON without SAF or share chooser. -->
+            <intent-filter>
+                <action android:name="dev.voxhash.ytscompanion.action.EXPORT_DOWNLOADS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>
