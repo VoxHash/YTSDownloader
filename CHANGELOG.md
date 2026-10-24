@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-23
+
+### Added
+- Suite **Settings** panel **Native helpers**: shows `YTS_USE_NATIVE`, search directory, and discovery paths for normalize / priority / inbox / Ruby filter sidecars (or honest Python-fallback text when missing/disabled), with **Refresh** to re-scan.
+- Offscreen / unit coverage for the native status Settings surface (`tests/test_native_bridge.py`).
+
+### Changed
+- SuiteDark styles for the native status panel; configuration docs mention the Settings discovery UI.
+
 ## [0.5.1] - 2026-10-23
 
 ### Added
@@ -226,7 +235,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.5...v0.5.0
 [0.4.5]: https://github.com/VoxHash/YTSDownloader/compare/v0.4.4...v0.4.5

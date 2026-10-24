@@ -224,6 +224,121 @@ class SuiteOffscreenWithoutNativesTests(unittest.TestCase):
             win.close()
             _ = app
 
+    def test_settings_native_status_shows_disabled_fallback(self) -> None:
+        from PyQt6.QtWidgets import QApplication
+
+        from ytscore.settings import Settings
+        from ytsgui.main_window import SuiteWindow
+
+        native_bridge.clear_native_cache()
+        app = QApplication.instance() or QApplication([])
+        win = SuiteWindow(settings=Settings(max_workers=1, process_idle_io=False))
+        try:
+            self.assertIn("Disabled", win.native_status_enabled.text())
+            self.assertIn("Python fallback", win.native_status_normalize.text())
+            self.assertIn("Python fallback", win.native_status_prio.text())
+            self.assertIn("Python fallback", win.native_status_inbox.text())
+            self.assertIn("Python fallback", win.native_status_ruby.text())
+            self.assertTrue(win.native_status_bin_dir.text().strip())
+            win._on_refresh_native_status()
+            self.assertIn("Disabled", win.native_status_enabled.text())
+        finally:
+            win.close()
+            _ = app
+
+
+class SuiteOffscreenNativeStatusDiscoveryTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+    def setUp(self) -> None:
+        native_bridge.clear_native_cache()
+        self._prev_use = os.environ.get("YTS_USE_NATIVE")
+        self._prev_dir = os.environ.get("YTS_NATIVE_DIR")
+
+    def tearDown(self) -> None:
+        native_bridge.clear_native_cache()
+        if self._prev_use is None:
+            os.environ.pop("YTS_USE_NATIVE", None)
+        else:
+            os.environ["YTS_USE_NATIVE"] = self._prev_use
+        if self._prev_dir is None:
+            os.environ.pop("YTS_NATIVE_DIR", None)
+        else:
+            os.environ["YTS_NATIVE_DIR"] = self._prev_dir
+
+    def test_settings_native_status_shows_discovered_paths(self) -> None:
+        from PyQt6.QtWidgets import QApplication
+
+        from ytscore.settings import Settings
+        from ytsgui.main_window import SuiteWindow
+
+        with tempfile.TemporaryDirectory() as tmp:
+            for name in ("yts-normalize", "yts-prio", "yts-inbox"):
+                path = os.path.join(tmp, name)
+                with open(path, "w", encoding="utf-8") as fh:
+                    fh.write("#!/bin/sh\nexit 0\n")
+                os.chmod(path, 0o755)
+            ruby_script = os.path.join(tmp, "yts_json_filter.rb")
+            with open(ruby_script, "w", encoding="utf-8") as fh:
+                fh.write("# stub\n")
+
+            os.environ["YTS_NATIVE_DIR"] = tmp
+            os.environ["YTS_USE_NATIVE"] = "1"
+            native_bridge.clear_native_cache()
+
+            app = QApplication.instance() or QApplication([])
+            win = SuiteWindow(settings=Settings(max_workers=1))
+            try:
+                self.assertIn("Enabled", win.native_status_enabled.text())
+                self.assertEqual(
+                    os.path.abspath(win.native_status_bin_dir.text()),
+                    os.path.abspath(tmp),
+                )
+                self.assertEqual(
+                    win.native_status_normalize.text(),
+                    os.path.abspath(os.path.join(tmp, "yts-normalize")),
+                )
+                self.assertEqual(
+                    win.native_status_prio.text(),
+                    os.path.abspath(os.path.join(tmp, "yts-prio")),
+                )
+                self.assertEqual(
+                    win.native_status_inbox.text(),
+                    os.path.abspath(os.path.join(tmp, "yts-inbox")),
+                )
+                # Ruby filter also needs `ruby` on PATH; path or honest fallback.
+                ruby_text = win.native_status_ruby.text()
+                self.assertTrue(
+                    ruby_text == os.path.abspath(ruby_script)
+                    or "Python fallback" in ruby_text
+                    or "Skipped" in ruby_text
+                )
+                win._on_refresh_native_status()
+                self.assertIn("Enabled", win.native_status_enabled.text())
+            finally:
+                win.close()
+                _ = app
+
+
+class NativeStatusFormatTests(unittest.TestCase):
+    def test_format_sidecar_messages(self) -> None:
+        from ytsgui.main_window import SuiteWindow
+
+        self.assertEqual(
+            SuiteWindow._format_native_sidecar(None, enabled=False),
+            "Skipped — natives disabled (Python fallback)",
+        )
+        self.assertEqual(
+            SuiteWindow._format_native_sidecar(None, enabled=True),
+            "Not found — using Python fallback",
+        )
+        self.assertEqual(
+            SuiteWindow._format_native_sidecar("/opt/yts/yts-normalize", enabled=True),
+            "/opt/yts/yts-normalize",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 # Roadmap
 
-Current product baseline: **v0.5.1** — freeze helpers bundle optional `native/bin/` next to PyInstaller onedir; Suite discovers freeze-adjacent sidecars with Python soft-fallback.
+Current product baseline: **v0.5.2** — Suite Settings shows native sidecar discovery status (`native_status`); freeze helpers still bundle optional `native/bin/` beside PyInstaller onedir with Python soft-fallback.
 
 ## Now (v0.5.x)
 
@@ -11,10 +11,11 @@ Current product baseline: **v0.5.1** — freeze helpers bundle optional `native/
 - [x] Manual per-OS PyInstaller freeze path complete (`scripts/build_pyinstaller.sh` / `.ps1`, packaging docs, optional Ubuntu-only `freeze.yml` via `workflow_dispatch`).
 - [x] Queue context menu (remove / force download), Clear All, and volume sidebar on output-folder Browse.
 - [x] Bundle or document `native/bin/` next to PyInstaller freezes per OS (optional artifact step; `BUNDLE_NATIVES` + freeze-adjacent discovery).
+- [x] Settings UI surface for native discovery status (`ytscore.native_bridge.native_status`).
 
 ## Next
 
-- [ ] Settings UI surface for native discovery status (`ytscore.native_bridge.native_status`).
+_(no active desktop milestone — see Later)_
 
 ## Later
 

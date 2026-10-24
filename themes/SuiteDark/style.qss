@@ -203,3 +203,36 @@ QLabel#triageCategory {
     font-weight: 600;
     border: none;
 }
+
+QFrame#nativeStatusPanel {
+    background-color: #181818;
+    border: 1px solid #282828;
+    border-radius: 8px;
+}
+QLabel#sectionTitle {
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    border: none;
+}
+QLabel#nativeStatusHint {
+    color: #b3b3b3;
+    border: none;
+    font-size: 12px;
+}
+QLabel#nativeStatusValue {
+    color: #e8e8e8;
+    border: none;
+    font-size: 12px;
+}
+QPushButton#nativeStatusRefresh {
+    background-color: transparent;
+    color: #ffffff;
+    border: 1px solid #727272;
+    border-radius: 16px;
+    padding: 4px 14px;
+    font-weight: 600;
+}
+QPushButton#nativeStatusRefresh:hover {
+    border-color: #ffffff;
+}

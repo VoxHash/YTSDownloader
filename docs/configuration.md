@@ -6,6 +6,8 @@ Settings live in `config.ini` under the `[SETTINGS]` section.
 
 Open **Settings** in the Suite sidebar to edit the keys below. **Save to config.ini** writes atomically and applies into the running app (pace, backoff, cookies, JS runtime, formats, retries, default output, status analytics). **Max workers** is picked up on the next **Start Queue**. **Reload config.ini** re-reads the file into the form and runtime.
 
+The Settings page also shows a **Native helpers** panel (`ytscore.native_bridge.native_status`): whether `YTS_USE_NATIVE` is on, the search directory, and paths for normalize / priority / inbox / Ruby filter sidecars (or an honest Python-fallback note when missing). **Refresh** re-scans after you build natives.
+
 ## Keys
 
 | Setting | Description | Default | Example |
@@ -30,7 +32,7 @@ Open **Settings** in the Suite sidebar to edit the keys below. **Save to config.
 
 Status analytics are **local and session-scoped** only. Nothing is sent over the network.
 
-Optional native helpers (`YTS_USE_NATIVE`, `YTS_NATIVE_DIR`) are documented in [Installation → Native sidecars](installation.md#optional-native-sidecars).
+Optional native helpers (`YTS_USE_NATIVE`, `YTS_NATIVE_DIR`) are env-only (not `config.ini` keys). See the Settings **Native helpers** panel and [Installation → Native sidecars](installation.md#optional-native-sidecars).
 
 ## Environment variables / secrets
 

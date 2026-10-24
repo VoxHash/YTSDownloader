@@ -59,6 +59,7 @@ from ytscore.crawl import (
     parse_crawl_mode,
 )
 from ytscore.folder_dialog import get_existing_directory
+from ytscore.native_bridge import clear_native_cache, native_status
 from ytscore.persist import (
     default_queue_state_path,
     deserialize_queue_snapshot,
@@ -751,6 +752,9 @@ class SuiteWindow(QMainWindow):
         form.addRow("Process nice", self.settings_process_nice)
         form.addRow("Disk priority", self.settings_process_idle_io)
 
+        native_panel = self._build_native_status_panel()
+        form.addRow(native_panel)
+
         scroll.setWidget(form_host)
         layout.addWidget(scroll, stretch=1)
 
@@ -765,7 +769,125 @@ class SuiteWindow(QMainWindow):
         layout.addLayout(btn_row)
 
         self._fill_settings_form(self.settings)
+        self._refresh_native_status()
         return page
+
+    def _build_native_status_panel(self) -> QFrame:
+        """Read-only discovery snapshot for optional native sidecars."""
+        panel = QFrame()
+        panel.setObjectName("nativeStatusPanel")
+        panel_layout = QVBoxLayout(panel)
+        panel_layout.setContentsMargins(12, 12, 12, 12)
+        panel_layout.setSpacing(8)
+
+        header = QHBoxLayout()
+        title = QLabel("Native helpers")
+        title.setObjectName("sectionTitle")
+        header.addWidget(title)
+        header.addStretch(1)
+        refresh_btn = QPushButton("Refresh")
+        refresh_btn.setObjectName("nativeStatusRefresh")
+        refresh_btn.setToolTip(
+            "Re-scan native/bin (and YTS_NATIVE_DIR) after building sidecars."
+        )
+        refresh_btn.clicked.connect(self._on_refresh_native_status)
+        header.addWidget(refresh_btn)
+        panel_layout.addLayout(header)
+
+        hint = QLabel(
+            "Optional sidecars speed up normalize, process priority, companion inbox, "
+            "and JSON filtering. Missing or disabled helpers fall back to Python "
+            "automatically — nothing fails hard."
+        )
+        hint.setObjectName("nativeStatusHint")
+        hint.setWordWrap(True)
+        panel_layout.addWidget(hint)
+
+        status_form = QFormLayout()
+        status_form.setContentsMargins(0, 4, 0, 0)
+        status_form.setSpacing(6)
+
+        self.native_status_enabled = QLabel("—")
+        self.native_status_enabled.setObjectName("nativeStatusValue")
+        self.native_status_enabled.setWordWrap(True)
+        self.native_status_bin_dir = QLabel("—")
+        self.native_status_bin_dir.setObjectName("nativeStatusValue")
+        self.native_status_bin_dir.setWordWrap(True)
+        self.native_status_bin_dir.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        self.native_status_normalize = QLabel("—")
+        self.native_status_normalize.setObjectName("nativeStatusValue")
+        self.native_status_normalize.setWordWrap(True)
+        self.native_status_normalize.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        self.native_status_prio = QLabel("—")
+        self.native_status_prio.setObjectName("nativeStatusValue")
+        self.native_status_prio.setWordWrap(True)
+        self.native_status_prio.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        self.native_status_inbox = QLabel("—")
+        self.native_status_inbox.setObjectName("nativeStatusValue")
+        self.native_status_inbox.setWordWrap(True)
+        self.native_status_inbox.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        self.native_status_ruby = QLabel("—")
+        self.native_status_ruby.setObjectName("nativeStatusValue")
+        self.native_status_ruby.setWordWrap(True)
+        self.native_status_ruby.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+
+        status_form.addRow("YTS_USE_NATIVE", self.native_status_enabled)
+        status_form.addRow("Search directory", self.native_status_bin_dir)
+        status_form.addRow("Normalize (Rust)", self.native_status_normalize)
+        status_form.addRow("Priority (C / zig cc)", self.native_status_prio)
+        status_form.addRow("Inbox (Go)", self.native_status_inbox)
+        status_form.addRow("JSON filter (Ruby)", self.native_status_ruby)
+        panel_layout.addLayout(status_form)
+        return panel
+
+    def _on_refresh_native_status(self) -> None:
+        clear_native_cache()
+        self._refresh_native_status()
+        self._refresh_status("Native helper discovery refreshed")
+
+    @staticmethod
+    def _format_native_sidecar(path: Optional[str], *, enabled: bool) -> str:
+        if not enabled:
+            return "Skipped — natives disabled (Python fallback)"
+        if path:
+            return path
+        return "Not found — using Python fallback"
+
+    def _refresh_native_status(self) -> None:
+        if not hasattr(self, "native_status_enabled"):
+            return
+        status = native_status()
+        enabled = bool(status.get("enabled"))
+        if enabled:
+            self.native_status_enabled.setText("Enabled (set YTS_USE_NATIVE=0 to disable)")
+        else:
+            self.native_status_enabled.setText(
+                "Disabled — Python fallbacks only (YTS_USE_NATIVE is off)"
+            )
+        bin_dir = str(status.get("bin_dir") or "").strip() or "(none)"
+        self.native_status_bin_dir.setText(bin_dir)
+        self.native_status_normalize.setText(
+            self._format_native_sidecar(status.get("normalize"), enabled=enabled)
+        )
+        self.native_status_prio.setText(
+            self._format_native_sidecar(status.get("prio"), enabled=enabled)
+        )
+        self.native_status_inbox.setText(
+            self._format_native_sidecar(status.get("inbox"), enabled=enabled)
+        )
+        self.native_status_ruby.setText(
+            self._format_native_sidecar(status.get("ruby_filter"), enabled=enabled)
+        )
 
     @staticmethod
     def _theme_names() -> List[str]:
