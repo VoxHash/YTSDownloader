@@ -36,8 +36,8 @@ if [[ ! -x ./gradlew ]]; then
   exit 1
 fi
 
-./gradlew :app:assembleDebug "$@"
-APK="$ANDROID_DIR/app/build/outputs/apk/debug/app-debug.apk"
+./gradlew :app:assemblePhoneDebug "$@"
+APK="$ANDROID_DIR/app/build/outputs/apk/phone/debug/app-phone-debug.apk"
 if [[ -f "$APK" ]]; then
   echo "APK: $APK"
 else

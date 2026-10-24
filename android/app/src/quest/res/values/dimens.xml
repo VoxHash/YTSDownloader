@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Larger hit targets for controller / hand pointing on a Quest panel. -->
+<resources>
+    <dimen name="quest_pad">28dp</dimen>
+    <dimen name="quest_btn_min_height">56dp</dimen>
+    <dimen name="quest_gap">12dp</dimen>
+</resources>

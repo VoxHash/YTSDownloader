@@ -35,9 +35,11 @@ From the repo root (fish-safe — invoke the script; do not `source` bash activa
 
 Debug APK path:
 
-`android/app/build/outputs/apk/debug/app-debug.apk`
+`android/app/build/outputs/apk/phone/debug/app-phone-debug.apk`
 
 Application id (debug): `dev.voxhash.ytscompanion.debug`
+
+Meta Quest 3 uses a separate flavor — see [quest.md](quest.md) / `./scripts/build_quest.sh`.
 
 ## Install on GrapheneOS / Pixel (ADB sideload)
 
@@ -53,7 +55,7 @@ You want a line with `device` (not `unauthorized` / `offline`). Pixel 7 Pro typi
 When several phones share the host, always target the Pixel serial (example: `29211FDH300NEB`):
 
 ```bash
-adb -s 29211FDH300NEB install -r android/app/build/outputs/apk/debug/app-debug.apk
+adb -s 29211FDH300NEB install -r android/app/build/outputs/apk/phone/debug/app-phone-debug.apk
 ```
 
 3. If **unauthorized**: unlock the phone, accept the RSA fingerprint dialog, run `adb kill-server && adb start-server && adb devices` again.
@@ -61,7 +63,7 @@ adb -s 29211FDH300NEB install -r android/app/build/outputs/apk/debug/app-debug.a
 5. Install (replace existing debug build):
 
 ```bash
-adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+adb install -r android/app/build/outputs/apk/phone/debug/app-phone-debug.apk
 ```
 
 6. Launch:

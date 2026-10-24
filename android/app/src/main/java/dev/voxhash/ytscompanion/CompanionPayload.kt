@@ -11,7 +11,10 @@ import java.util.Locale
  */
 object CompanionPayload {
     const val SCHEMA_VERSION = 1
-    const val SOURCE = "android-companion"
+
+    /** Flavor-specific: phone → android-companion, quest → quest-companion. */
+    val SOURCE: String
+        get() = BuildConfig.COMPANION_SOURCE
 
     fun isHttpUrl(raw: String): Boolean {
         val trimmed = raw.trim()

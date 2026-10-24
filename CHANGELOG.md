@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-23
+
+### Added
+- **Meta Quest 3** companion shell: Android product flavor `quest` (Horizon OS 2D panel) — package-aligned `dev.voxhash.ytscompanion.quest.MainActivity`, landscape layout, larger hit targets, inbox `source: quest-companion`, `com.oculus.intent.category.2D` / `supportedDevices` metadata.
+- `./scripts/build_quest.sh`, `./scripts/smoke_quest.sh` (Quest install + 2D registration; SEND/EXPORT with Pixel fallback when Horizon blocks cold `am start`).
+- Docs: [docs/quest.md](docs/quest.md).
+
 ### Changed
-- ROADMAP / [docs/android.md](docs/android.md): Pixel 7 Pro Share chooser + SAF folder/create-document paths verified (uiautomator2); stock `uiautomator dump` still insufficient for ChooserActivity.
+- Android Gradle split into `phone` + `quest` flavors; phone APK path is now `android/app/build/outputs/apk/phone/debug/app-phone-debug.apk` (`./scripts/build_android.sh`).
+- ROADMAP: Quest browse/queue shell scaffold marked done; immersive / Store packaging stays Later. Pixel Share+SAF notes remain in [docs/android.md](docs/android.md).
 
 ## [0.6.2] - 2026-10-23
 
@@ -262,7 +270,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.5.2...v0.6.0

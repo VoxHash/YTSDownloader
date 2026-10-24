@@ -1,0 +1,112 @@
+# Meta Quest 3 companion (Horizon OS 2D panel)
+
+Headset-side **browse/queue shell** for YTSDownloader. The desktop Suite remains the primary downloader; this panel collects media page URLs and exports companion-inbox payloads (`source: quest-companion`).
+
+**Not** immersive OpenXR, Horizon Store packaging, or on-device yt-dlp download. Store policies and local headset storage still constrain any future download path.
+
+## What ships in this slice
+
+| Capability | Status |
+| --- | --- |
+| Horizon OS **2D panel** APK (`quest` product flavor) | Yes |
+| Paste URL → local queue | Yes |
+| ADB `ACTION_SEND` / export-to-Downloads handoff | Yes |
+| Larger landscape controls for controller / hand pointing | Yes |
+| Inbox JSON `schema: 1` / `source: quest-companion` | Yes |
+| Immersive VR / Spatial SDK | No |
+| Horizon Store submission / VRC packaging | No |
+| On-device media download | No (desktop Suite) |
+
+Payload shapes match [Architecture → Browser companion handoff](architecture.md#browser-companion-handoff-contract).
+
+## Prerequisites
+
+- Same as [Android companion](android.md): JDK **17**, Android SDK (`compileSdk` 36 / build-tools 35.x), `adb`
+- Meta Quest headset with **Developer Mode** on (Meta Horizon mobile app → Devices → Developer Mode)
+- USB-C **data** cable (box charge-only cables will not enumerate ADB)
+
+## Build
+
+```bash
+./scripts/build_quest.sh
+```
+
+Debug APK path:
+
+`android/app/build/outputs/apk/quest/debug/app-quest-debug.apk`
+
+Application id: `dev.voxhash.ytscompanion.quest` (stable across debug/release for Horizon panel + ADB)
+
+Phone / GrapheneOS companion remains `./scripts/build_android.sh` → `…/phone/debug/app-phone-debug.apk`.
+
+## Install on Quest 3 (ADB sideload)
+
+1. Enable Developer Mode; put the headset on and accept **Allow USB debugging** when prompted.
+2. Confirm the device:
+
+```bash
+adb devices -l
+```
+
+Quest 3 typically shows `product:eureka` / `model:Quest_3` (example serial `2G0YC5ZGB6031R`).
+
+```bash
+QUEST_SERIAL=2G0YC5ZGB6031R   # replace with your serial
+adb -s "$QUEST_SERIAL" install -r android/app/build/outputs/apk/quest/debug/app-quest-debug.apk
+```
+
+3. Launch (Unknown Sources / Library, or ADB):
+
+```bash
+adb -s "$QUEST_SERIAL" shell am start -n \
+  dev.voxhash.ytscompanion.quest/dev.voxhash.ytscompanion.quest.MainActivity
+```
+
+Sideloaded apps appear under **Library → Unknown Sources** on the headset.
+
+**ADB cold-start note (Horizon OS):** after a fresh `adb install`, `am start -n …` often returns **Error type 3** (`Activity class … does not exist`) even though `dumpsys package` lists the activity and `com.oculus.intent.category.2D`. Put the headset on and open the app once from **Unknown Sources**, then ADB SEND / EXPORT works. `./scripts/smoke_quest.sh` always checks install + 2D registration on the Quest; if cold start is blocked it falls back to full SEND/EXPORT using the same Quest APK on a connected Pixel (proves the binary + `quest-companion` payload).
+
+## Smoke e2e checklist
+
+1. Open **YTS Quest Companion** on the headset (2D panel).
+2. Paste an `https://` media page URL → **Add**, **or** inject via ADB:
+
+```bash
+adb -s "$QUEST_SERIAL" shell am start -n \
+  dev.voxhash.ytscompanion.quest/dev.voxhash.ytscompanion.quest.MainActivity \
+  -a android.intent.action.SEND -t 'text/plain' \
+  --es android.intent.extra.TEXT 'https://example.com/watch?v=quest-smoke'
+```
+
+3. Confirm queue prefs:
+
+```bash
+adb -s "$QUEST_SERIAL" shell run-as dev.voxhash.ytscompanion.quest \
+  cat shared_prefs/yts_companion.xml
+```
+
+4. Export for desktop handoff (no SAF required):
+
+```bash
+adb -s "$QUEST_SERIAL" shell am start -n \
+  dev.voxhash.ytscompanion.quest/dev.voxhash.ytscompanion.quest.MainActivity \
+  -a dev.voxhash.ytscompanion.action.EXPORT_DOWNLOADS
+
+adb -s "$QUEST_SERIAL" shell ls -la /sdcard/Download/YTSCompanion/
+adb -s "$QUEST_SERIAL" pull /sdcard/Download/YTSCompanion/ .ytsdownloader/inbox/
+```
+
+Or: `./scripts/smoke_quest.sh` (detects `model:Quest_3` when present).
+
+5. On desktop, `consume_companion_inbox` / `parse_companion_payload` should accept `schema: 1` / `source: quest-companion`.
+
+Logcat:
+
+```bash
+adb -s "$QUEST_SERIAL" logcat -d \
+  --pid="$(adb -s "$QUEST_SERIAL" shell pidof -s dev.voxhash.ytscompanion.quest)" '*:E'
+```
+
+## Desktop handoff reminder
+
+Companions must not download media bytes. Write complete inbox files; the Suite polls and resolves with yt-dlp. See [architecture.md](architecture.md#local-inbox-protocol-v1).

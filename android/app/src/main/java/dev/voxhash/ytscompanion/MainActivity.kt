@@ -21,7 +21,7 @@ import android.widget.TextView
 import java.io.File
 import java.io.OutputStreamWriter
 
-class MainActivity : AppCompatActivity() {
+open class MainActivity : AppCompatActivity() {
     private lateinit var store: QueueStore
     private lateinit var urlInput: TextInputEditText
     private lateinit var emptyLabel: TextView

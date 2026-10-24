@@ -93,6 +93,8 @@ Working directory is the Suite process cwd (same place as `config.ini` / `.ytsdo
 {"schema": 1, "url": "https://example.com/watch?v=…", "title": "optional", "source": "browser-companion", "page_url": "https://…"}
 ```
 
+Known `source` values today: `browser-companion`, `android-companion` (phone flavor), `quest-companion` (Meta Quest 2D panel flavor). Optional metadata only — download still runs on the desktop Suite.
+
 ```json
 {"urls": ["https://a.example/1", {"url": "https://a.example/2", "title": "Two"}]}
 ```

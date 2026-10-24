@@ -112,9 +112,14 @@ Runtime knobs:
 
 Frozen builds: the freeze helpers copy `native/bin/` into `dist/YTSDownloader/native/bin/` when the repo tree is non-empty (`BUNDLE_NATIVES=auto`, default). Force with `BUNDLE_NATIVES=1`, skip with `BUNDLE_NATIVES=0`. At runtime the Suite looks for sidecars next to the frozen executable (`<onedir>/native/bin`), then the checkout path, then `./native/bin`, or `YTS_NATIVE_DIR`. Natives are **not** required for the freeze to run (Python fallbacks).
 
-## Optional Android companion
+## Optional Android / Quest companions
 
-Kotlin companion under `android/` (GrapheneOS-friendly ADB sideload; no Play Services). Desktop Suite stays the downloader — the phone app exports inbox payloads. Build: `./scripts/build_android.sh`. Full steps: [android.md](android.md).
+Kotlin companions under `android/` (no Play Services / FCM). Desktop Suite stays the downloader — companions export inbox payloads.
+
+| Flavor | Build | Docs |
+| --- | --- | --- |
+| Phone / GrapheneOS | `./scripts/build_android.sh` | [android.md](android.md) |
+| Meta Quest 3 (Horizon 2D panel) | `./scripts/build_quest.sh` | [quest.md](quest.md) |
 
 ## Packaging (Windows / macOS / Linux distributables)
 

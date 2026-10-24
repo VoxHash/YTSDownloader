@@ -13,9 +13,24 @@ android {
         applicationId = "dev.voxhash.ytscompanion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.6.2"
+        versionCode = 3
+        versionName = "0.7.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "COMPANION_SOURCE", "\"android-companion\"")
+    }
+
+    flavorDimensions += "device"
+    productFlavors {
+        create("phone") {
+            dimension = "device"
+            // GrapheneOS / phone companion (default sideload path).
+        }
+        create("quest") {
+            dimension = "device"
+            // Stable id (no .debug suffix) — Horizon OS is picky about panel package identity.
+            applicationId = "dev.voxhash.ytscompanion.quest"
+            buildConfigField("String", "COMPANION_SOURCE", "\"quest-companion\"")
+        }
     }
 
     buildTypes {
@@ -43,12 +58,20 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+}
+
+// Quest keeps a fixed applicationId across debug/release (Horizon panel + ADB scripts).
+androidComponents {
+    onVariants(selector().withFlavor("device" to "quest")) { variant ->
+        variant.applicationId.set("dev.voxhash.ytscompanion.quest")
     }
 }
 

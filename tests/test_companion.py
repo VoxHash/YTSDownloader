@@ -76,6 +76,25 @@ class ParseCompanionPayloadTests(unittest.TestCase):
         )
         self.assertEqual(len(items), 1)
 
+    def test_quest_companion_document(self) -> None:
+        payload = json.dumps(
+            {
+                "schema": 1,
+                "source": "quest-companion",
+                "urls": [
+                    {
+                        "schema": 1,
+                        "url": "https://example.com/watch?v=quest",
+                        "source": "quest-companion",
+                    }
+                ],
+            }
+        )
+        items = parse_companion_payload(payload)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].url, "https://example.com/watch?v=quest")
+        self.assertEqual(items[0].source, "quest-companion")
+
 
 class ConsumeCompanionInboxTests(unittest.TestCase):
     def test_jsonl_and_drop_file(self) -> None:

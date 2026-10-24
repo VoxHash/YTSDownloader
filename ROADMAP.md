@@ -1,13 +1,10 @@
 # Roadmap
 
-Current product baseline: **v0.6.2** — Android companion scaffold (`android/`) ships: paste/share URL queue + SAF/share + **Export to Downloads** (ADB-pullable) inbox export for desktop handoff. Desktop Suite remains primary. Pixel 7 Pro handoff verified end-to-end (`cheetah` / `29211FDH300NEB`): Downloads export, SAF folder + create-document, and Share chooser (uiautomator2).
+Current product baseline: **v0.7.0** — Meta Quest 3 **browse/queue shell** (Horizon OS 2D panel flavor `quest` under `android/`) plus Android phone companion (v0.6.x). Desktop Suite remains primary. Pixel 7 Pro and Quest 3 ADB handoff paths documented.
 
-## Now (v0.6.x)
+## Now (v0.7.x)
 
-- [x] Android / GrapheneOS **companion scaffold** — Kotlin app under `android/`; queue + paste/share; SAF export / share payload matching desktop inbox contract; no Play Services / FCM; cleartext off. Docs: [docs/android.md](docs/android.md). Full Suite feature parity **not** done.
-- [x] Pixel 7 Pro ADB smoke e2e — install / launch / `ACTION_SEND` + `ACTION_VIEW` URL queue / prefs persistence / no package FATAL (`product:cheetah` / `model:Pixel_7_Pro`).
-- [x] Pixel 7 Pro companion inbox handoff — **Export to Downloads** (`EXPORT_DOWNLOADS` / MediaStore `Download/YTSCompanion/`) → `adb pull` → `.ytsdownloader/inbox/` → desktop `consume_companion_inbox` accepts `schema: 1` / `source: android-companion`.
-- [x] Pixel 7 Pro **Share + SAF** on-device flows — Share chooser opened with NDJSON preview (Copy / Keep notes targets exercised); SAF **Choose export folder** → `Download/YTSCompanion` + persistable URI; **Export inbox** via tree URI; **Create document** SAVE → pullable JSON. Stock `uiautomator dump` still blind to `ChooserActivity`; use **uiautomator2** (or screenshot taps) for automation.
+- [x] **Meta Quest 3** browse/queue shell (scaffold) — Horizon OS 2D panel product flavor (`quest`); landscape / larger hit targets; inbox `source: quest-companion`; `./scripts/build_quest.sh` + [docs/quest.md](docs/quest.md). Quest ADB install + 2D registration verified (`eureka` / `2G0YC5ZGB6031R`); cold `am start` may need one Unknown Sources open first — smoke falls back to Pixel with the same Quest APK for SEND/EXPORT. Immersive OpenXR / Horizon Store / on-device download **not** done.
 
 ## Next
 
@@ -18,7 +15,7 @@ _(no active desktop milestone — see Later)_
 ### Platforms
 
 - [ ] **Android / GrapheneOS** full Suite path — on-device resolve + queue UX on hardened Android; desktop remains primary until that dedicated path exists. Companion handoff (v0.6.0 scaffold) is the interim bridge.
-- [ ] **Meta Quest 3** app — headset-side browse/queue shell; downloads still constrained by store policies and local storage.
+- [ ] **Meta Quest 3** immersive / Horizon Store packaging — OpenXR or Spatial SDK beyond the 2D panel Unknown Sources shell; downloads still constrained by store policies and local storage.
 
 ### Native / core (deferred with rationale)
 
