@@ -4,6 +4,8 @@
     <!-- INTERNET: oEmbed title resolve + on-device yt-dlp. No cloud sync of the queue. -->
     <!-- No Google Play Services / FCM. Sideload via ADB works on GrapheneOS. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Slice 7: local download progress notifications (runtime request on API 33+). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"

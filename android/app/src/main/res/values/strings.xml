@@ -20,6 +20,11 @@
     <string name="cookies_imported">Cookies imported (%1$d rows)</string>
     <string name="cookies_import_failed">Cookie import failed: %1$s</string>
     <string name="cookies_cleared">Cookies cleared</string>
+    <string name="notif_channel_downloads">Downloads</string>
+    <string name="notif_downloading">Downloading %1$d%%</string>
+    <string name="notif_done">Saved %1$s</string>
+    <string name="notif_failed">Failed: %1$s</string>
+    <string name="notif_permission_hint">Allow notifications to see download progress in the status bar</string>
     <string name="retry_one">Retry</string>
     <string name="retry_started">Retry queued</string>
     <string name="queue_resumed">Resumed %1$d queued download(s) after restart</string>
@@ -33,7 +38,7 @@
     <string name="exported">Wrote companion inbox payload</string>
     <string name="exported_downloads">Wrote %1$s (Downloads + app files)</string>
     <string name="export_failed">Export failed</string>
-    <string name="parity_note">Slice 6: oEmbed + yt-dlp + ffmpeg merge + watermark + multi-worker + presets + SAF Netscape cookies (validated) + outer retry/backoff + queue resume. GrapheneOS sideload; no Play Services / cookies-from-browser. Desktop Suite remains richest for deep crawl / browser cookie profiles.</string>
+    <string name="parity_note">Slice 7: oEmbed + yt-dlp + ffmpeg merge + watermark + multi-worker + presets + SAF Netscape cookies (validated + domain summary) + outer retry/backoff + queue resume + download notification channel. GrapheneOS sideload; no Play Services / cookies-from-browser. Desktop Suite remains richest for deep crawl / browser cookie profiles.</string>
     <string name="watermark_toggle">Watermark overlay (bundled PNG)</string>
     <string name="remove">Remove</string>
     <string name="resolving_title">Resolving title…</string>

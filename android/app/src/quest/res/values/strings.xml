@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">YTS Quest Companion</string>
-    <string name="parity_note">Quest hybrid: 2D panel + Spatial SDK immersive shell (panel-in-world hosts this UI). Shared phone path for yt-dlp / merge / watermark / workers / SAF cookies. Store packaging readiness yes; immersive Store certification not done.</string>
+    <string name="parity_note">Quest hybrid: 2D panel + Spatial SDK immersive shell (panel-in-world hosts this UI). Shared phone path for yt-dlp / merge / watermark / workers / SAF cookies (domain summary) + download notifications. Store packaging readiness yes; immersive Store certification not done.</string>
     <string name="open_immersive">Enter immersive (Spatial panel)</string>
     <string name="empty_queue">Queue is empty. Paste a URL (or ADB SEND) into this panel.</string>
     <string name="export_folder_none">Export folder: not set — use Export to Downloads for ADB pull</string>

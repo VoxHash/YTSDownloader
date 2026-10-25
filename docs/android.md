@@ -1,6 +1,6 @@
 # Android companion (GrapheneOS-friendly)
 
-Lightweight **Suite path** companion for YTSDownloader with **on-device title resolve** (oEmbed, v0.8.0), **on-device yt-dlp download** (Chaquopy, v0.9.0 slice 2), **bundled ffmpeg merge** (v0.10.0 slice 3), **optional PNG watermark overlay** (v0.11.0 slice 4), **multi-worker + SAF cookies + export presets** (v0.12.0 slice 5), and **slice 6 polish** (v0.14.0): Netscape cookie validation, outer retry/backoff, queue resume, Retry row action. Desktop Suite remains richest for deep crawl and cookies-from-browser profiles.
+Lightweight **Suite path** companion for YTSDownloader with **on-device title resolve** (oEmbed, v0.8.0), **on-device yt-dlp download** (Chaquopy, v0.9.0 slice 2), **bundled ffmpeg merge** (v0.10.0 slice 3), **optional PNG watermark overlay** (v0.11.0 slice 4), **multi-worker + SAF cookies + export presets** (v0.12.0 slice 5), **slice 6 polish** (v0.14.0): Netscape cookie validation, outer retry/backoff, queue resume, Retry row action, and **slice 7** (v0.15.0): cookie domain summary UI + local download notification channel. Desktop Suite remains richest for deep crawl and cookies-from-browser profiles.
 
 ## What ships in this slice
 
@@ -15,9 +15,10 @@ Lightweight **Suite path** companion for YTSDownloader with **on-device title re
 | Optional **PNG watermark overlay** (full-frame stretch via bundled ffmpeg) | Yes (v0.11.0); preset `watermark` or ADB `--ez yts_watermark true` |
 | **Multi-worker** concurrent downloads (bounded 1–4, default 2) | Yes (v0.12.0); spinner + ADB `--ei yts_max_workers N` |
 | **Export presets** `audio_only` / `video_audio` / `watermark` | Yes (v0.12.0); spinner + ADB `--es yts_preset …` |
-| **Cookies** Netscape `cookies.txt` via SAF (no Play Services) | Yes (v0.12.0); **validated** import + clearer errors (v0.14.0 slice 6) |
+| **Cookies** Netscape `cookies.txt` via SAF (no Play Services) | Yes (v0.12.0); **validated** import (v0.14.0); **domain summary** top domains × counts (v0.15.0 slice 7) |
 | Outer **retry / exponential backoff** on transient CDN / SSL / 429 | Yes (v0.14.0 slice 6) |
 | Queue **resume** after process death + per-row **Retry** | Yes (v0.14.0 slice 6) |
+| **Download notifications** (local channel, progress / done / error) | Yes (v0.15.0 slice 7); `POST_NOTIFICATIONS` on API 33+; no FCM |
 | Queue download status (queued / downloading / done / error) | Yes (v0.9.0) |
 | Export JSON via Storage Access Framework (folder or create-document) | Yes |
 | Export to Downloads / app files (no SAF chooser); optional `title` in payload | Yes |
@@ -34,7 +35,7 @@ On-device yt-dlp accepts a **Netscape `cookies.txt`** file only (same as desktop
 
 1. On a desktop browser you trust, export cookies for the site (Netscape format) to `cookies.txt` (must include the Netscape header or tab-separated cookie rows).
 2. Copy the file onto the phone (Files, USB, etc.).
-3. In YTS Companion: **Pick cookies.txt (SAF)** → select the file. Slice 6 **validates** Netscape shape before accepting; failures show a concrete reason (empty, not Netscape, no rows). On success the app copies into private storage (`files/cookies/cookies.txt`) and shows a row-count summary.
+3. In YTS Companion: **Pick cookies.txt (SAF)** → select the file. Slice 6 **validates** Netscape shape before accepting; failures show a concrete reason (empty, not Netscape, no rows). On success the app copies into private storage (`files/cookies/cookies.txt`) and shows a **domain summary** (row count + unique domains + top domains × counts — slice 7).
 4. **Clear cookies** removes the app copy.
 
 Do not commit cookie files. Private / age-gated media still needs a valid export; public smoke URLs work without cookies.
@@ -44,6 +45,12 @@ Do not commit cookie files. Private / age-gated media still needs a valid export
 - Transient failures (`Errno 104`, SSL, HTTP 429/5xx, timeouts) get up to **3 outer attempts** with exponential backoff (harder on rate limits) on top of yt-dlp fragment retries.
 - Queue prefs use durable `commit()`; after process death, `QUEUED` / `DOWNLOADING` rows resume automatically.
 - Error rows expose a **Retry** button.
+
+### Slice 7 notifications
+
+- Channel id `yts_downloads` (low importance) for on-device download progress / done / error.
+- On Android 13+ the app requests `POST_NOTIFICATIONS` the first time you start a download (not on cold launch). Deny = downloads still work; status-bar posts are skipped.
+- No Google Play Services / FCM — notifications are local only.
 
 ## Prerequisites
 

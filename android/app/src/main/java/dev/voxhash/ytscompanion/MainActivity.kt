@@ -1,7 +1,9 @@
 package dev.voxhash.ytscompanion
 
+import android.Manifest
 import android.content.ContentValues
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -15,6 +17,7 @@ import android.widget.Spinner
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.documentfile.provider.DocumentFile
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -41,6 +44,14 @@ open class MainActivity : AppCompatActivity() {
     private val downloadQueue = ArrayDeque<String>()
     private var activeDownloads = 0
     private var syncingUi = false
+    private var notificationPermissionAsked = false
+
+    private val requestNotifications =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (!granted) {
+                Toast.makeText(this, R.string.notif_permission_hint, Toast.LENGTH_SHORT).show()
+            }
+        }
 
     private val createDocument =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -89,6 +100,7 @@ open class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         store = QueueStore(this)
+        DownloadNotifier.ensureChannel(this)
         items.clear()
         items.addAll(store.load())
         // Slice 6: after process death, re-queue in-flight rows instead of dropping them.
@@ -202,6 +214,7 @@ open class MainActivity : AppCompatActivity() {
                 getString(R.string.queue_resumed, resumeUrls.size),
                 Toast.LENGTH_SHORT,
             ).show()
+            maybeRequestNotificationPermission()
             pumpDownloads()
         }
         handleIncomingIntent(intent)
@@ -425,6 +438,7 @@ open class MainActivity : AppCompatActivity() {
             return false
         }
         if (downloadQueue.any { it.equals(url, ignoreCase = true) }) return false
+        maybeRequestNotificationPermission()
         items[idx] =
             cur.copy(
                 downloadStatus = DownloadStatus.QUEUED,
@@ -436,6 +450,19 @@ open class MainActivity : AppCompatActivity() {
         if (toast) Toast.makeText(this, R.string.download_started, Toast.LENGTH_SHORT).show()
         pumpDownloads()
         return true
+    }
+
+    /** Slice 7: ask for POST_NOTIFICATIONS once, on first download (API 33+). */
+    private fun maybeRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (notificationPermissionAsked) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        notificationPermissionAsked = true
+        requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     private fun pumpDownloads() {
@@ -453,6 +480,8 @@ open class MainActivity : AppCompatActivity() {
                 )
             persistAndRefresh()
             val url = items[idx].url
+            val titleHint = items[idx].title
+            DownloadNotifier.notifyProgress(this, url, titleHint, 0)
             val preset = store.getExportPreset()
             val cookies = CookieBundle.existingPath(this)
             if (cookies != null) store.setCookieImported(true)
@@ -471,6 +500,12 @@ open class MainActivity : AppCompatActivity() {
                                 progress = pct,
                             )
                         adapter.notifyItemChanged(i)
+                        DownloadNotifier.notifyProgress(
+                            this,
+                            url,
+                            items[i].title.ifBlank { titleHint },
+                            pct.toInt(),
+                        )
                     }
                 },
                 onDone = { result ->
@@ -489,22 +524,24 @@ open class MainActivity : AppCompatActivity() {
                                         localPath = result.path,
                                         error = "",
                                     )
+                                val fileName = File(result.path).name
                                 val doneMsg =
                                     when {
                                         result.watermarked ->
                                             getString(
                                                 R.string.download_done_watermarked,
-                                                File(result.path).name,
+                                                fileName,
                                             )
                                         ExportPresets.isAudio(result.preset) ->
                                             getString(
                                                 R.string.download_done_audio,
-                                                File(result.path).name,
+                                                fileName,
                                             )
                                         else ->
-                                            getString(R.string.download_done, File(result.path).name)
+                                            getString(R.string.download_done, fileName)
                                     }
                                 Toast.makeText(this, doneMsg, Toast.LENGTH_LONG).show()
+                                DownloadNotifier.notifyDone(this, url, title, fileName)
                             } else {
                                 val err = result.error.ifBlank { "unknown error" }
                                 items[i] =
@@ -517,6 +554,12 @@ open class MainActivity : AppCompatActivity() {
                                     getString(R.string.download_failed, err),
                                     Toast.LENGTH_LONG,
                                 ).show()
+                                DownloadNotifier.notifyError(
+                                    this,
+                                    url,
+                                    items[i].title.ifBlank { titleHint },
+                                    err,
+                                )
                             }
                             persistAndRefresh()
                         }

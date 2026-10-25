@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-25
+
+### Added
+- **Android / GrapheneOS slice 7 polish:** richer Netscape cookie **domain summary** in the cookie row (unique domains + top domains × counts); local **download notification channel** (`yts_downloads`) with progress / done / error posts; `POST_NOTIFICATIONS` runtime request on first download (API 33+). No FCM / Play Services.
+- Host tests: cookie domain extract/format (`tests/test_android_cookie_bundle.py`), notification id / channel markers (`tests/test_android_download_notifier.py`).
+
+### Changed
+- ROADMAP: v0.15.0 Android slice 7 checked; Horizon Store immersive certification remains Later / out of scope (not claimed).
+- Docs: [docs/android.md](docs/android.md) slice 7 cookie domain + notification notes.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.15.0** / 11.
+
+### Verified
+- Host: Suite `unittest discover` (incl. cookie domain + download notifier + quest packaging).
+- Pixel 7 Pro (`29211FDH300NEB` / cheetah) and Quest 3 (`2G0YC5ZGB6031R` / eureka) device smoke when present on farm ADB.
+
 ## [0.14.0] - 2026-10-25
 
 ### Added
@@ -372,7 +387,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.11.0...v0.12.0
