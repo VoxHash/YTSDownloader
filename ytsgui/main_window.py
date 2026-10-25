@@ -6,7 +6,7 @@ import os
 import time
 from typing import Dict, List, Optional, Set
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject, QMimeData, QPoint
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject, QMimeData, QPoint, QSettings, QSize
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QAction
 from PyQt6.QtWidgets import (
     QMainWindow,
@@ -37,7 +37,25 @@ from PyQt6.QtWidgets import (
     QSplitter,
     QCheckBox,
     QMenu,
+    QSizePolicy,
 )
+
+
+class ContentStack(QStackedWidget):
+    """Stacked pages whose min size does not block free window resize.
+
+    QStackedWidget normally takes the max minimumSizeHint of every page, so a
+    tall Download form or a long label can force a huge window floor.
+    """
+
+    _MIN_HINT = QSize(400, 300)
+
+    def minimumSizeHint(self) -> QSize:  # noqa: N802
+        hint = super().minimumSizeHint()
+        return QSize(
+            min(hint.width(), self._MIN_HINT.width()),
+            min(hint.height(), self._MIN_HINT.height()),
+        )
 
 from ytscore.analytics import SessionAnalytics
 from ytscore.cache import title_cache
@@ -100,7 +118,10 @@ class UrlDropZone(QFrame):
         super().__init__(parent)
         self.setObjectName("urlDropZone")
         self.setAcceptDrops(True)
-        self.setMinimumHeight(88)
+        self.setMinimumHeight(64)
+        self.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
+        )
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 14, 16, 14)
         title = QLabel("Drop URLs here")
@@ -184,6 +205,9 @@ class SuiteWindow(QMainWindow):
         self.config_path = config_path or DEFAULT_CONFIG_PATH
         self.settings = settings or load_settings(self.config_path)
         self.setWindowTitle("YTSDownloader")
+        # Resizable freely: floor for usability on small screens; no maximum.
+        self.setMinimumSize(640, 480)
+        self.setMaximumSize(16777215, 16777215)
         self.resize(1120, 720)
         self.setStyleSheet(load_stylesheet(self.settings.theme))
 
@@ -205,6 +229,9 @@ class SuiteWindow(QMainWindow):
 
         root = QWidget()
         root.setObjectName("centralRoot")
+        root.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         self.setCentralWidget(root)
         layout = QHBoxLayout(root)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -213,8 +240,11 @@ class SuiteWindow(QMainWindow):
         self.sidebar = self._build_sidebar()
         layout.addWidget(self.sidebar)
 
-        self.stack = QStackedWidget()
+        self.stack = ContentStack()
         self.stack.setObjectName("contentPane")
+        self.stack.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         layout.addWidget(self.stack, stretch=1)
 
         self.page_download = self._build_download_page()
@@ -260,12 +290,17 @@ class SuiteWindow(QMainWindow):
         self._companion_timer.start()
 
         self._restore_queue_from_disk()
+        self._restore_window_geometry()
 
     # ----- sidebar -----
     def _build_sidebar(self) -> QWidget:
         side = QWidget()
         side.setObjectName("sidebar")
+        # Fixed nav column only — does not lock the main window size.
         side.setFixedWidth(220)
+        side.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
+        )
         v = QVBoxLayout(side)
         v.setContentsMargins(8, 8, 8, 8)
         brand = QLabel("YTSDownloader")
@@ -305,7 +340,18 @@ class SuiteWindow(QMainWindow):
     # ----- download page -----
     def _build_download_page(self) -> QWidget:
         page = QWidget()
-        layout = QVBoxLayout(page)
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        body = QWidget()
+        layout = QVBoxLayout(body)
         layout.setContentsMargins(28, 24, 28, 24)
         title = QLabel("Download")
         title.setObjectName("pageTitle")
@@ -352,7 +398,7 @@ class SuiteWindow(QMainWindow):
         self.media_video = QRadioButton("Video")
         self.media_audio = QRadioButton("Audio")
         self.media_video.setChecked(True)
-        media_group = QButtonGroup(page)
+        media_group = QButtonGroup(body)
         media_group.addButton(self.media_video)
         media_group.addButton(self.media_audio)
         media_row = QHBoxLayout()
@@ -426,9 +472,16 @@ class SuiteWindow(QMainWindow):
 
         self.download_log = QTextEdit()
         self.download_log.setReadOnly(True)
+        self.download_log.setMinimumHeight(120)
+        self.download_log.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         layout.addWidget(self.download_log, stretch=1)
         self.cache_label = QLabel(title_cache.status_text())
+        self.cache_label.setWordWrap(True)
         layout.addWidget(self.cache_label)
+        scroll.setWidget(body)
+        outer.addWidget(scroll, stretch=1)
         return page
 
     # ----- queue page -----
@@ -490,8 +543,11 @@ class SuiteWindow(QMainWindow):
         preset_row.addStretch(1)
         layout.addLayout(preset_row)
 
-        splitter = QSplitter(Qt.Orientation.Vertical)
-        splitter.setChildrenCollapsible(False)
+        self.queue_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.queue_splitter.setChildrenCollapsible(True)
+        self.queue_splitter.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
 
         self.queue_table = QTableWidget(0, 6)
         self.queue_table.setHorizontalHeaderLabels(
@@ -505,10 +561,15 @@ class SuiteWindow(QMainWindow):
         self.queue_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.queue_table.customContextMenuRequested.connect(self._queue_table_context_menu)
         self.queue_table.itemSelectionChanged.connect(self._refresh_failure_triage)
-        splitter.addWidget(self.queue_table)
+        self.queue_table.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        self.queue_table.setMinimumHeight(80)
+        self.queue_splitter.addWidget(self.queue_table)
 
         triage = QFrame()
         triage.setObjectName("failureTriagePanel")
+        triage.setMinimumHeight(72)
         triage_layout = QVBoxLayout(triage)
         triage_layout.setContentsMargins(12, 10, 12, 10)
         triage_layout.setSpacing(6)
@@ -519,6 +580,7 @@ class SuiteWindow(QMainWindow):
         triage_header.addWidget(triage_title)
         self.triage_category = QLabel("Category: —")
         self.triage_category.setObjectName("triageCategory")
+        self.triage_category.setWordWrap(True)
         triage_header.addWidget(self.triage_category)
         triage_header.addStretch(1)
         triage_layout.addLayout(triage_header)
@@ -529,8 +591,11 @@ class SuiteWindow(QMainWindow):
             "Select a failed (or cancelled) queue row to inspect error detail."
         )
         self.triage_detail.setMaximumBlockCount(200)
-        self.triage_detail.setMinimumHeight(96)
-        triage_layout.addWidget(self.triage_detail)
+        self.triage_detail.setMinimumHeight(48)
+        self.triage_detail.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        triage_layout.addWidget(self.triage_detail, stretch=1)
 
         triage_actions = QHBoxLayout()
         retry_sel = QPushButton("Retry selected")
@@ -544,11 +609,11 @@ class SuiteWindow(QMainWindow):
         triage_actions.addWidget(retry_failed)
         triage_actions.addStretch(1)
         triage_layout.addLayout(triage_actions)
-        splitter.addWidget(triage)
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 1)
-        splitter.setSizes([420, 180])
-        layout.addWidget(splitter, stretch=1)
+        self.queue_splitter.addWidget(triage)
+        self.queue_splitter.setStretchFactor(0, 3)
+        self.queue_splitter.setStretchFactor(1, 1)
+        self.queue_splitter.setSizes([420, 180])
+        layout.addWidget(self.queue_splitter, stretch=1)
 
         self.overall_progress = QProgressBar()
         self.overall_progress.setValue(0)
@@ -594,6 +659,9 @@ class SuiteWindow(QMainWindow):
         layout.addWidget(hint)
         self.grabber_text = QPlainTextEdit()
         self.grabber_text.setPlaceholderText("https://…\nhttps://…")
+        self.grabber_text.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         layout.addWidget(self.grabber_text, stretch=1)
         btn = QPushButton("Resolve All → Queue")
         btn.clicked.connect(self._grabber_queue)
@@ -617,9 +685,16 @@ class SuiteWindow(QMainWindow):
         layout.addWidget(hint)
 
         self.spotify_status = QLabel("Session: checking…")
+        self.spotify_status.setWordWrap(True)
+        self.spotify_status.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum
+        )
         layout.addWidget(self.spotify_status)
         self.spotify_now = QLabel("Now playing: —")
         self.spotify_now.setWordWrap(True)
+        self.spotify_now.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum
+        )
         layout.addWidget(self.spotify_now)
 
         form = QFormLayout()
@@ -640,6 +715,9 @@ class SuiteWindow(QMainWindow):
 
         self.spotify_log = QTextEdit()
         self.spotify_log.setReadOnly(True)
+        self.spotify_log.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         layout.addWidget(self.spotify_log, stretch=1)
         return page
 
@@ -664,6 +742,9 @@ class SuiteWindow(QMainWindow):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         form_host = QWidget()
         form = QFormLayout(form_host)
         form.setContentsMargins(0, 8, 12, 8)
@@ -1720,16 +1801,28 @@ class SuiteWindow(QMainWindow):
         failed = sum(1 for j in jobs if j.state == JobState.FAILED)
         self._refresh_status(f"Queue: {done}/{len(jobs)} done, {failed} failed")
 
+    @staticmethod
+    def _compact_ui_text(text: str, max_len: int = 160) -> str:
+        """Keep status labels from inflating QStackedWidget minimum width."""
+        cleaned = " ".join((text or "").split())
+        if len(cleaned) <= max_len:
+            return cleaned
+        return cleaned[: max_len - 1].rstrip() + "…"
+
     def _poll_spotify_session(self) -> None:
         try:
             track = spotify_bridge.read_now_playing()
             self.spotify_status.setText("Session: connected (MPRIS)")
             artists = ", ".join(track.artists) if track.artists else "—"
-            self.spotify_now.setText(
-                f"Now playing: {track.title} — {artists}\n{track.spotify_url}"
-            )
+            line = f"Now playing: {track.title} — {artists}"
+            url = (track.spotify_url or "").strip()
+            if url:
+                line = f"{line}\n{self._compact_ui_text(url, 96)}"
+            self.spotify_now.setText(self._compact_ui_text(line, 220))
         except Exception as exc:
-            self.spotify_status.setText(f"Session: offline ({exc})")
+            self.spotify_status.setText(
+                self._compact_ui_text(f"Session: offline ({exc})", 160)
+            )
             self.spotify_now.setText("Now playing: —")
 
     def _queue_now_playing(self) -> None:
@@ -1823,10 +1916,22 @@ class SuiteWindow(QMainWindow):
         else:
             self.analytics_label.setText("")
 
+    def _window_settings(self) -> QSettings:
+        return QSettings("VoxHash", "YTSDownloader")
+
+    def _restore_window_geometry(self) -> None:
+        geo = self._window_settings().value("suite/geometry")
+        if geo is not None:
+            self.restoreGeometry(geo)
+
+    def _save_window_geometry(self) -> None:
+        self._window_settings().setValue("suite/geometry", self.saveGeometry())
+
     def closeEvent(self, event) -> None:  # noqa: N802
         self._spotify_timer.stop()
         self._companion_timer.stop()
         self._persist_timer.stop()
+        self._save_window_geometry()
         if self.queue:
             self.queue.stop()
             self._persist_queue_now()

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-10-25
+
+### Fixed
+- **Desktop Suite:** main window can resize freely. Metadata Bridge session status no longer inflates `QStackedWidget` minimum width (~3k px) with long D-Bus errors; `ContentStack` caps page min size hints; queue triage splitter and download/settings pages use Expanding policies / scroll so layouts reflow.
+
+### Added
+- Offscreen resize smoke tests (`tests/test_suite_resize.py`).
+- Optional Suite window geometry persist via `QSettings` (`suite/geometry`).
+
+### Changed
+- Suite minimum size floor **640×480**; no maximum. Download page scrolls when short.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.15.2** / 13.
+
 ## [0.15.1] - 2026-10-25
 
 ### Added
@@ -398,7 +411,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.15.1...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.15.2...HEAD
+[0.15.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.15.1...v0.15.2
 [0.15.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.13.0...v0.14.0

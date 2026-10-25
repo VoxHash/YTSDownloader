@@ -1,9 +1,10 @@
 # Roadmap
 
-Current product baseline: **v0.15.1** — end-to-end install + use docs (Android / GrapheneOS, Quest, Desktop Suite, cross-platform handoff) on top of **v0.15.0** Android / GrapheneOS **slice 7** polish (cookie domain summary UI + local download notification channel), Meta Quest 3 immersive Spatial SDK / OpenXR shell + Android slice 6 (v0.14.0), Horizon Store packaging readiness (v0.13.0), multi-worker + SAF cookies + presets (v0.12.0), watermark (v0.11.0), bundled ffmpeg merge (v0.10.0), on-device yt-dlp (v0.9.0), oEmbed titles (v0.8.0), and Quest browse/queue shell (v0.7.x). Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
+Current product baseline: **v0.15.2** — Desktop Suite free window resize (layout size-hint fix + geometry persist) on top of **v0.15.1** end-to-end install + use docs (Android / GrapheneOS, Quest, Desktop Suite, cross-platform handoff) and **v0.15.0** Android / GrapheneOS **slice 7** polish (cookie domain summary UI + local download notification channel), Meta Quest 3 immersive Spatial SDK / OpenXR shell + Android slice 6 (v0.14.0), Horizon Store packaging readiness (v0.13.0), multi-worker + SAF cookies + presets (v0.12.0), watermark (v0.11.0), bundled ffmpeg merge (v0.10.0), on-device yt-dlp (v0.9.0), oEmbed titles (v0.8.0), and Quest browse/queue shell (v0.7.x). Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
 
 ## Now (v0.15.x)
 
+- [x] **Desktop Suite** free window resize — capped stack min size hint, compact Metadata Bridge status text, stretchable queue/triage/settings layouts, optional geometry persist (`QSettings`).
 - [x] **Android / GrapheneOS** further polish — **slice 7**: richer cookie domain summary UI (top domains × counts) + local download notification channel (`POST_NOTIFICATIONS`, progress / done / error). Cookies-from-browser profiles stay desktop-only.
 - [x] **Docs / Ops** — end-to-end install + use guides: [docs/android.md](docs/android.md), [docs/quest.md](docs/quest.md), [docs/installation.md](docs/installation.md) / [docs/usage.md](docs/usage.md), [docs/cross-platform.md](docs/cross-platform.md) (companion inbox / NDJSON / polling).
 
