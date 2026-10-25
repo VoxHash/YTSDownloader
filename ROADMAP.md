@@ -1,12 +1,12 @@
 # Roadmap
 
-Current product baseline: **v0.15.2** — Desktop Suite free window resize (layout size-hint fix + geometry persist) on top of **v0.15.1** end-to-end install + use docs (Android / GrapheneOS, Quest, Desktop Suite, cross-platform handoff) and **v0.15.0** Android / GrapheneOS **slice 7** polish (cookie domain summary UI + local download notification channel), Meta Quest 3 immersive Spatial SDK / OpenXR shell + Android slice 6 (v0.14.0), Horizon Store packaging readiness (v0.13.0), multi-worker + SAF cookies + presets (v0.12.0), watermark (v0.11.0), bundled ffmpeg merge (v0.10.0), on-device yt-dlp (v0.9.0), oEmbed titles (v0.8.0), and Quest browse/queue shell (v0.7.x). Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
+Current product baseline: **v0.16.0** — adult-tube host class (videos / playlists) via yt-dlp + TLS impersonation (`curl_cffi`) + cookie-gated private/unlisted playlist path, on top of **v0.15.2** Desktop Suite free window resize, **v0.15.1** end-to-end install docs, and **v0.15.0** Android slice 7 polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
 
-## Now (v0.15.x)
+## Now (v0.16.x)
 
-- [x] **Desktop Suite** free window resize — capped stack min size hint, compact Metadata Bridge status text, stretchable queue/triage/settings layouts, optional geometry persist (`QSettings`).
-- [x] **Android / GrapheneOS** further polish — **slice 7**: richer cookie domain summary UI (top domains × counts) + local download notification channel (`POST_NOTIFICATIONS`, progress / done / error). Cookies-from-browser profiles stay desktop-only.
-- [x] **Docs / Ops** — end-to-end install + use guides: [docs/android.md](docs/android.md), [docs/quest.md](docs/quest.md), [docs/installation.md](docs/installation.md) / [docs/usage.md](docs/usage.md), [docs/cross-platform.md](docs/cross-platform.md) (companion inbox / NDJSON / polling).
+- [x] **Adult-tube host class** — platform detect, HTML-entity URL canonicalize, playlist resolve with cookie auth for private/unlisted (signed-in session only; no DRM/paywall bypass).
+- [x] **TLS impersonation** — pin `curl_cffi`; `IMPERSONATE` setting (default `chrome`) so hosts that block plain clients resolve/download.
+- [x] **Docs** — configuration / usage / troubleshooting for cookies on private playlists + impersonation 403 fixes (generic wording).
 
 ## Next
 
@@ -16,11 +16,15 @@ _(no active desktop milestone — see Later)_
 
 ### Platforms
 
+- [ ] **Adult-tube deep crawl extras** — model/user tab pacing, album/GIF/short enumeration beyond yt-dlp flat extract; keep clean-room Suite stack (no AGPL scrapers in-tree).
+- [ ] **IMPERSONATE Settings UI** — expose config key in Suite form (today: `config.ini` only; Suite save preserves the value).
 - [ ] **Meta Quest 3** Horizon Store **immersive certification** / content review — beyond the first Spatial OpenXR shell + packaging markers.
-- [x] **Android / GrapheneOS** further polish — see Now (v0.15.0 slice 7); cookies-from-browser profiles stay desktop-only.
+- [x] **Android / GrapheneOS** further polish — see v0.15.0 slice 7; cookies-from-browser profiles stay desktop-only.
 - [x] **Meta Quest 3** browse/queue shell (scaffold) — Horizon OS 2D panel product flavor (`quest`); landscape / larger hit targets; inbox `source: quest-companion`; `./scripts/build_quest.sh` + [docs/quest.md](docs/quest.md).
 - [x] **Meta Quest 3** Horizon Store packaging readiness (2D panel) — see v0.13.0; full Store certification remains out of this checkbox.
 - [x] **Meta Quest 3** immersive OpenXR / Spatial SDK shell — see v0.14.0; Store immersive certification remains Later.
+- [x] **Desktop Suite** free window resize — see v0.15.2.
+- [x] **Docs / Ops** end-to-end install guides — see v0.15.1.
 
 ### Docs / Ops
 

@@ -16,6 +16,7 @@ The Settings page also shows a **Native helpers** panel (`ytscore.native_bridge.
 | `COUNT_TIMER_ONGOING` | Seconds between playlist/job *starts* (shared across workers) | `2.5` | `3` |
 | `COOKIES_FROM_BROWSER` | Browser cookies for yt-dlp | empty | `brave:Default` |
 | `COOKIES_FILE` | Cookie file path | empty | `/path/to/cookies.txt` |
+| `IMPERSONATE` | yt-dlp TLS/HTTP client impersonation (needs `curl_cffi`); empty disables | `chrome` | `chrome` |
 | `JS_RUNTIME` | JavaScript runtime name | `node` | `node` |
 | `JS_RUNTIME_PATH` | Absolute path to runtime binary | empty | `/usr/bin/node` |
 | `MAX_WORKERS` | Concurrent download workers | `2` | `2` |
@@ -51,7 +52,9 @@ Sensitive local inputs:
 1. Prefer `COOKIES_FROM_BROWSER = chrome` (or `firefox`, `edge`, `brave`, `opera`) when the browser is logged in.
 2. Otherwise export cookies to a file and set `COOKIES_FILE`.
 3. Deep **Crawl mode** options on Download (Deep / Videos / Shorts / Posts) require one of the above; Shallow works without cookies. Crawls only enumerate content your session can already reach via yt-dlp.
-3. Keep `JS_RUNTIME = node` and set `JS_RUNTIME_PATH` only when `node` is not on `PATH`.
+4. **Private / unlisted playlists** (including adult-tube playlists) need the same cookie auth — only surfaces your signed-in browser session can already open. No credential stuffing, DRM, or paywall bypass.
+5. Keep `JS_RUNTIME = node` and set `JS_RUNTIME_PATH` only when `node` is not on `PATH`.
+6. Install `curl_cffi` (via `requirements.txt`) and keep `IMPERSONATE = chrome` when hosts return HTTP 403 to plain clients.
 
 ## Themes
 

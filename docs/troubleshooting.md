@@ -37,8 +37,23 @@ Install ffmpeg via your OS package manager and ensure **both** `ffmpeg` and `ffp
 ## "No videos found"
 
 - Confirm the URL matches the selected platform tab
-- Private / age-gated content needs cookies
+- Private / age-gated / unlisted content needs cookies (`COOKIES_FROM_BROWSER` or `COOKIES_FILE`)
 - Profile pages may require authentication for Instagram / Facebook / TikTok
+- Adult-tube playlists: configure cookies for private/unlisted lists; public singles still need `curl_cffi` + `IMPERSONATE` when the host returns HTTP 403
+
+## HTTP 403 / "impersonation" warnings from yt-dlp
+
+Install the optional TLS stack and keep impersonation on:
+
+```bash
+.venv/bin/pip install -r requirements.txt
+```
+
+```ini
+IMPERSONATE = chrome
+```
+
+Empty `IMPERSONATE` disables the Suite default. Extractors may still request impersonation when `curl_cffi` is installed.
 
 ## Theme not loading
 

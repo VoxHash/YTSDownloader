@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-25
+
+### Added
+- **Adult-tube host class:** platform detect, playlist / video resolve via yt-dlp, HTML-entity URL canonicalize (`&amp;` → `&`, `http` → `https`), cookie-gated private/unlisted playlist path (signed-in browser profile or cookie file only).
+- **TLS impersonation:** pin `curl_cffi`; `IMPERSONATE` config (default `chrome`) applied in `apply_auth_opts` when available.
+- Unit tests: `tests/test_resolvers_adult_tube.py` (detect, canonicalize, playlist auth gate, impersonate opts).
+
+### Changed
+- Docs: configuration / usage / troubleshooting for private playlist cookies + HTTP 403 impersonation fixes (generic).
+- ROADMAP: v0.16.0 Now checked; deep album/GIF crawl extras and IMPERSONATE Settings UI deferred under Later.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.16.0** / 14.
+
+### Verified
+- Host: Suite `unittest discover` (incl. adult-tube resolver tests).
+- Live resolve/download smoke against adult-tube video + playlist URLs with Brave cookies when configured locally (secrets redacted).
+
 ## [0.15.2] - 2026-10-25
 
 ### Fixed
@@ -411,7 +427,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.15.2...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.15.2...v0.16.0
 [0.15.2]: https://github.com/VoxHash/YTSDownloader/compare/v0.15.1...v0.15.2
 [0.15.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.14.0...v0.15.0

@@ -1030,6 +1030,8 @@ class SuiteWindow(QMainWindow):
             show_status_analytics=self.settings_show_analytics.isChecked(),
             process_nice=int(self.settings_process_nice.value()),
             process_idle_io=self.settings_process_idle_io.isChecked(),
+            # Config-only for now; preserve loaded IMPERSONATE across Suite saves.
+            impersonate=getattr(self.settings, "impersonate", "chrome"),
         )
 
     def _browse_cookies_file(self) -> None:

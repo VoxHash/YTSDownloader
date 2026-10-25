@@ -12,11 +12,13 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable, List, Optional, Sequence
+from urllib.parse import urlparse
 
 from ytscore.backoff import compute_backoff_seconds, is_rate_limited
 from ytscore.cache import title_cache
 from ytscore.resolvers import detect_platform, resolve_flat, resolve_url
 from ytscore.settings import Settings, apply_auth_opts
+from ytscore.util import canonicalize_media_url
 
 try:
     import yt_dlp
@@ -137,7 +139,13 @@ def _youtube_tabs_for_mode(mode: CrawlMode) -> List[str]:
     return ["/videos", "/shorts"]
 
 
-def _entries_to_urls(entries: Sequence[object], *, limit: int) -> List[str]:
+def _entries_to_urls(
+    entries: Sequence[object],
+    *,
+    limit: int,
+    base_url: str = "",
+    platform: str = "generic",
+) -> List[str]:
     links: List[str] = []
     for entry in entries or []:
         if len(links) >= limit:
@@ -147,11 +155,20 @@ def _entries_to_urls(entries: Sequence[object], *, limit: int) -> List[str]:
         entry_url = entry.get("url") or entry.get("webpage_url")
         entry_id = entry.get("id")
         entry_title = entry.get("title")
-        if entry_url and str(entry_url).startswith("http"):
-            links.append(str(entry_url))
-            title_cache.put(str(entry_url), entry_title)
-        elif entry_id:
-            resolved = f"https://www.youtube.com/watch?v={entry_id}"
+        if entry_url:
+            resolved = canonicalize_media_url(str(entry_url), base_url=base_url or None)
+            if resolved.startswith("http"):
+                links.append(resolved)
+                title_cache.put(resolved, entry_title)
+                continue
+        if entry_id:
+            if platform == "adult_tube" and base_url:
+                host = urlparse(base_url).hostname or "www.pornhub.com"
+                resolved = canonicalize_media_url(
+                    f"https://{host}/view_video.php?viewkey={entry_id}"
+                )
+            else:
+                resolved = f"https://www.youtube.com/watch?v={entry_id}"
             links.append(resolved)
             title_cache.put(resolved, entry_title)
     return links
@@ -182,15 +199,25 @@ def _extract_flat_paged(
 
     if not isinstance(result, dict):
         return [], "unexpected extractor payload"
+    platform = detect_platform(url)
     entries = result.get("entries")
     if entries:
-        return _entries_to_urls(list(entries), limit=playlist_end), None
+        return (
+            _entries_to_urls(
+                list(entries),
+                limit=playlist_end,
+                base_url=url,
+                platform=platform,
+            ),
+            None,
+        )
     # Single item
     page = result.get("webpage_url") or result.get("url") or url
     title = result.get("title")
-    if page and str(page).startswith("http"):
-        title_cache.put(str(page), title)
-        return [str(page)], None
+    resolved = canonicalize_media_url(str(page), base_url=url) if page else url
+    if resolved.startswith("http"):
+        title_cache.put(resolved, title)
+        return [resolved], None
     return [url], None
 
 

@@ -72,6 +72,7 @@ On Linux, **Browse** for the output folder (Download page and Settings default o
 - Instagram profile / reel / post URLs
 - Facebook page / post / watch URLs
 - TikTok profile / video URLs
+- Adult-tube video / playlist / model URLs (private / unlisted playlists need cookies)
 - Catalog track / playlist / album URLs for the metadata bridge
 
 ## Auth check

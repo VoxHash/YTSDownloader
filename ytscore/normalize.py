@@ -11,7 +11,7 @@ from ytscore.native_bridge import (
     find_binary,
     run_json_stdin,
 )
-from ytscore.util import extract_urls
+from ytscore.util import canonicalize_media_url, extract_urls
 
 
 def normalize_urls_python(items: Sequence[str]) -> List[str]:
@@ -24,14 +24,15 @@ def normalize_urls_python(items: Sequence[str]) -> List[str]:
         # Prefer extract_urls so free-text tokens still work.
         found = extract_urls(str(raw))
         if not found:
-            candidate = str(raw).strip().rstrip(").,;]'\"")
+            candidate = canonicalize_media_url(str(raw))
             parsed = urlparse(candidate)
             if parsed.scheme in ("http", "https") and parsed.netloc:
                 found = [candidate]
         for url in found:
-            if url not in seen:
-                seen.add(url)
-                out.append(url)
+            cleaned = canonicalize_media_url(url)
+            if cleaned and cleaned not in seen:
+                seen.add(cleaned)
+                out.append(cleaned)
     return out
 
 

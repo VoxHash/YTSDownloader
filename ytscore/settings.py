@@ -34,6 +34,9 @@ class Settings:
     # nice 0 = leave CPU priority alone; idle_io defaults on for Linux disk politeness.
     process_nice: int = 0
     process_idle_io: bool = True
+    # Optional yt-dlp TLS / HTTP impersonation client (e.g. chrome). Empty = off.
+    # Requires curl_cffi (see requirements.txt). Helps hosts that block plain clients.
+    impersonate: str = "chrome"
 
     def cookies_tuple(self) -> Optional[Tuple[str, ...]]:
         parts = [p.strip() for p in self.cookies_from_browser.split(":") if p.strip()]
@@ -76,6 +79,7 @@ def load_settings(path: str = DEFAULT_CONFIG_PATH) -> Settings:
         show_status_analytics=_as_bool(s.get("SHOW_STATUS_ANALYTICS", "true"), True),
         process_nice=max(0, min(19, int(s.get("PROCESS_NICE", "0")))),
         process_idle_io=_as_bool(s.get("PROCESS_IDLE_IO", "true"), True),
+        impersonate=s.get("IMPERSONATE", "chrome").strip(),
     )
 
 
@@ -109,6 +113,7 @@ def save_settings(settings: Settings, path: str = DEFAULT_CONFIG_PATH) -> None:
     )
     s["PROCESS_NICE"] = str(max(0, min(19, int(settings.process_nice))))
     s["PROCESS_IDLE_IO"] = "true" if bool(settings.process_idle_io) else "false"
+    s["IMPERSONATE"] = (settings.impersonate or "").strip()
 
     abs_path = os.path.abspath(path)
     directory = os.path.dirname(abs_path) or "."
@@ -126,6 +131,19 @@ def save_settings(settings: Settings, path: str = DEFAULT_CONFIG_PATH) -> None:
         raise
 
 
+def _impersonate_target(value: str):
+    """Parse IMPERSONATE into a yt-dlp ImpersonateTarget, or None."""
+    text = (value or "").strip()
+    if not text:
+        return None
+    try:
+        from yt_dlp.networking.impersonate import ImpersonateTarget
+
+        return ImpersonateTarget.from_str(text.lower())
+    except Exception:
+        return None
+
+
 def apply_auth_opts(ydl_opts: dict, settings: Settings) -> dict:
     ydl_opts = dict(ydl_opts)
     ydl_opts["no_color"] = True
@@ -141,4 +159,10 @@ def apply_auth_opts(ydl_opts: dict, settings: Settings) -> dict:
         ydl_opts["cookiesfrombrowser"] = cookies
     elif settings.cookies_file:
         ydl_opts["cookiefile"] = settings.cookies_file
+    # Prefer an explicit impersonate target when curl_cffi (or peers) can serve it.
+    # Extractors may also request impersonation; setting a default helps plain clients.
+    if "impersonate" not in ydl_opts:
+        target = _impersonate_target(settings.impersonate)
+        if target is not None:
+            ydl_opts["impersonate"] = target
     return ydl_opts
