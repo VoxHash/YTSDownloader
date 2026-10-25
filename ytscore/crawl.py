@@ -14,6 +14,19 @@ from enum import Enum
 from typing import Callable, List, Optional, Sequence
 from urllib.parse import urlparse
 
+from ytscore.adult_tube import (
+    TAB_GIFS,
+    TAB_PHOTOS,
+    adult_tube_profile_root,
+    adult_tube_tabs_for_mode,
+    expand_album_to_photos,
+    fetch_html,
+    harvest_profile_listing,
+    is_adult_tube_album_url,
+    is_adult_tube_profile_url,
+    is_adult_tube_single_url,
+    tab_uses_html_harvest,
+)
 from ytscore.backoff import compute_backoff_seconds, is_rate_limited
 from ytscore.cache import title_cache
 from ytscore.resolvers import detect_platform, resolve_flat, resolve_url
@@ -43,8 +56,8 @@ CRAWL_MODE_LABELS = {
     CrawlMode.SHALLOW: "Shallow (single pass)",
     CrawlMode.DEEP: "Deep (multi-tab, cookie auth)",
     CrawlMode.VIDEOS: "Videos tab / feed (cookie auth)",
-    CrawlMode.SHORTS: "Shorts / clips (cookie auth)",
-    CrawlMode.POSTS: "Posts / reels (cookie auth)",
+    CrawlMode.SHORTS: "Shorts / clips / GIFs (cookie auth)",
+    CrawlMode.POSTS: "Posts / reels / albums (cookie auth)",
 }
 
 
@@ -345,6 +358,155 @@ def crawl_social_flat(
     return result
 
 
+def _extract_adult_tube_html_tab(
+    tab_url: str,
+    settings: Settings,
+    *,
+    tab: str,
+    limit: int,
+) -> tuple[List[str], Optional[str]]:
+    """Harvest GIF / album page URLs from profile listing HTML."""
+    html, err = fetch_html(tab_url, settings)
+    if err:
+        return [], err
+    kinds: List[str] = []
+    if tab.rstrip("/") == TAB_GIFS.rstrip("/") or tab == TAB_GIFS:
+        kinds.append("gif")
+    if tab.rstrip("/") == TAB_PHOTOS.rstrip("/") or tab == TAB_PHOTOS:
+        kinds.append("album")
+    if not kinds:
+        kinds = ["gif", "album"]
+    return (
+        harvest_profile_listing(html, base_url=tab_url, kinds=kinds, limit=limit),
+        None,
+    )
+
+
+def crawl_adult_tube(
+    url: str,
+    settings: Settings,
+    *,
+    mode: CrawlMode,
+    limit: int,
+    pace_seconds: float,
+    sleep_fn: SleepFn = time.sleep,
+) -> CrawlResult:
+    """
+    Paced model/user tab crawl for adult-tube hosts.
+
+    Video tabs use yt-dlp flat extract. GIF and photos tabs use clean-room HTML
+    link harvest (yt-dlp wrongly collapses those paths onto /videos). Album seeds
+    expand to photo pages under deep/posts modes. Cookie auth required for deep
+    modes (caller enforces).
+    """
+    platform = "adult_tube"
+    result = CrawlResult(
+        mode=mode,
+        platform=platform,
+        auth_required=crawl_requires_auth(mode),
+        auth_configured=cookie_auth_configured(settings),
+    )
+    input_url = canonicalize_media_url(url.strip()) or url.strip()
+
+    if is_adult_tube_album_url(input_url) and mode in (
+        CrawlMode.DEEP,
+        CrawlMode.POSTS,
+    ):
+        photos, err = expand_album_to_photos(input_url, settings, limit=limit)
+        if err:
+            result.errors.append(err)
+            result.urls = [input_url]
+        else:
+            result.tabs_tried.append("album→photos")
+            result.urls = photos[:limit] or [input_url]
+        return result
+
+    if is_adult_tube_single_url(input_url):
+        result.urls = [input_url]
+        return result
+
+    if mode == CrawlMode.SHALLOW:
+        result.urls = resolve_url(input_url, settings, playlist_end=limit)
+        return result
+
+    root = adult_tube_profile_root(input_url)
+    if not root or not is_adult_tube_profile_url(input_url):
+        # Playlist / generic adult-tube URL: flat extract only.
+        return crawl_social_flat(
+            input_url,
+            settings,
+            mode=mode,
+            limit=limit,
+            platform=platform,
+        )
+
+    tabs = adult_tube_tabs_for_mode(mode.value)
+    seen: dict[str, None] = {}
+    attempt = 0
+    for i, tab in enumerate(tabs):
+        if len(seen) >= limit:
+            break
+        tab_url = f"{root}{tab}"
+        result.tabs_tried.append(tab)
+        if i > 0:
+            _paced_sleep(pace_seconds, sleep_fn=sleep_fn, settings=settings)
+        remaining = limit - len(seen)
+        if tab_uses_html_harvest(tab):
+            urls, err = _extract_adult_tube_html_tab(
+                tab_url, settings, tab=tab, limit=remaining
+            )
+        else:
+            urls, err = _extract_flat_paged(
+                tab_url, settings, playlist_end=remaining
+            )
+        if err:
+            result.errors.append(f"{tab}: {err}")
+            logging.warning("Adult-tube crawl tab failed %s: %s", tab_url, err)
+            attempt += 1
+            _paced_sleep(
+                pace_seconds,
+                sleep_fn=sleep_fn,
+                attempt=attempt,
+                rate_limited=is_rate_limited(err),
+                settings=settings,
+            )
+            continue
+        # Deep/posts: expand harvested albums into photo pages (budget-limited).
+        expand_albums = mode in (CrawlMode.DEEP, CrawlMode.POSTS) and tab_uses_html_harvest(
+            tab
+        )
+        for item in urls:
+            if len(seen) >= limit:
+                break
+            if expand_albums and is_adult_tube_album_url(item):
+                _paced_sleep(pace_seconds, sleep_fn=sleep_fn, settings=settings)
+                photos, album_err = expand_album_to_photos(
+                    item, settings, limit=limit - len(seen)
+                )
+                if album_err:
+                    result.errors.append(f"album {item}: {album_err}")
+                    if item not in seen:
+                        seen[item] = None
+                    continue
+                for photo in photos:
+                    if photo not in seen:
+                        seen[photo] = None
+                    if len(seen) >= limit:
+                        break
+                continue
+            if item not in seen:
+                seen[item] = None
+
+    if not seen:
+        fallback = resolve_flat(input_url, settings, playlist_end=limit)
+        for u in fallback:
+            seen[u] = None
+            if len(seen) >= limit:
+                break
+    result.urls = list(seen.keys())[:limit]
+    return result
+
+
 def crawl_profile(
     url: str,
     settings: Settings,
@@ -390,6 +552,16 @@ def crawl_profile(
 
     if platform == "youtube":
         return crawl_youtube(
+            url,
+            settings,
+            mode=crawl_mode,
+            limit=item_limit,
+            pace_seconds=pace,
+            sleep_fn=sleep_fn,
+        )
+
+    if platform == "adult_tube":
+        return crawl_adult_tube(
             url,
             settings,
             mode=crawl_mode,

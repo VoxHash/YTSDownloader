@@ -8,8 +8,10 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Optional
 
+from ytscore.adult_tube import rewrite_adult_tube_media_url
 from ytscore.backoff import compute_backoff_seconds, is_rate_limited
 from ytscore.cache import title_cache
+from ytscore.resolvers import detect_platform
 from ytscore.settings import Settings, apply_auth_opts
 from ytscore.util import clean_filename
 
@@ -100,13 +102,20 @@ def download_item(
         ydl_opts = {k: v for k, v in ydl_opts.items() if v is not None}
 
     ydl_opts = apply_auth_opts(ydl_opts, settings)
+    download_url = url
+    if detect_platform(url) == "adult_tube":
+        # GIF / photo pages are not handled by yt-dlp extractors; map to CDN media.
+        rewritten = rewrite_adult_tube_media_url(url, settings)
+        if rewritten and rewritten != url:
+            download_url = rewritten
+            logging.info("Adult-tube media rewrite %s → %s", url, download_url)
     last_error = None
     saw_rate_limit = False
     attempts = settings.max_retries + 1
     for attempt in range(1, attempts + 1):
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
+                info = ydl.extract_info(download_url, download=True)
             title = (info or {}).get("title") or "unknown_title"
             title_cache.put(url, title)
             # Locate newest matching file

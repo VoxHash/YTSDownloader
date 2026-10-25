@@ -1,12 +1,10 @@
 # Roadmap
 
-Current product baseline: **v0.16.0** — adult-tube host class (videos / playlists) via yt-dlp + TLS impersonation (`curl_cffi`) + cookie-gated private/unlisted playlist path, on top of **v0.15.2** Desktop Suite free window resize, **v0.15.1** end-to-end install docs, and **v0.15.0** Android slice 7 polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
+Current product baseline: **v0.17.0** — adult-tube deep crawl extras (model/user tab pacing, GIF/album/photo enumeration beyond yt-dlp flat extract, clean-room HTML harvest + CDN media rewrite) on top of **v0.16.0** adult-tube host class + TLS impersonation, **v0.15.2** Desktop Suite free window resize, **v0.15.1** end-to-end install docs, and **v0.15.0** Android slice 7 polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
 
-## Now (v0.16.x)
+## Now (v0.17.x)
 
-- [x] **Adult-tube host class** — platform detect, HTML-entity URL canonicalize, playlist resolve with cookie auth for private/unlisted (signed-in session only; no DRM/paywall bypass).
-- [x] **TLS impersonation** — pin `curl_cffi`; `IMPERSONATE` setting (default `chrome`) so hosts that block plain clients resolve/download.
-- [x] **Docs** — configuration / usage / troubleshooting for cookies on private playlists + impersonation 403 fixes (generic wording).
+- [x] **Adult-tube deep crawl extras** — paced model/user tabs (`/videos`, `/videos/upload`, `/gifs`, `/photos`); GIF/album listing via clean-room HTML harvest (yt-dlp wrongly collapses those paths); album→photo expand under Deep/Posts; GIF/photo CDN rewrite for download. Cookie-gated deep modes only; no AGPL scrapers in-tree.
 
 ## Next
 
@@ -16,9 +14,9 @@ _(no active desktop milestone — see Later)_
 
 ### Platforms
 
-- [ ] **Adult-tube deep crawl extras** — model/user tab pacing, album/GIF/short enumeration beyond yt-dlp flat extract; keep clean-room Suite stack (no AGPL scrapers in-tree).
 - [ ] **IMPERSONATE Settings UI** — expose config key in Suite form (today: `config.ini` only; Suite save preserves the value).
 - [ ] **Meta Quest 3** Horizon Store **immersive certification** / content review — beyond the first Spatial OpenXR shell + packaging markers.
+- [x] **Adult-tube deep crawl extras** — see v0.17.0 Now.
 - [x] **Android / GrapheneOS** further polish — see v0.15.0 slice 7; cookies-from-browser profiles stay desktop-only.
 - [x] **Meta Quest 3** browse/queue shell (scaffold) — Horizon OS 2D panel product flavor (`quest`); landscape / larger hit targets; inbox `source: quest-companion`; `./scripts/build_quest.sh` + [docs/quest.md](docs/quest.md).
 - [x] **Meta Quest 3** Horizon Store packaging readiness (2D panel) — see v0.13.0; full Store certification remains out of this checkbox.

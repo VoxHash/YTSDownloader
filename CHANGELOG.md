@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-25
+
+### Added
+- **Adult-tube deep crawl extras:** paced model/user multi-tab crawl (`/videos`, `/videos/upload`, `/gifs`, `/photos`) under Deep / Videos / Shorts / Posts modes (cookie auth).
+- Clean-room HTML harvest for GIF and album listings (beyond yt-dlp flat extract, which collapses those paths onto videos).
+- Album → photo page expansion under Deep/Posts; GIF/photo page → CDN media rewrite before download.
+- Unit tests: `tests/test_adult_tube_crawl.py` (helpers, harvest, paced tabs, media resolve).
+
+### Changed
+- Crawl mode labels: Shorts mentions GIFs; Posts mentions albums.
+- Docs: usage / FAQ note adult-tube deep tab behavior.
+- ROADMAP: v0.17.0 deep crawl extras checked; IMPERSONATE Settings UI remains Later.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.17.0** / 15.
+
+### Verified
+- Host: Suite `unittest discover` (incl. adult-tube crawl tests).
+- Live deep/shorts/posts crawl + GIF download smoke with Brave cookies when configured locally (secrets redacted).
+
 ## [0.16.0] - 2026-10-25
 
 ### Added

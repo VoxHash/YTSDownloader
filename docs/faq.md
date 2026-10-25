@@ -22,7 +22,7 @@ Install dependencies from `requirements.txt` (includes `curl_cffi`) and keep `IM
 
 ## What are crawl modes?
 
-On **Download**, **Crawl mode** controls how profile / channel URLs expand into queue items. **Shallow** is a single-pass resolve (cookies optional). **Deep**, **Videos**, **Shorts**, and **Posts** need cookie auth and pace multi-tab or feed enumeration. They only list content your signed-in session can already reach via yt-dlp — not private or paywalled surfaces.
+On **Download**, **Crawl mode** controls how profile / channel URLs expand into queue items. **Shallow** is a single-pass resolve (cookies optional). **Deep**, **Videos**, **Shorts**, and **Posts** need cookie auth and pace multi-tab or feed enumeration. They only list content your signed-in session can already reach — not private or paywalled surfaces. For adult-tube model/user profiles, Deep paces videos + uploads + GIFs + albums/photos; Shorts targets GIF/clip listings; Posts expands album listings into photo pages (clean-room HTML harvest where yt-dlp flat extract is insufficient).
 
 ## Can I run without a watermark?
 

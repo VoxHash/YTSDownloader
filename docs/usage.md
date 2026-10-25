@@ -44,7 +44,7 @@ Optional activation: bash/zsh `source .venv/bin/activate`, fish `source .venv/bi
 
 1. Open **Download**, set an output folder, paste a URL, or drop links onto the drop zone (a single URL fills the field; multiple URLs crawl into the queue).
 2. Choose an **Export preset** (Audio only, Video + audio, Watermark, or Custom). Presets set media / container / watermark for new jobs; Watermark requires a PNG path.
-3. Optionally set **Crawl mode** and **Limit** (1–500). Shallow is a single-pass resolve. Deep / Videos / Shorts / Posts need cookie auth (`COOKIES_FROM_BROWSER` or `COOKIES_FILE`) and only enumerate content your signed-in session can already reach — no paywall or DRM bypass.
+3. Optionally set **Crawl mode** and **Limit** (1–500). Shallow is a single-pass resolve. Deep / Videos / Shorts / Posts need cookie auth (`COOKIES_FROM_BROWSER` or `COOKIES_FILE`) and only enumerate content your signed-in session can already reach — no paywall or DRM bypass. Adult-tube model/user Deep mode paces videos, uploads, GIFs, and albums (album → photos); Shorts = GIF listings; Posts = album/photo listings.
 4. **Resolve & Queue**, then open **Queue** and press **Start** (or use **Start Queue** on Download).
 5. Filter the queue by **State** and/or **Search** (title, URL, message, export label).
 6. Optionally pick a preset on Queue and **Apply to selected** rows or **Apply to queued** items (metadata-bridge search-audio jobs are left unchanged).
@@ -72,7 +72,7 @@ On Linux, **Browse** for the output folder (Download page and Settings default o
 - Instagram profile / reel / post URLs
 - Facebook page / post / watch URLs
 - TikTok profile / video URLs
-- Adult-tube video / playlist / model URLs (private / unlisted playlists need cookies)
+- Adult-tube video / playlist / model URLs (private / unlisted playlists need cookies; Deep crawl enumerates videos / GIFs / albums when cookies are set)
 - Catalog track / playlist / album URLs for the metadata bridge
 
 ## Auth check
