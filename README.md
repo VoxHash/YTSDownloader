@@ -2,7 +2,7 @@
 
 > Multi-platform download suite for video/audio from YouTube, Instagram, Facebook, TikTok, and related hosts — with a concurrent queue, link grabber, optional watermarking, and a local metadata bridge for music-session matching. Built with PyQt6.
 
-[![Version](https://img.shields.io/badge/version-0.15.0-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
+[![Version](https://img.shields.io/badge/version-0.15.1-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
 [![CI](https://github.com/VoxHash/YTSDownloader/actions/workflows/ci.yml/badge.svg)](https://github.com/VoxHash/YTSDownloader/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org/)
@@ -13,8 +13,9 @@
 - **Suite UI**: Sidebar navigation — Download, Queue, Link Grabber, Metadata Bridge, Settings
 - **URL drop zone**: Drag links (or a text file of URLs) onto Download
 - **Companion inbox**: Local file handoff (`.ytsdownloader/inbox/` or `companion_inbox.jsonl`) so a browser helper, Android phone companion, or Quest panel can send URLs; desktop Suite remains the richest downloader
-- **Android companion** (optional): Kotlin app under `android/` (`phone` flavor) — paste/share URLs, oEmbed titles, on-device yt-dlp + bundled ffmpeg merge + watermark + multi-worker (1–4) + export presets + validated SAF `cookies.txt` (domain summary) + outer retry/backoff + queue resume + download notifications (Chaquopy); GrapheneOS-friendly ADB sideload ([docs/android.md](docs/android.md)). Desktop remains richest for deep crawl / cookies-from-browser.
-- **Meta Quest 3 companion** (optional): Horizon OS hybrid (`quest` flavor) — 2D panel + Spatial SDK immersive shell (panel-in-world) + shared yt-dlp stack + Store **packaging readiness** (`RELEASE=1` / [docs/quest.md](docs/quest.md)). Not Store immersive certification.
+- **Android companion** (optional): Kotlin app under `android/` (`phone` flavor) — paste/share URLs, oEmbed titles, on-device yt-dlp + bundled ffmpeg merge + watermark + multi-worker (1–4) + export presets + validated SAF `cookies.txt` (domain summary) + outer retry/backoff + queue resume + download notifications (Chaquopy); GrapheneOS-friendly ADB sideload. End-to-end install + use: [docs/android.md](docs/android.md). Desktop remains richest for deep crawl / cookies-from-browser.
+- **Meta Quest 3 companion** (optional): Horizon OS hybrid (`quest` flavor) — 2D panel + Spatial SDK immersive shell (panel-in-world) + shared yt-dlp stack + Store **packaging readiness** (`RELEASE=1`). End-to-end install + use: [docs/quest.md](docs/quest.md). Not Store immersive certification.
+- **Cross-platform handoff**: companions **Export to Downloads** → `.ytsdownloader/inbox/` (schema v1 NDJSON/JSON); Suite polls ~1.5s — [docs/cross-platform.md](docs/cross-platform.md).
 - **Queue filters**: Filter by state and search title / URL / message
 - **Failure triage**: Per-item error category + detail panel with **Retry selected** / **Retry failed**
 - **Status analytics**: Optional local session OK / Err / Last / Avg counters in the status bar (no network telemetry)
@@ -100,7 +101,7 @@ No cloud API keys are required. Treat cookie files as secrets.
 4. Or use **Metadata Bridge** with a playing desktop music session / catalog URL
 5. Monitor **Queue** (filter by state / search); inspect failures in the triage panel; **Retry selected** / **Retry failed**; optionally **Apply to selected** / **Apply to queued** with another preset
 
-Full guides: [docs/getting-started.md](docs/getting-started.md) · [docs/usage.md](docs/usage.md) · [docs/architecture.md](docs/architecture.md) · [Packaging](docs/installation.md#packaging-windows--macos--linux-distributables)
+Full guides: [docs/getting-started.md](docs/getting-started.md) · [docs/installation.md](docs/installation.md) · [docs/usage.md](docs/usage.md) · [docs/android.md](docs/android.md) · [docs/quest.md](docs/quest.md) · [docs/cross-platform.md](docs/cross-platform.md) · [docs/architecture.md](docs/architecture.md) · [Packaging](docs/installation.md#packaging-windows--macos--linux-distributables)
 
 ## Examples
 

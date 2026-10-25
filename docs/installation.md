@@ -1,5 +1,34 @@
 # Installation
 
+End-to-end **Desktop Suite** install for Linux / macOS / Windows, then open [usage.md](usage.md) for the post-install Suite flow. Companions: [android.md](android.md), [quest.md](quest.md). Handoff: [cross-platform.md](cross-platform.md).
+
+## Desktop Suite — install (venv)
+
+Fish-safe: call `.venv/bin/python` / `.venv/bin/pip` directly. Do **not** run `source .venv/bin/activate` in fish (use `source .venv/bin/activate.fish` if you want activation).
+
+```bash
+git clone https://github.com/VoxHash/YTSDownloader.git
+cd YTSDownloader
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python main.py
+# or: ./run.sh
+```
+
+Windows (PowerShell, no Activate.ps1 required):
+
+```powershell
+git clone https://github.com/VoxHash/YTSDownloader.git
+cd YTSDownloader
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe main.py
+```
+
+After install: [Usage → After install](usage.md#after-install-desktop-suite).
+
 ## System packages
 
 ### Debian / Ubuntu
@@ -29,16 +58,9 @@ brew install python ffmpeg node
 2. Install FFmpeg and add it to `PATH` (https://ffmpeg.org/download.html)
 3. Optional: install Node.js from https://nodejs.org/
 
-## Python dependencies
+## Python dependencies (detail)
 
-```bash
-cd YTSDownloader
-python3 -m venv .venv
-.venv/bin/python -m pip install --upgrade pip
-.venv/bin/pip install -r requirements.txt
-```
-
-Optional activation (not required if you call `.venv/bin/python` directly):
+Same venv as [Desktop Suite — install](#desktop-suite--install-venv). Optional activation (not required if you call `.venv/bin/python` directly):
 
 - bash/zsh: `source .venv/bin/activate`
 - fish: `source .venv/bin/activate.fish`
@@ -61,9 +83,9 @@ ffprobe -version
 .venv/bin/python -c "import yt_dlp, moviepy, PyQt6; print('ok')"
 ```
 
-## Local desktop install (Linux)
+## Local desktop install (Linux menu / PATH)
 
-Registers **one** user-local PATH wrapper and `.desktop` entry that always launch this checkout via `.venv/bin/python main.py` (fish-safe; no venv activate). Does **not** put `dist/` freeze binaries on PATH — keep the freeze as a build artifact only.
+Registers **one** user-local PATH wrapper and `.desktop` entry that always launch this checkout via `.venv/bin/python main.py` (fish-safe; no venv activate). Does **not** put `dist/` freeze binaries on PATH — keep the freeze as a build artifact only. Creates the venv and installs `requirements.txt` if needed.
 
 ```bash
 chmod +x scripts/install_local.sh
@@ -114,12 +136,13 @@ Frozen builds: the freeze helpers copy `native/bin/` into `dist/YTSDownloader/na
 
 ## Optional Android / Quest companions
 
-Kotlin companions under `android/` (no Play Services / FCM). Desktop Suite stays the downloader — companions export inbox payloads.
+Kotlin companions under `android/` (no Play Services / FCM). Desktop Suite stays the richest downloader — companions export inbox payloads into `.ytsdownloader/inbox/`.
 
 | Flavor | Build | Docs |
 | --- | --- | --- |
-| Phone / GrapheneOS | `./scripts/build_android.sh` | [android.md](android.md) |
-| Meta Quest 3 (Horizon 2D panel) | `./scripts/build_quest.sh` (release: `RELEASE=1`) | [quest.md](quest.md) |
+| Phone / GrapheneOS | `./scripts/build_android.sh` | [android.md](android.md) — install + use |
+| Meta Quest 3 (Horizon 2D + immersive shell) | `./scripts/build_quest.sh` (release: `RELEASE=1`) | [quest.md](quest.md) — install + use |
+| Cross-platform handoff | — | [cross-platform.md](cross-platform.md) |
 
 ## Packaging (Windows / macOS / Linux distributables)
 

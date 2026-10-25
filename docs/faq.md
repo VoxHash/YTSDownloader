@@ -35,7 +35,11 @@ See [Installation → Packaging](installation.md#packaging-windows--macos--linux
 
 ## Can a browser extension download for me?
 
-No. A companion may only hand off media URLs (drop zone, Link Grabber, or the local `.ytsdownloader/` inbox). The desktop Suite always resolves and downloads. See [Architecture](architecture.md#browser-companion-handoff-contract).
+No. A companion may only hand off media URLs (drop zone, Link Grabber, or the local `.ytsdownloader/` inbox). The desktop Suite always resolves and downloads. See [cross-platform.md](cross-platform.md) and [Architecture](architecture.md#browser-companion-handoff-contract).
+
+## How do Android / Quest work with the desktop Suite?
+
+Export inbox JSON (**Export to Downloads**) from the companion, `adb pull` into `.ytsdownloader/inbox/` while the Suite is running (poll ~1.5s). Schema v1, `source` `android-companion` or `quest-companion`. Full workflow: [cross-platform.md](cross-platform.md).
 
 ## Who maintains this?
 

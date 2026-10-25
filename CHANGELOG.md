@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-10-25
+
+### Added
+- **Docs / Ops:** end-to-end install + use guides for Android / GrapheneOS, Meta Quest 3, and Desktop Suite; new [docs/cross-platform.md](docs/cross-platform.md) for companion inbox handoff (NDJSON schema v1, `.ytsdownloader/inbox/`, ~1.5s polling, Export to Downloads → Suite enqueue).
+
+### Changed
+- Restructured [docs/android.md](docs/android.md) and [docs/quest.md](docs/quest.md) into Install → Use after install flows (real package IDs, intents, paths).
+- [docs/installation.md](docs/installation.md) / [docs/usage.md](docs/usage.md) / [docs/index.md](docs/index.md) / README linked for post-install Suite and cross-platform paths.
+- ROADMAP: Docs/Ops milestone checked under Now (v0.15.1).
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.15.1** / 12.
+
 ## [0.15.0] - 2026-10-25
 
 ### Added
@@ -387,7 +398,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.15.1...HEAD
+[0.15.1]: https://github.com/VoxHash/YTSDownloader/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.12.0...v0.13.0

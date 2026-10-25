@@ -1,10 +1,14 @@
 # Usage
 
+Desktop Suite after [installation](installation.md). Phone / Quest: [android.md](android.md), [quest.md](quest.md). Companion ↔ Suite: [cross-platform.md](cross-platform.md).
+
 ## Launch
 
 ```bash
 .venv/bin/python main.py
 # or: ./run.sh
+# Linux menu/PATH after ./scripts/install_local.sh:
+# ytsdownloader
 ```
 
 Classic tabbed UI:
@@ -13,9 +17,30 @@ Classic tabbed UI:
 .venv/bin/python main.py --legacy
 ```
 
+Frozen `onedir` build (from the shipped folder, writable cwd for `.ytsdownloader/`):
+
+```bash
+cd dist/YTSDownloader
+./YTSDownloader
+```
+
+```powershell
+cd dist\YTSDownloader
+.\YTSDownloader.exe
+```
+
 Optional activation: bash/zsh `source .venv/bin/activate`, fish `source .venv/bin/activate.fish`.
 
-## Suite flow
+## After install (Desktop Suite)
+
+1. Ensure `ffmpeg` / `ffprobe` work: `ffmpeg -version` and `ffprobe -version`.
+2. Launch the Suite (commands above). Sidebar: **Download**, **Queue**, **Link Grabber**, **Metadata Bridge**, **Settings**.
+3. Open **Settings** if you need cookies (`COOKIES_FROM_BROWSER` or `COOKIES_FILE`), workers, pace, or default output — **Save** writes `config.ini`.
+4. On **Download**: set **output folder**, choose **Export preset** (Audio only / Video + audio / Watermark / Custom), paste or drop a URL → **Resolve & Queue** → **Start Queue**.
+5. Open **Queue** to filter by state/search, triage failures, **Retry selected** / **Retry failed**, or right-click **Force download**.
+6. Optional companions: keep Suite open while Android/Quest **Export to Downloads** JSON lands in `.ytsdownloader/inbox/` (poll ~1.5 s) — [cross-platform.md](cross-platform.md).
+
+## Suite flow (detail)
 
 1. Open **Download**, set an output folder, paste a URL, or drop links onto the drop zone (a single URL fills the field; multiple URLs crawl into the queue).
 2. Choose an **Export preset** (Audio only, Video + audio, Watermark, or Custom). Presets set media / container / watermark for new jobs; Watermark requires a PNG path.
@@ -25,7 +50,7 @@ Optional activation: bash/zsh `source .venv/bin/activate`, fish `source .venv/bi
 6. Optionally pick a preset on Queue and **Apply to selected** rows or **Apply to queued** items (metadata-bridge search-audio jobs are left unchanged).
 7. When items fail, select a row in the **Failure triage** panel to see the classified category and full error; use **Retry selected** or **Retry failed** (preserves URL / export options; press **Start** if the queue is paused). Right-click a row for **Remove from queue** or **Force download** (starts that item immediately, skipping pace wait, even if the queue is stopped).
 8. Use **Link Grabber** to paste many URLs (one per line); enqueue uses the Download page preset and crawl mode / limit.
-9. Optional: a browser companion (or script) can drop URLs into `.ytsdownloader/inbox/` or append NDJSON to `.ytsdownloader/companion_inbox.jsonl` while the Suite is open — the desktop app remains the downloader (see [Architecture](architecture.md#browser-companion-handoff-contract)).
+9. Optional: a browser companion, Android phone, or Quest panel can drop URLs into `.ytsdownloader/inbox/` or append NDJSON to `.ytsdownloader/companion_inbox.jsonl` while the Suite is open — the desktop app remains the downloader ([cross-platform.md](cross-platform.md), [Architecture](architecture.md#browser-companion-handoff-contract)).
 10. Use **Metadata Bridge** while a desktop music client is playing to queue a matching public-host audio download.
 11. Use **Settings** to edit and **Save** `config.ini` (cookies, pace, backoff, workers, formats, status analytics); most knobs apply without restarting the app.
 12. Watch per-item progress on the Queue page (Export column shows audio / video / video+wm). With **Show analytics in status bar** enabled (default), the status bar shows local session **OK** / **Err** counts plus **Last** and **Avg** job durations — nothing is sent over the network.

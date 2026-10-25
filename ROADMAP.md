@@ -1,10 +1,11 @@
 # Roadmap
 
-Current product baseline: **v0.15.0** — Android / GrapheneOS **slice 7** polish (cookie domain summary UI + local download notification channel) on top of Meta Quest 3 immersive Spatial SDK / OpenXR shell + Android slice 6 (v0.14.0), Horizon Store packaging readiness (v0.13.0), multi-worker + SAF cookies + presets (v0.12.0), watermark (v0.11.0), bundled ffmpeg merge (v0.10.0), on-device yt-dlp (v0.9.0), oEmbed titles (v0.8.0), and Quest browse/queue shell (v0.7.x). Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
+Current product baseline: **v0.15.1** — end-to-end install + use docs (Android / GrapheneOS, Quest, Desktop Suite, cross-platform handoff) on top of **v0.15.0** Android / GrapheneOS **slice 7** polish (cookie domain summary UI + local download notification channel), Meta Quest 3 immersive Spatial SDK / OpenXR shell + Android slice 6 (v0.14.0), Horizon Store packaging readiness (v0.13.0), multi-worker + SAF cookies + presets (v0.12.0), watermark (v0.11.0), bundled ffmpeg merge (v0.10.0), on-device yt-dlp (v0.9.0), oEmbed titles (v0.8.0), and Quest browse/queue shell (v0.7.x). Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
 
 ## Now (v0.15.x)
 
 - [x] **Android / GrapheneOS** further polish — **slice 7**: richer cookie domain summary UI (top domains × counts) + local download notification channel (`POST_NOTIFICATIONS`, progress / done / error). Cookies-from-browser profiles stay desktop-only.
+- [x] **Docs / Ops** — end-to-end install + use guides: [docs/android.md](docs/android.md), [docs/quest.md](docs/quest.md), [docs/installation.md](docs/installation.md) / [docs/usage.md](docs/usage.md), [docs/cross-platform.md](docs/cross-platform.md) (companion inbox / NDJSON / polling).
 
 ## Next
 
@@ -19,6 +20,10 @@ _(no active desktop milestone — see Later)_
 - [x] **Meta Quest 3** browse/queue shell (scaffold) — Horizon OS 2D panel product flavor (`quest`); landscape / larger hit targets; inbox `source: quest-companion`; `./scripts/build_quest.sh` + [docs/quest.md](docs/quest.md).
 - [x] **Meta Quest 3** Horizon Store packaging readiness (2D panel) — see v0.13.0; full Store certification remains out of this checkbox.
 - [x] **Meta Quest 3** immersive OpenXR / Spatial SDK shell — see v0.14.0; Store immersive certification remains Later.
+
+### Docs / Ops
+
+- [x] End-to-end install + use + cross-platform handoff guides — see Now (v0.15.1).
 
 ### Native / core (deferred with rationale)
 
