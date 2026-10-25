@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Horizon OS 2D panel overlay. Merges onto main; phone flavor stays untouched. -->
+<!-- Horizon OS 2D panel overlay. Merges onto main; phone flavor stays untouched.
+     Store packaging readiness (VRC.Quest.Packaging.1-ish): installLocation=auto,
+     headtracking required=false, excludeFromRecents, supportedDevices, 2D category.
+     Not Store certification — see docs/quest.md. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+    xmlns:tools="http://schemas.android.com/tools"
+    android:installLocation="auto">
 
-    <!-- Panel app: do not require 6DoF head tracking. -->
+    <!-- Panel app: do not require 6DoF head tracking (VRC packaging for 2D). -->
     <uses-feature
         android:name="android.hardware.vr.headtracking"
         android:required="false"
@@ -40,6 +44,7 @@
         <activity
             android:name="dev.voxhash.ytscompanion.quest.MainActivity"
             android:exported="true"
+            android:excludeFromRecents="true"
             android:screenOrientation="landscape"
             android:resizeableActivity="true"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density"

@@ -14,12 +14,13 @@ android {
         applicationId = "dev.voxhash.ytscompanion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "0.12.0"
+        versionCode = 9
+        versionName = "0.13.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "COMPANION_SOURCE", "\"android-companion\"")
         ndk {
             // Chaquopy Python 3.12+: 64-bit only. Pixel 7 Pro + Quest 3 are arm64-v8a.
+            // VRC.Quest.Packaging.6: Store builds must be 64-bit (no armeabi-v7a).
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
     }
@@ -34,13 +35,43 @@ android {
             dimension = "device"
             // Stable id (no .debug suffix) — Horizon OS is picky about panel package identity.
             applicationId = "dev.voxhash.ytscompanion.quest"
+            // Horizon Store 2D panel ranges: minSdk 29–34, targetSdk 32–36 (recommend 34).
+            minSdk = 29
+            targetSdk = 34
             buildConfigField("String", "COMPANION_SOURCE", "\"quest-companion\"")
+        }
+    }
+
+    // Quest / release signing: env QUEST_STORE_KEYSTORE (+ pass/alias) or debug keystore fallback.
+    // Meta Horizon Store upload needs a stable developer-dashboard cert — debug keystore is local/smoke only.
+    signingConfigs {
+        create("questRelease") {
+            val storePath = System.getenv("QUEST_STORE_KEYSTORE")
+            if (!storePath.isNullOrBlank() && file(storePath).isFile) {
+                storeFile = file(storePath)
+                storePassword = System.getenv("QUEST_STORE_STORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("QUEST_STORE_KEY_ALIAS") ?: "upload"
+                keyPassword = System.getenv("QUEST_STORE_KEY_PASSWORD") ?: storePassword
+            } else {
+                val debugStore =
+                    file(
+                        System.getProperty("user.home") +
+                            "/.android/debug.keystore",
+                    )
+                storeFile = debugStore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            isDebuggable = false
+            // AGP signs with v1+v2+v3 by default when a signingConfig is set (VRC.Quest.Packaging.2).
+            signingConfig = signingConfigs.getByName("questRelease")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

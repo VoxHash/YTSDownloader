@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Build the YTS Quest Companion debug APK (Horizon OS 2D panel; no Store packaging).
+# Build the YTS Quest Companion APK (Horizon OS 2D panel).
+# Debug (default): Unknown Sources sideload.
+# RELEASE=1: Store-oriented release APK (signed; packaging readiness, not Store cert).
 # Fish-safe: ./scripts/build_quest.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ANDROID_DIR="$ROOT/android"
+RELEASE="${RELEASE:-0}"
 
 export ANDROID_HOME="${ANDROID_HOME:-/opt/android-sdk}"
 export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
@@ -39,10 +42,24 @@ if [[ ! -x ./gradlew ]]; then
   exit 1
 fi
 
-./gradlew :app:assembleQuestDebug "$@"
-APK="$ANDROID_DIR/app/build/outputs/apk/quest/debug/app-quest-debug.apk"
+if [[ "$RELEASE" == "1" ]]; then
+  if [[ -z "${QUEST_STORE_KEYSTORE:-}" ]]; then
+    echo "NOTE: QUEST_STORE_KEYSTORE unset — signing with ~/.android/debug.keystore (local smoke only)."
+    echo "      For Dashboard upload, set QUEST_STORE_KEYSTORE / QUEST_STORE_STORE_PASSWORD /"
+    echo "      QUEST_STORE_KEY_ALIAS / QUEST_STORE_KEY_PASSWORD to your Meta upload cert."
+  fi
+  ./gradlew :app:assembleQuestRelease "$@"
+  APK="$ANDROID_DIR/app/build/outputs/apk/quest/release/app-quest-release.apk"
+else
+  ./gradlew :app:assembleQuestDebug "$@"
+  APK="$ANDROID_DIR/app/build/outputs/apk/quest/debug/app-quest-debug.apk"
+fi
+
 if [[ -f "$APK" ]]; then
   echo "APK: $APK"
+  if [[ "$RELEASE" == "1" ]]; then
+    "$ROOT/scripts/check_quest_packaging.sh" "$APK"
+  fi
 else
   echo "Build finished but APK not found at $APK" >&2
   exit 1

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-24
+
+### Added
+- **Meta Quest 3 Horizon Store packaging readiness (2D panel):** quest release path (`RELEASE=1 ./scripts/build_quest.sh`); `installLocation=auto`, `excludeFromRecents`, quest flavor `minSdk` 29 / `targetSdk` 34; release signing config (env upload keystore or debug-keystore fallback, AGP v2+); `./scripts/check_quest_packaging.sh` (manifest markers, size, `apksigner`, aapt badging).
+- Host tests for packaging source markers + check-script gate (`tests/test_quest_packaging.py`).
+
+### Changed
+- ROADMAP: v0.13.0 Quest Store packaging readiness checked; immersive OpenXR / Store **certification** remain Later / out of scope.
+- Docs: [docs/quest.md](docs/quest.md) packaging table, release build, signing env vars; honesty that certification is not claimed.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.13.0** / 9.
+
+### Verified
+- Host: Suite `unittest discover` **109** tests green (incl. `test_quest_packaging` + Android worker suite).
+- `RELEASE=1 ./scripts/build_quest.sh` → `app-quest-release.apk` (~43 MB); `./scripts/check_quest_packaging.sh` passed (manifest markers, minSdk 29 / targetSdk 34, arm64-v8a, apksigner v2+).
+- Quest 3 (`2G0YC5ZGB6031R` / eureka): release APK install + on-device SEND/EXPORT smoke passed (`./scripts/smoke_quest.sh`).
+
 ## [0.12.0] - 2026-10-24
 
 ### Added
@@ -339,7 +355,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.9.0...v0.10.0

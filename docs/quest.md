@@ -2,7 +2,7 @@
 
 Headset-side **browse/queue shell** for YTSDownloader. The desktop Suite remains the primary downloader; this panel collects media page URLs and exports companion-inbox payloads (`source: quest-companion`).
 
-**Not** immersive OpenXR or Horizon Store packaging. On-device yt-dlp + bundled ffmpeg merge + watermark + multi-worker / presets / SAF cookies are shared with the phone flavor (v0.9.0–v0.12.0). Store policies and headset storage still constrain immersive packaging.
+On-device yt-dlp + bundled ffmpeg merge + watermark + multi-worker / presets / SAF cookies are shared with the phone flavor (v0.9.0–v0.12.0). **v0.13.0** adds Horizon Store **packaging readiness** for the 2D panel release APK (manifest / SDK / signing / check script). Immersive OpenXR / Spatial SDK and full Store **certification** are still not done. Store policies and headset storage still constrain what can ship on the Store.
 
 ## What ships in this slice
 
@@ -13,9 +13,10 @@ Headset-side **browse/queue shell** for YTSDownloader. The desktop Suite remains
 | ADB `ACTION_SEND` / export-to-Downloads handoff | Yes |
 | Larger landscape controls for controller / hand pointing | Yes |
 | Inbox JSON `schema: 1` / `source: quest-companion` | Yes |
-| Immersive VR / Spatial SDK | No |
-| Horizon Store submission / VRC packaging | No |
-| On-device media download | No (desktop Suite) |
+| Store **packaging readiness** (VRC.Packaging-aligned release) | Yes (v0.13.0) — see below |
+| Immersive VR / Spatial / OpenXR shell | No |
+| Horizon Store **certification** / content review / Dashboard accept | No |
+| On-device media download | Shared with phone (Unknown Sources); Store policy may reject download tooling |
 
 Payload shapes match [Architecture → Browser companion handoff](architecture.md#browser-companion-handoff-contract).
 
@@ -27,6 +28,8 @@ Payload shapes match [Architecture → Browser companion handoff](architecture.m
 
 ## Build
 
+Debug (Unknown Sources sideload):
+
 ```bash
 ./scripts/build_quest.sh
 ```
@@ -35,9 +38,50 @@ Debug APK path:
 
 `android/app/build/outputs/apk/quest/debug/app-quest-debug.apk`
 
-Application id: `dev.voxhash.ytscompanion.quest` (stable across debug/release for Horizon panel + ADB)
+Store-oriented **release** (packaging readiness; not certification):
+
+```bash
+RELEASE=1 ./scripts/build_quest.sh
+# → android/app/build/outputs/apk/quest/release/app-quest-release.apk
+# runs ./scripts/check_quest_packaging.sh automatically
+```
+
+Application id: `dev.voxhash.ytscompanion.quest` (stable across debug/release for Horizon panel + ADB).
 
 Phone / GrapheneOS companion remains `./scripts/build_android.sh` → `…/phone/debug/app-phone-debug.apk`.
+
+### Horizon Store packaging readiness (v0.13.0)
+
+Aligned with Meta’s published [Application Manifests for Release Builds](https://developers.meta.com/horizon/resources/publish-mobile-manifest/) for **panel (2D)** apps — local checks only:
+
+| Check | Implementation |
+| --- | --- |
+| `installLocation=auto` | Quest manifest |
+| `vr.headtracking` `required=false` | Quest manifest (2D panel) |
+| `excludeFromRecents=true` on launcher | Quest `MainActivity` |
+| `com.oculus.supportedDevices` | `quest2\|questpro\|quest3\|quest3s` |
+| `com.oculus.intent.category.2D` + MAIN/LAUNCHER | Quest activity |
+| `minSdk` / `targetSdk` | Quest flavor **29** / **34** (Store recommend) |
+| 64-bit only | `arm64-v8a` (+ `x86_64` host); no `armeabi-v7a` |
+| APK Signature Scheme v2+ | Release `signingConfig` via AGP |
+| APK size &lt; 1 GiB | `check_quest_packaging.sh` |
+| Network security config | Shared main app (cleartext off) |
+
+Validate without rebuilding:
+
+```bash
+./scripts/check_quest_packaging.sh
+# or: ./scripts/check_quest_packaging.sh path/to/app-quest-release.apk
+```
+
+**Signing:** without `QUEST_STORE_KEYSTORE`, release builds sign with `~/.android/debug.keystore` (local smoke only). For Developer Dashboard upload, set:
+
+- `QUEST_STORE_KEYSTORE` — path to your upload keystore
+- `QUEST_STORE_STORE_PASSWORD`
+- `QUEST_STORE_KEY_ALIAS` (default `upload`)
+- `QUEST_STORE_KEY_PASSWORD`
+
+**Honesty:** packaging readiness ≠ Store listing. Content / policy review (especially on-device download tooling), full VRC suites beyond packaging markers, and immersive OpenXR are **not** claimed done.
 
 ## Install on Quest 3 (ADB sideload)
 
@@ -48,11 +92,12 @@ Phone / GrapheneOS companion remains `./scripts/build_android.sh` → `…/phone
 adb devices -l
 ```
 
-Quest 3 typically shows `product:eureka` / `model:Quest_3` (example serial `2G0YC5ZGB6031R`).
+Quest 3 typically shows `product:eureka` / `model:Quest_3` (example serial `2G0YC5ZGB6031R`). Farm ADB may use a non-default server port (`ANDROID_ADB_SERVER_PORT`).
 
 ```bash
 QUEST_SERIAL=2G0YC5ZGB6031R   # replace with your serial
 adb -s "$QUEST_SERIAL" install -r android/app/build/outputs/apk/quest/debug/app-quest-debug.apk
+# or release: …/quest/release/app-quest-release.apk
 ```
 
 3. Launch (Unknown Sources / Library, or ADB):

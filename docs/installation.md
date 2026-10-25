@@ -119,7 +119,7 @@ Kotlin companions under `android/` (no Play Services / FCM). Desktop Suite stays
 | Flavor | Build | Docs |
 | --- | --- | --- |
 | Phone / GrapheneOS | `./scripts/build_android.sh` | [android.md](android.md) |
-| Meta Quest 3 (Horizon 2D panel) | `./scripts/build_quest.sh` | [quest.md](quest.md) |
+| Meta Quest 3 (Horizon 2D panel) | `./scripts/build_quest.sh` (release: `RELEASE=1`) | [quest.md](quest.md) |
 
 ## Packaging (Windows / macOS / Linux distributables)
 
