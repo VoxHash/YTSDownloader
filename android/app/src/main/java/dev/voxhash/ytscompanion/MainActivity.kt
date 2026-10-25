@@ -62,15 +62,26 @@ open class MainActivity : AppCompatActivity() {
     private val openCookies =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri == null) return@registerForActivityResult
-            val path = CookieBundle.importFromUri(this, uri)
-            if (path != null) {
+            val result = CookieBundle.importFromUri(this, uri)
+            if (result.ok) {
                 store.setCookieImported(true)
                 refreshCookieLabel()
-                Toast.makeText(this, R.string.cookies_imported, Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    getString(R.string.cookies_imported, result.cookieRows),
+                    Toast.LENGTH_SHORT,
+                ).show()
             } else {
                 store.setCookieImported(false)
                 refreshCookieLabel()
-                Toast.makeText(this, R.string.cookies_import_failed, Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    getString(
+                        R.string.cookies_import_failed,
+                        result.error.ifBlank { "unknown" },
+                    ),
+                    Toast.LENGTH_LONG,
+                ).show()
             }
         }
 
@@ -80,16 +91,18 @@ open class MainActivity : AppCompatActivity() {
         store = QueueStore(this)
         items.clear()
         items.addAll(store.load())
-        // Reset in-flight states after process death.
+        // Slice 6: after process death, re-queue in-flight rows instead of dropping them.
+        val resumeUrls = mutableListOf<String>()
         for (i in items.indices) {
             val st = items[i].downloadStatus
             if (st == DownloadStatus.DOWNLOADING || st == DownloadStatus.QUEUED) {
                 items[i] =
                     items[i].copy(
-                        downloadStatus = DownloadStatus.IDLE,
+                        downloadStatus = DownloadStatus.QUEUED,
                         progress = 0f,
                         error = "",
                     )
+                resumeUrls.add(items[i].url)
             }
         }
 
@@ -129,11 +142,17 @@ open class MainActivity : AppCompatActivity() {
                 onDownload = { index ->
                     if (index in items.indices) enqueueDownload(items[index].url)
                 },
+                onRetry = { index ->
+                    if (index in items.indices) enqueueDownload(items[index].url)
+                },
             )
         queueList.layoutManager = LinearLayoutManager(this)
         queueList.adapter = adapter
 
         findViewById<MaterialButton>(R.id.addButton).setOnClickListener { addFromInput() }
+        findViewById<MaterialButton?>(R.id.immersiveButton)?.setOnClickListener {
+            openImmersiveShell()
+        }
         findViewById<MaterialButton>(R.id.clearButton).setOnClickListener {
             items.clear()
             downloadQueue.clear()
@@ -172,7 +191,38 @@ open class MainActivity : AppCompatActivity() {
                 WatermarkBundle.ensure(this)
             }
         }.start()
+        if (resumeUrls.isNotEmpty()) {
+            resumeUrls.forEach { url ->
+                if (!downloadQueue.any { it.equals(url, ignoreCase = true) }) {
+                    downloadQueue.addLast(url)
+                }
+            }
+            Toast.makeText(
+                this,
+                getString(R.string.queue_resumed, resumeUrls.size),
+                Toast.LENGTH_SHORT,
+            ).show()
+            pumpDownloads()
+        }
         handleIncomingIntent(intent)
+    }
+
+    /** Quest flavor wires an Enter-immersive button; phone layout omits it. */
+    private fun openImmersiveShell() {
+        val immersive =
+            runCatching {
+                Class.forName("dev.voxhash.ytscompanion.quest.ImmersiveShellActivity")
+            }.getOrNull()
+        if (immersive == null) {
+            Toast.makeText(this, R.string.immersive_unavailable, Toast.LENGTH_SHORT).show()
+            return
+        }
+        startActivity(
+            Intent(this, immersive).apply {
+                action = Intent.ACTION_MAIN
+                addCategory(Intent.CATEGORY_DEFAULT)
+            },
+        )
     }
 
     private fun setupPresetSpinner() {
@@ -255,6 +305,9 @@ open class MainActivity : AppCompatActivity() {
             }
             ACTION_DOWNLOAD_QUEUE -> {
                 enqueueAllDownloads()
+            }
+            ACTION_OPEN_IMMERSIVE -> {
+                openImmersiveShell()
             }
         }
         // Prefer explicit preset; do not let yts_watermark=false clobber yts_preset.
@@ -491,9 +544,10 @@ open class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshCookieLabel() {
-        val path = CookieBundle.existingPath(this)
-        if (path != null && store.hasCookieFile()) {
-            cookieLabel.text = getString(R.string.cookies_label_set, File(path).name)
+        val summary = CookieBundle.summary(this)
+        if (summary != null) {
+            store.setCookieImported(true)
+            cookieLabel.text = getString(R.string.cookies_label_set, summary)
         } else {
             // Heal prefs if file was deleted out of band.
             if (store.hasCookieFile()) store.setCookieImported(false)
@@ -617,12 +671,14 @@ open class MainActivity : AppCompatActivity() {
         private val resolving: Set<String>,
         private val onRemove: (Int) -> Unit,
         private val onDownload: (Int) -> Unit,
+        private val onRetry: (Int) -> Unit,
     ) : RecyclerView.Adapter<QueueAdapter.VH>() {
         class VH(val root: android.view.View) : RecyclerView.ViewHolder(root) {
             val title: TextView = root.findViewById(R.id.itemTitle)
             val url: TextView = root.findViewById(R.id.itemUrl)
             val status: TextView = root.findViewById(R.id.itemStatus)
             val download: MaterialButton = root.findViewById(R.id.downloadButton)
+            val retry: MaterialButton = root.findViewById(R.id.retryButton)
             val remove: MaterialButton = root.findViewById(R.id.removeButton)
         }
 
@@ -681,10 +737,19 @@ open class MainActivity : AppCompatActivity() {
             val busy =
                 item.downloadStatus == DownloadStatus.DOWNLOADING ||
                     item.downloadStatus == DownloadStatus.QUEUED
+            val isError = item.downloadStatus == DownloadStatus.ERROR
             holder.download.isEnabled = !busy
+            holder.download.visibility =
+                if (isError) android.view.View.GONE else android.view.View.VISIBLE
+            holder.retry.visibility =
+                if (isError) android.view.View.VISIBLE else android.view.View.GONE
             holder.download.setOnClickListener {
                 val pos = holder.bindingAdapterPosition
                 if (pos != RecyclerView.NO_POSITION) onDownload(pos)
+            }
+            holder.retry.setOnClickListener {
+                val pos = holder.bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION) onRetry(pos)
             }
             holder.remove.setOnClickListener {
                 val pos = holder.bindingAdapterPosition
@@ -700,6 +765,7 @@ open class MainActivity : AppCompatActivity() {
         const val EXTRA_EXPORT_DOWNLOADS = "yts_export_downloads"
         const val ACTION_DOWNLOAD_QUEUE = "dev.voxhash.ytscompanion.action.DOWNLOAD_QUEUE"
         const val EXTRA_DOWNLOAD_QUEUE = "yts_download_queue"
+        const val ACTION_OPEN_IMMERSIVE = "dev.voxhash.ytscompanion.action.OPEN_IMMERSIVE"
         const val EXTRA_WATERMARK = "yts_watermark"
         const val EXTRA_PRESET = "yts_preset"
         const val EXTRA_MAX_WORKERS = "yts_max_workers"

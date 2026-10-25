@@ -120,11 +120,28 @@ if ! grep -q 'com.oculus.intent.category.2D' <<<"$DUMP"; then
   echo "FAIL: installed package missing com.oculus.intent.category.2D in dumpsys." >&2
   exit 1
 fi
+if ! grep -q 'com.oculus.intent.category.VR' <<<"$DUMP"; then
+  echo "FAIL: installed package missing com.oculus.intent.category.VR (immersive shell)." >&2
+  exit 1
+fi
+if ! grep -q 'ImmersiveShellActivity' <<<"$DUMP"; then
+  echo "FAIL: ImmersiveShellActivity not registered in dumpsys." >&2
+  exit 1
+fi
 if ! grep -q 'com.oculus.supportedDevices' <<<"$DUMP" && ! grep -q 'quest3' <<<"$DUMP"; then
   # meta-data may not always dump as plain text; activity 2D is the hard gate.
   echo "WARN: supportedDevices meta not visible in dumpsys text; 2D category present."
 fi
-echo "OK: Quest install + Horizon 2D panel intent registered ($PKG)"
+echo "OK: Quest install + Horizon 2D + immersive VR intents registered ($PKG)"
+
+IMMERSIVE_ACTIVITY="${PKG}/dev.voxhash.ytscompanion.quest.ImmersiveShellActivity"
+IMM_OUT="$(adb -s "$SERIAL" shell am start -n "$IMMERSIVE_ACTIVITY" 2>&1 || true)"
+echo "Immersive am start: $IMM_OUT"
+if grep -q 'Error type 3' <<<"$IMM_OUT"; then
+  echo "NOTE: immersive cold start blocked (Unknown Sources gate) — same as 2D."
+else
+  echo "OK: immersive shell activity launch attempted (Spatial OpenXR entry)"
+fi
 
 # Simulate headset worn (helps wake / dismiss some idle paths; does not bypass Unknown Sources).
 adb -s "$SERIAL" shell am broadcast -a com.oculus.vrpowermanager.prox_close >/dev/null 2>&1 || true

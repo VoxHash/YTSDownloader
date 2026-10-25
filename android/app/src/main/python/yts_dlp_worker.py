@@ -5,13 +5,17 @@ Slice 3: when *ffmpeg_location* is set, prefer bestvideo+bestaudio merge via bun
 Slice 4: optional full-frame PNG watermark overlay via the same bundled ffmpeg.
 Slice 5 (v0.12): export presets (audio_only / video_audio / watermark), optional Netscape
 cookiefile (SAF / browser export — no Play Services), concurrent downloads bounded in Kotlin.
+Slice 6 (v0.14): outer retry / exponential backoff for transient mobile CDN failures
+(Errno 104, SSL, 429/5xx) on top of yt-dlp fragment retries.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
+import time
 from typing import Any
 
 import yt_dlp
@@ -87,6 +91,68 @@ def _usable_cookiefile(cookiefile: str | None) -> str | None:
     if path and os.path.isfile(path) and os.path.getsize(path) > 0:
         return path
     return None
+
+
+# Outer download attempts beyond yt-dlp's own fragment retries (mobile CDN flakes).
+_MAX_OUTER_ATTEMPTS = 3
+_BACKOFF_BASE = 2.0
+_BACKOFF_FACTOR = 2.0
+_BACKOFF_MAX = 45.0
+
+_RETRYABLE_RE = re.compile(
+    r"(?i)(?:"
+    r"\b429\b|"
+    r"too many requests|"
+    r"rate[-\s]?limit|"
+    r"http error 429|"
+    r"\b503\b|"
+    r"\b502\b|"
+    r"\b500\b|"
+    r"timed? ?out|"
+    r"timeout|"
+    r"connection (?:reset|aborted|refused)|"
+    r"errno 104|"
+    r"broken pipe|"
+    r"ssl|"
+    r"temporarily unavailable|"
+    r"unable to download"
+    r")"
+)
+_HARD_RATE_RE = re.compile(
+    r"(?i)(?:\b429\b|too many requests|rate[-\s]?limit|http error 429|slow down)"
+)
+
+
+def is_retryable_temporary(error: Any) -> bool:
+    """True for transient CDN / rate-limit failures worth an outer retry."""
+    text = error if isinstance(error, str) else f"{type(error).__name__}: {error}"
+    return bool(_RETRYABLE_RE.search(text or ""))
+
+
+def is_rate_limited(error: Any) -> bool:
+    text = error if isinstance(error, str) else f"{type(error).__name__}: {error}"
+    return bool(_HARD_RATE_RE.search(text or ""))
+
+
+def compute_backoff_seconds(
+    attempt: int,
+    *,
+    base: float = _BACKOFF_BASE,
+    factor: float = _BACKOFF_FACTOR,
+    maximum: float = _BACKOFF_MAX,
+    rate_limited: bool = False,
+) -> float:
+    """Exponential backoff for outer attempt ``attempt`` (1 = first retry after failure)."""
+    if attempt < 1:
+        attempt = 1
+    base = max(0.0, float(base))
+    factor = max(1.0, float(factor))
+    maximum = max(0.0, float(maximum))
+    effective_base = base * 2.0 if rate_limited else base
+    delay = effective_base * (factor ** (attempt - 1))
+    if maximum > 0:
+        delay = min(maximum, delay)
+    return max(0.0, delay)
 
 
 def _ffmpeg_argv(ff: str, *args: str) -> list[str]:
@@ -308,8 +374,8 @@ def download(
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
-        "retries": 3,
-        "fragment_retries": 3,
+        "retries": 5,
+        "fragment_retries": 5,
         "concurrent_fragment_downloads": 1,
         "progress_hooks": hooks,
         # Avoid needing external JS runtimes on device for this slice.
@@ -327,78 +393,111 @@ def download(
         opts["ffmpeg_location"] = ff
         opts["merge_output_format"] = "mp4"
 
-    info: dict[str, Any] | None = None
-    try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            if info is None:
-                return json.dumps(
-                    {
-                        "ok": False,
-                        "error": "no info",
-                        "merged": merged,
-                        "watermarked": False,
-                        "preset": resolved["preset"],
-                        "media": media,
-                    }
-                )
-            path = _resolve_downloaded_path(ydl, info, out_dir)
-            if not path:
-                return json.dumps(
-                    {
-                        "ok": False,
-                        "error": "download finished but file missing",
-                        "merged": merged,
-                        "watermarked": False,
-                        "preset": resolved["preset"],
-                        "media": media,
-                    }
-                )
-            title = (info.get("title") or "").strip()
-            if media == "audio" and ff and path:
-                path = _maybe_remux_audio(path, ff, resolved["output_format"] or "m4a") or path
-            wm = (watermark_path or "").strip() or None
-            if use_wm and wm and ff and media == "video":
-                raw_wm = apply_watermark(path, wm, ff)
-                wm_payload = json.loads(raw_wm)
-                if wm_payload.get("ok") and wm_payload.get("path"):
-                    path = wm_payload["path"]
-                    watermarked = True
-                else:
+    last_err = "unknown error"
+    for attempt in range(1, _MAX_OUTER_ATTEMPTS + 1):
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                if info is None:
+                    last_err = "no info"
+                    if attempt < _MAX_OUTER_ATTEMPTS:
+                        time.sleep(compute_backoff_seconds(attempt))
+                        continue
                     return json.dumps(
                         {
                             "ok": False,
-                            "error": f"watermark failed: {wm_payload.get('error') or 'unknown'}",
+                            "error": last_err,
                             "merged": merged,
                             "watermarked": False,
-                            "path": path,
-                            "title": title,
                             "preset": resolved["preset"],
                             "media": media,
+                            "attempts": attempt,
                         }
                     )
+                path = _resolve_downloaded_path(ydl, info, out_dir)
+                if not path:
+                    last_err = "download finished but file missing"
+                    if attempt < _MAX_OUTER_ATTEMPTS and is_retryable_temporary(last_err):
+                        time.sleep(compute_backoff_seconds(attempt))
+                        continue
+                    return json.dumps(
+                        {
+                            "ok": False,
+                            "error": last_err,
+                            "merged": merged,
+                            "watermarked": False,
+                            "preset": resolved["preset"],
+                            "media": media,
+                            "attempts": attempt,
+                        }
+                    )
+                title = (info.get("title") or "").strip()
+                if media == "audio" and ff and path:
+                    path = _maybe_remux_audio(path, ff, resolved["output_format"] or "m4a") or path
+                wm = (watermark_path or "").strip() or None
+                if use_wm and wm and ff and media == "video":
+                    raw_wm = apply_watermark(path, wm, ff)
+                    wm_payload = json.loads(raw_wm)
+                    if wm_payload.get("ok") and wm_payload.get("path"):
+                        path = wm_payload["path"]
+                        watermarked = True
+                    else:
+                        return json.dumps(
+                            {
+                                "ok": False,
+                                "error": f"watermark failed: {wm_payload.get('error') or 'unknown'}",
+                                "merged": merged,
+                                "watermarked": False,
+                                "path": path,
+                                "title": title,
+                                "preset": resolved["preset"],
+                                "media": media,
+                                "attempts": attempt,
+                            }
+                        )
+                return json.dumps(
+                    {
+                        "ok": True,
+                        "path": path,
+                        "title": title,
+                        "merged": merged,
+                        "watermarked": watermarked,
+                        "preset": resolved["preset"],
+                        "media": media,
+                        "attempts": attempt,
+                    }
+                )
+        except Exception as exc:  # noqa: BLE001 — surface to Kotlin UI after retries
+            last_err = str(exc)
+            if attempt < _MAX_OUTER_ATTEMPTS and is_retryable_temporary(exc):
+                delay = compute_backoff_seconds(
+                    attempt,
+                    rate_limited=is_rate_limited(exc),
+                )
+                time.sleep(delay)
+                continue
             return json.dumps(
                 {
-                    "ok": True,
-                    "path": path,
-                    "title": title,
+                    "ok": False,
+                    "error": last_err,
                     "merged": merged,
                     "watermarked": watermarked,
                     "preset": resolved["preset"],
                     "media": media,
+                    "attempts": attempt,
                 }
             )
-    except Exception as exc:  # noqa: BLE001 — surface to Kotlin UI
-        return json.dumps(
-            {
-                "ok": False,
-                "error": str(exc),
-                "merged": merged,
-                "watermarked": watermarked,
-                "preset": resolved["preset"],
-                "media": media,
-            }
-        )
+    return json.dumps(
+        {
+            "ok": False,
+            "error": last_err,
+            "merged": merged,
+            "watermarked": watermarked,
+            "preset": resolved["preset"],
+            "media": media,
+            "attempts": _MAX_OUTER_ATTEMPTS,
+        }
+    )
 
 
 def resolve_title(url: str, cookiefile: str | None = None) -> str:

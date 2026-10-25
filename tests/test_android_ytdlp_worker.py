@@ -232,6 +232,19 @@ class AndroidYtDlpWorkerTests(unittest.TestCase):
             self.assertTrue(payload.get("ok"), payload)
             self.assertEqual(payload.get("preset"), "video_audio")
 
+    def test_slice6_retryable_and_backoff(self) -> None:
+        self.assertTrue(self.worker.is_retryable_temporary("Errno 104 Connection reset by peer"))
+        self.assertTrue(self.worker.is_retryable_temporary("SSL: CERTIFICATE_VERIFY_FAILED"))
+        self.assertTrue(self.worker.is_rate_limited("HTTP Error 429: Too Many Requests"))
+        self.assertFalse(self.worker.is_retryable_temporary("Private video"))
+        self.assertEqual(self.worker.compute_backoff_seconds(1), 2.0)
+        self.assertEqual(self.worker.compute_backoff_seconds(2), 4.0)
+        self.assertGreater(
+            self.worker.compute_backoff_seconds(1, rate_limited=True),
+            self.worker.compute_backoff_seconds(1, rate_limited=False),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
+

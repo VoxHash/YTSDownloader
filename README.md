@@ -2,7 +2,7 @@
 
 > Multi-platform download suite for video/audio from YouTube, Instagram, Facebook, TikTok, and related hosts — with a concurrent queue, link grabber, optional watermarking, and a local metadata bridge for music-session matching. Built with PyQt6.
 
-[![Version](https://img.shields.io/badge/version-0.13.0-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
+[![Version](https://img.shields.io/badge/version-0.14.0-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
 [![CI](https://github.com/VoxHash/YTSDownloader/actions/workflows/ci.yml/badge.svg)](https://github.com/VoxHash/YTSDownloader/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org/)
@@ -13,8 +13,8 @@
 - **Suite UI**: Sidebar navigation — Download, Queue, Link Grabber, Metadata Bridge, Settings
 - **URL drop zone**: Drag links (or a text file of URLs) onto Download
 - **Companion inbox**: Local file handoff (`.ytsdownloader/inbox/` or `companion_inbox.jsonl`) so a browser helper, Android phone companion, or Quest panel can send URLs; desktop Suite remains the richest downloader
-- **Android companion** (optional): Kotlin app under `android/` (`phone` flavor) — paste/share URLs, oEmbed titles, on-device yt-dlp + bundled ffmpeg merge + watermark + multi-worker (1–4) + export presets + SAF `cookies.txt` (Chaquopy); GrapheneOS-friendly ADB sideload ([docs/android.md](docs/android.md)). Desktop remains richest for deep crawl / cookies-from-browser.
-- **Meta Quest 3 companion** (optional): Horizon OS 2D panel (`quest` flavor) — browse/queue + Downloads export + shared yt-dlp stack + Store **packaging readiness** (`RELEASE=1` / [docs/quest.md](docs/quest.md)). Not immersive OpenXR / Store certification.
+- **Android companion** (optional): Kotlin app under `android/` (`phone` flavor) — paste/share URLs, oEmbed titles, on-device yt-dlp + bundled ffmpeg merge + watermark + multi-worker (1–4) + export presets + validated SAF `cookies.txt` + outer retry/backoff + queue resume (Chaquopy); GrapheneOS-friendly ADB sideload ([docs/android.md](docs/android.md)). Desktop remains richest for deep crawl / cookies-from-browser.
+- **Meta Quest 3 companion** (optional): Horizon OS hybrid (`quest` flavor) — 2D panel + Spatial SDK immersive shell (panel-in-world) + shared yt-dlp stack + Store **packaging readiness** (`RELEASE=1` / [docs/quest.md](docs/quest.md)). Not Store immersive certification.
 - **Queue filters**: Filter by state and search title / URL / message
 - **Failure triage**: Per-item error category + detail panel with **Retry selected** / **Retry failed**
 - **Status analytics**: Optional local session OK / Err / Last / Avg counters in the status bar (no network telemetry)

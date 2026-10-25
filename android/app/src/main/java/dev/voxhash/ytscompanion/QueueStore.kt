@@ -51,7 +51,8 @@ class QueueStore(context: Context) {
                     .put("error", item.error),
             )
         }
-        prefs.edit().putString(KEY_URLS, arr.toString()).apply()
+        // commit() so queue survives process death under farm USB / low-memory kills.
+        prefs.edit().putString(KEY_URLS, arr.toString()).commit()
     }
 
     fun getExportTreeUri(): String? = prefs.getString(KEY_TREE_URI, null)

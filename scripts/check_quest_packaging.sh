@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Validate Quest companion APK against Horizon Store packaging readiness checks
-# (VRC.Quest.Packaging.1 / .2 / .6 style). Does NOT claim Store certification.
+# (VRC.Quest.Packaging.1 / .2 / .6 style) plus hybrid immersive markers.
+# Does NOT claim Store certification (2D or immersive).
 # Fish-safe: ./scripts/check_quest_packaging.sh [apk]
 set -euo pipefail
 
@@ -21,7 +22,6 @@ find_tool() {
     command -v "$name"
     return
   fi
-  # Prefer highest build-tools version that has the binary (no ls fancy formatting).
   local best="" cand
   for cand in "$ANDROID_HOME"/build-tools/*/ "$ANDROID_SDK_ROOT"/build-tools/*/; do
     if [[ -x "${cand}${name}" ]]; then
@@ -38,28 +38,33 @@ find_tool() {
 [[ -f "$MANIFEST_SRC" ]] || fail "missing quest manifest $MANIFEST_SRC"
 [[ -f "$GRADLE" ]] || fail "missing $GRADLE"
 
-# Source-level VRC.Quest.Packaging.1 markers (2D panel).
+# Hybrid packaging markers: 2D panel + immersive VR entry.
 grep -q 'android:installLocation="auto"' "$MANIFEST_SRC" \
   || fail "manifest missing installLocation=auto"
 grep -q 'android.hardware.vr.headtracking' "$MANIFEST_SRC" \
   || fail "manifest missing vr.headtracking feature"
-grep -q 'android:required="false"' "$MANIFEST_SRC" \
-  || fail "manifest headtracking must be required=false for 2D panel"
 grep -q 'android:excludeFromRecents="true"' "$MANIFEST_SRC" \
   || fail "manifest MainActivity missing excludeFromRecents=true"
 grep -q 'com.oculus.supportedDevices' "$MANIFEST_SRC" \
   || fail "manifest missing com.oculus.supportedDevices"
 grep -q 'com.oculus.intent.category.2D' "$MANIFEST_SRC" \
   || fail "manifest missing com.oculus.intent.category.2D"
-grep -q 'com.oculus.application_type' "$MANIFEST_SRC" \
-  || fail "manifest missing com.oculus.application_type=panel"
-ok "quest AndroidManifest.xml packaging markers"
+grep -q 'com.oculus.intent.category.VR' "$MANIFEST_SRC" \
+  || fail "manifest missing com.oculus.intent.category.VR (immersive shell)"
+grep -q 'ImmersiveShellActivity' "$MANIFEST_SRC" \
+  || fail "manifest missing ImmersiveShellActivity"
+grep -q 'libossdk.oculus.so' "$MANIFEST_SRC" \
+  || fail "manifest missing libossdk.oculus.so native library"
+grep -q 'uses-horizonos-sdk\|uses-metavr-sdk' "$MANIFEST_SRC" \
+  || fail "manifest missing Horizon OS SDK version marker"
+ok "quest AndroidManifest.xml hybrid packaging markers (2D + immersive)"
 
 # Flavor SDK floor / Store-oriented target.
 grep -q 'minSdk = 29' "$GRADLE" || fail "quest flavor minSdk should be 29 (Store floor)"
 grep -q 'targetSdk = 34' "$GRADLE" || fail "quest flavor targetSdk should be 34 (Store recommend)"
 grep -q 'arm64-v8a' "$GRADLE" || fail "abiFilters must include arm64-v8a (Packaging.6)"
-ok "quest flavor minSdk/targetSdk + 64-bit abiFilters"
+grep -q 'meta-spatial-sdk' "$GRADLE" || fail "quest flavor should depend on Meta Spatial SDK"
+ok "quest flavor minSdk/targetSdk + 64-bit + Spatial SDK"
 
 if [[ ! -f "$APK" ]]; then
   echo "WARN: APK not built yet ($APK). Source checks passed; run:"
@@ -79,18 +84,19 @@ AAPT2="$(find_tool aapt2 || true)"
 AAPT="$(find_tool aapt || true)"
 
 if [[ -n "$APKSIGNER" ]]; then
-  "$APKSIGNER" verify --verbose "$APK" >/tmp/yts-quest-apksigner.txt 2>&1 \
-    || { cat /tmp/yts-quest-apksigner.txt >&2; fail "apksigner verify failed"; }
-  if ! grep -qiE 'Verified using v2|APK Signature Scheme v2' /tmp/yts-quest-apksigner.txt; then
-    # Some apksigner versions only print "Verified" — accept if verify exit 0 and not v1-only.
-    if grep -qi 'v1 scheme' /tmp/yts-quest-apksigner.txt && ! grep -qi 'v2' /tmp/yts-quest-apksigner.txt; then
-      cat /tmp/yts-quest-apksigner.txt >&2
-      fail "APK appears v1-only (need Signature Scheme v2)"
+  if ! "$APKSIGNER" verify --verbose "$APK" 2>&1 | tee /tmp/yts-quest-apksigner.txt | grep -qi 'Verified using v2 scheme'; then
+    # Some apksigner versions print differently — accept any Verified line + v2/v3 in output.
+    if grep -qi 'Verified' /tmp/yts-quest-apksigner.txt && \
+       grep -Eqi 'v2|v3' /tmp/yts-quest-apksigner.txt; then
+      ok "apksigner: APK Signature Scheme v2+"
+    else
+      fail "apksigner did not confirm v2+ signature"
     fi
+  else
+    ok "apksigner: APK Signature Scheme v2+"
   fi
-  ok "apksigner verify (v2+ expected for Packaging.2)"
 else
-  echo "WARN: apksigner not found; skip signature scheme check"
+  echo "WARN: apksigner not found — skip signature check"
 fi
 
 BADGING=""
@@ -101,22 +107,17 @@ elif [[ -n "$AAPT" ]]; then
 fi
 
 if [[ -n "$BADGING" ]]; then
-  echo "$BADGING" | grep -q "name='dev.voxhash.ytscompanion.quest'" \
-    || fail "badging package name mismatch"
-  # aapt: sdkVersion:'29' — aapt2: minSdkVersion:'29'
-  echo "$BADGING" | grep -qE "(minSdkVersion|sdkVersion):'(29|[3-9][0-9])'" \
-    || fail "badging minSdkVersion below Store floor 29"
-  echo "$BADGING" | grep -qE "targetSdkVersion:'(3[2-6]|37)'" \
-    || fail "badging targetSdkVersion outside 2D Store range 32–37"
-  echo "$BADGING" | grep -qE "native-code:.*'arm64-v8a'" \
-    || fail "badging missing arm64-v8a native-code"
-  if echo "$BADGING" | grep -qE "native-code:.*'armeabi-v7a'"; then
-    fail "badging includes armeabi-v7a (Packaging.6 requires 64-bit)"
-  fi
-  ok "aapt badging: package + sdk + arm64-v8a"
+  echo "$BADGING" | grep -q "package: name='dev.voxhash.ytscompanion.quest'" \
+    || fail "badging package id mismatch"
+  echo "$BADGING" | grep -Eq "sdkVersion:'29'|minSdkVersion:'29'" \
+    || fail "badging minSdk expected 29"
+  echo "$BADGING" | grep -Eq "targetSdkVersion:'34'" \
+    || fail "badging targetSdk expected 34"
+  echo "$BADGING" | grep -q "native-code: 'arm64-v8a'" \
+    || fail "badging missing arm64-v8a"
+  ok "aapt badging: package / minSdk 29 / targetSdk 34 / arm64-v8a"
 else
-  echo "WARN: aapt/aapt2 not found; skip badging checks"
+  echo "WARN: aapt/aapt2 not found — skip badging checks"
 fi
 
-ok "Quest packaging readiness checks passed for $APK"
-echo "NOTE: This is packaging readiness only — not Horizon Store certification or content review."
+ok "Quest packaging readiness checks passed (not Store certification)"

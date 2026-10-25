@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.chaquo.python")
+    id("com.meta.spatial.plugin")
 }
 
 android {
@@ -14,8 +15,8 @@ android {
         applicationId = "dev.voxhash.ytscompanion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.13.0"
+        versionCode = 10
+        versionName = "0.14.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "COMPANION_SOURCE", "\"android-companion\"")
         ndk {
@@ -141,4 +142,15 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.documentfile:documentfile:1.0.1")
+
+    // Quest immersive OpenXR shell (Meta Spatial SDK) — quest flavor only.
+    val metaSpatialSdkVersion = "0.14.0"
+    "questImplementation"("com.meta.spatial:meta-spatial-sdk:$metaSpatialSdkVersion")
+    "questImplementation"("com.meta.spatial:meta-spatial-sdk-toolkit:$metaSpatialSdkVersion")
+    "questImplementation"("com.meta.spatial:meta-spatial-sdk-vr:$metaSpatialSdkVersion")
+}
+
+// Spatial Editor scenes optional; first immersive shell is code-only panel-in-world.
+spatial {
+    allowUsageDataCollection.set(false)
 }

@@ -17,6 +17,15 @@
         android:textAppearance="?attr/textAppearanceBody1"
         android:textSize="18sp" />
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/immersiveButton"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/quest_btn_min_height"
+        android:layout_marginBottom="@dimen/quest_gap"
+        android:text="@string/open_immersive"
+        android:textSize="18sp" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

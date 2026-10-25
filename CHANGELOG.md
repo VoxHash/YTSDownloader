@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-25
+
+### Added
+- **Meta Quest 3 immersive Spatial SDK / OpenXR shell:** hybrid app — keep 2D panel `MainActivity` (`com.oculus.intent.category.2D`) and add `ImmersiveShellActivity` (`com.oculus.intent.category.VR`) using Meta Spatial SDK **0.14** (`VRFeature` + `ActivityPanelRegistration` panel-in-world hosting the same companion UI). Quest UI **Enter immersive** button + ADB `OPEN_IMMERSIVE`. Horizon OS SDK marker + `libossdk.oculus.so`. **Not** Store immersive certification.
+- **Android / GrapheneOS slice 6 polish:** Netscape `cookies.txt` SAF validation with clearer import errors + cookie-row summary; outer yt-dlp download retry/exponential backoff for transient CDN / SSL / 429 failures; queue persist uses `commit()` and resumes QUEUED/DOWNLOADING after process death; per-row **Retry** on error.
+- Host tests: immersive packaging markers (`tests/test_quest_packaging.py`), cookie Netscape validation (`tests/test_android_cookie_bundle.py`), worker backoff helpers (`tests/test_android_ytdlp_worker.py`).
+
+### Changed
+- ROADMAP: v0.14.0 Quest immersive shell + Android slice 6 checked; Store immersive certification and further optional polish remain Later.
+- Docs: [docs/quest.md](docs/quest.md) hybrid immersive path; [docs/android.md](docs/android.md) slice 6 cookie / retry / resume notes.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.14.0** / 10.
+- `./scripts/check_quest_packaging.sh` + `./scripts/smoke_quest.sh` assert VR / ImmersiveShellActivity markers.
+
+### Verified
+- Host: Suite `unittest discover` (incl. quest packaging + Android worker/cookie tests).
+- Quest 3 (`2G0YC5ZGB6031R` / eureka) and Pixel 7 Pro (`29211FDH300NEB` / cheetah) device smoke when present on farm ADB.
+
 ## [0.13.0] - 2026-10-24
 
 ### Added
@@ -355,7 +372,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Documented YouTube bot-check / cookie authentication requirements discovered during fresh-environment validation.
 
-[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/VoxHash/YTSDownloader/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/VoxHash/YTSDownloader/compare/v0.10.0...v0.11.0
