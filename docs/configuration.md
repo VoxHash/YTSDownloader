@@ -4,7 +4,7 @@ Settings live in `config.ini` under the `[SETTINGS]` section.
 
 ## Suite Settings UI
 
-Open **Settings** in the Suite sidebar to edit the keys below. **Save to config.ini** writes atomically and applies into the running app (pace, backoff, cookies, JS runtime, formats, retries, default output, status analytics). **Max workers** is picked up on the next **Start Queue**. **Reload config.ini** re-reads the file into the form and runtime.
+Open **Settings** in the Suite sidebar to edit the keys below. **Save to config.ini** writes atomically and applies into the running app (pace, backoff, cookies, TLS impersonate, JS runtime, formats, retries, default output, status analytics). **Max workers** is picked up on the next **Start Queue**. **Reload config.ini** re-reads the file into the form and runtime.
 
 The Settings page also shows a **Native helpers** panel (`ytscore.native_bridge.native_status`): whether `YTS_USE_NATIVE` is on, the search directory, and paths for normalize / priority / inbox / Ruby filter sidecars (or an honest Python-fallback note when missing). **Refresh** re-scans after you build natives.
 
@@ -16,7 +16,7 @@ The Settings page also shows a **Native helpers** panel (`ytscore.native_bridge.
 | `COUNT_TIMER_ONGOING` | Seconds between playlist/job *starts* (shared across workers) | `2.5` | `3` |
 | `COOKIES_FROM_BROWSER` | Browser cookies for yt-dlp | empty | `brave:Default` |
 | `COOKIES_FILE` | Cookie file path | empty | `/path/to/cookies.txt` |
-| `IMPERSONATE` | yt-dlp TLS/HTTP client impersonation (needs `curl_cffi`); empty disables | `chrome` | `chrome` |
+| `IMPERSONATE` | yt-dlp TLS/HTTP client impersonation (needs `curl_cffi`); Suite **TLS impersonate** combo (editable); empty disables | `chrome` | `chrome` / `chrome120` / empty |
 | `JS_RUNTIME` | JavaScript runtime name | `node` | `node` |
 | `JS_RUNTIME_PATH` | Absolute path to runtime binary | empty | `/usr/bin/node` |
 | `MAX_WORKERS` | Concurrent download workers | `2` | `2` |

@@ -27,6 +27,7 @@ class SettingsRoundTripTests(unittest.TestCase):
             backoff_factor=3.0,
             backoff_max=60.0,
             show_status_analytics=False,
+            impersonate="chrome120",
         )
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "config.ini")
@@ -47,6 +48,14 @@ class SettingsRoundTripTests(unittest.TestCase):
             self.assertEqual(loaded.backoff_factor, 3.0)
             self.assertEqual(loaded.backoff_max, 60.0)
             self.assertFalse(loaded.show_status_analytics)
+            self.assertEqual(loaded.impersonate, "chrome120")
+
+    def test_save_load_empty_impersonate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "config.ini")
+            save_settings(Settings(theme="SuiteDark", impersonate=""), path)
+            loaded = load_settings(path)
+            self.assertEqual(loaded.impersonate, "")
 
     def test_atomic_replace_preserves_brave_default(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -88,6 +97,7 @@ class SettingsUiSmokeTests(unittest.TestCase):
                 backoff_max=90.0,
                 audio_format="m4a",
                 video_format_pref="bestvideo+bestaudio/best",
+                impersonate="chrome",
             )
             save_settings(initial, path)
             win = SuiteWindow(settings=load_settings(path), config_path=path)
@@ -97,6 +107,7 @@ class SettingsUiSmokeTests(unittest.TestCase):
                 win.settings_cookies_browser.setText("brave:Default")
                 win.settings_backoff_max.setValue(120.0)
                 win.settings_default_output.setText("/tmp/yts-suite-out")
+                win.settings_impersonate.setEditText("firefox")
                 # Exercise save path without modal dialogs.
                 settings = win._settings_from_form()
                 save_settings(settings, path)
@@ -109,8 +120,32 @@ class SettingsUiSmokeTests(unittest.TestCase):
                 self.assertEqual(reloaded.cookies_from_browser, "brave:Default")
                 self.assertEqual(reloaded.backoff_max, 120.0)
                 self.assertEqual(reloaded.default_output, "/tmp/yts-suite-out")
+                self.assertEqual(reloaded.impersonate, "firefox")
                 self.assertEqual(win.settings.max_workers, 3)
                 self.assertEqual(win.settings.pace_seconds, 4.0)
+                self.assertEqual(win.settings.impersonate, "firefox")
+            finally:
+                win.close()
+
+    def test_impersonate_form_empty_disables(self) -> None:
+        from ytsgui.main_window import SuiteWindow
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "config.ini")
+            save_settings(
+                Settings(theme="SuiteDark", impersonate="chrome"),
+                path,
+            )
+            win = SuiteWindow(settings=load_settings(path), config_path=path)
+            try:
+                self.assertEqual(win.settings_impersonate.currentText().strip(), "chrome")
+                win.settings_impersonate.setEditText("")
+                settings = win._settings_from_form()
+                self.assertEqual(settings.impersonate, "")
+                save_settings(settings, path)
+                win._apply_settings_runtime(settings)
+                self.assertEqual(win.settings.impersonate, "")
+                self.assertEqual(load_settings(path).impersonate, "")
             finally:
                 win.close()
 

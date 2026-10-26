@@ -18,7 +18,7 @@ Private and unlisted playlists (including adult-tube lists) only resolve when yo
 
 ## Why do some hosts return HTTP 403?
 
-Install dependencies from `requirements.txt` (includes `curl_cffi`) and keep `IMPERSONATE = chrome` in `config.ini` unless you intentionally disable it.
+Install dependencies from `requirements.txt` (includes `curl_cffi`) and keep **TLS impersonate** set to `chrome` in Suite Settings (or `IMPERSONATE = chrome` in `config.ini`) unless you intentionally clear it to disable.
 
 ## What are crawl modes?
 

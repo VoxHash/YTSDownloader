@@ -43,7 +43,7 @@ Install ffmpeg via your OS package manager and ensure **both** `ffmpeg` and `ffp
 
 ## HTTP 403 / "impersonation" warnings from yt-dlp
 
-Install the optional TLS stack and keep impersonation on:
+Install the optional TLS stack and keep impersonation on via Suite **Settings → TLS impersonate** (`chrome`) or `config.ini`:
 
 ```bash
 .venv/bin/pip install -r requirements.txt
@@ -53,7 +53,7 @@ Install the optional TLS stack and keep impersonation on:
 IMPERSONATE = chrome
 ```
 
-Empty `IMPERSONATE` disables the Suite default. Extractors may still request impersonation when `curl_cffi` is installed.
+Clear the Suite field (or empty `IMPERSONATE`) to disable the Suite default. Extractors may still request impersonation when `curl_cffi` is installed.
 
 ## Theme not loading
 

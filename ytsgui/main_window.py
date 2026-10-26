@@ -731,9 +731,10 @@ class SuiteWindow(QMainWindow):
         layout.addWidget(title)
         hint = QLabel(
             "Edit values below and Save to write config.ini. "
-            "Pace, backoff, cookies, formats, retries, and status analytics "
-            "apply immediately; worker count applies on the next Start Queue. "
-            "Analytics counters are local/session only (no network telemetry)."
+            "Pace, backoff, cookies, TLS impersonate, formats, retries, and "
+            "status analytics apply immediately; worker count applies on the "
+            "next Start Queue. Analytics counters are local/session only "
+            "(no network telemetry)."
         )
         hint.setObjectName("pageHint")
         hint.setWordWrap(True)
@@ -763,6 +764,20 @@ class SuiteWindow(QMainWindow):
         cookies_browse = QPushButton("Browse…")
         cookies_browse.clicked.connect(self._browse_cookies_file)
         cookies_row.addWidget(cookies_browse)
+
+        self.settings_impersonate = QComboBox()
+        self.settings_impersonate.setEditable(True)
+        self.settings_impersonate.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        for target in ("chrome", "", "chrome120", "firefox", "safari", "edge"):
+            self.settings_impersonate.addItem(target)
+        self.settings_impersonate.setToolTip(
+            "yt-dlp TLS/HTTP client impersonation (needs curl_cffi). "
+            "chrome is the default; clear the field to disable. "
+            "Other curl_cffi targets (e.g. chrome120, firefox133) are accepted."
+        )
+        self.settings_impersonate.lineEdit().setPlaceholderText(
+            "chrome (empty = off)"
+        )
 
         self.settings_js_runtime = QLineEdit()
         self.settings_js_runtime.setPlaceholderText("node")
@@ -818,6 +833,7 @@ class SuiteWindow(QMainWindow):
         form.addRow("Theme", self.settings_theme)
         form.addRow("Cookies from browser", self.settings_cookies_browser)
         form.addRow("Cookies file", cookies_row)
+        form.addRow("TLS impersonate", self.settings_impersonate)
         form.addRow("JS runtime", self.settings_js_runtime)
         form.addRow("JS runtime path", self.settings_js_path)
         form.addRow("Max workers", self.settings_max_workers)
@@ -992,6 +1008,12 @@ class SuiteWindow(QMainWindow):
             self.settings_theme.setEditText(theme)
         self.settings_cookies_browser.setText(settings.cookies_from_browser or "")
         self.settings_cookies_file.setText(settings.cookies_file or "")
+        impersonate = (settings.impersonate or "").strip()
+        idx = self.settings_impersonate.findText(impersonate)
+        if idx >= 0:
+            self.settings_impersonate.setCurrentIndex(idx)
+        else:
+            self.settings_impersonate.setEditText(impersonate)
         self.settings_js_runtime.setText(settings.js_runtime or "")
         self.settings_js_path.setText(settings.js_runtime_path or "")
         self.settings_max_workers.setValue(max(1, int(settings.max_workers)))
@@ -1030,8 +1052,7 @@ class SuiteWindow(QMainWindow):
             show_status_analytics=self.settings_show_analytics.isChecked(),
             process_nice=int(self.settings_process_nice.value()),
             process_idle_io=self.settings_process_idle_io.isChecked(),
-            # Config-only for now; preserve loaded IMPERSONATE across Suite saves.
-            impersonate=getattr(self.settings, "impersonate", "chrome"),
+            impersonate=self.settings_impersonate.currentText().strip(),
         )
 
     def _browse_cookies_file(self) -> None:

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-10-25
+
+### Added
+- **IMPERSONATE Settings UI:** Suite Settings **TLS impersonate** editable combo (`chrome` / empty to disable / other curl_cffi targets such as `chrome120`, `firefox`, `safari`, `edge`).
+- Offscreen Settings smoke covers impersonate save/reload and empty-disable (`tests/test_settings_io.py`).
+
+### Changed
+- Form save/reload reads/writes `IMPERSONATE` (no longer config-only preserve).
+- Docs: configuration / FAQ / troubleshooting / README note Suite control.
+- ROADMAP: v0.17.1 IMPERSONATE Settings UI checked.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.17.1** / 16.
+
+### Verified
+- Host: Suite `unittest discover` (incl. settings I/O + offscreen impersonate smoke).
+
 ## [0.17.0] - 2026-10-25
 
 ### Added

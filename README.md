@@ -2,7 +2,7 @@
 
 > Multi-platform download suite for video/audio from YouTube, Instagram, Facebook, TikTok, adult-tube hosts, and related sites — with a concurrent queue, link grabber, optional watermarking, and a local metadata bridge for music-session matching. Built with PyQt6.
 
-[![Version](https://img.shields.io/badge/version-0.16.0-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
+[![Version](https://img.shields.io/badge/version-0.17.1-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
 [![CI](https://github.com/VoxHash/YTSDownloader/actions/workflows/ci.yml/badge.svg)](https://github.com/VoxHash/YTSDownloader/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org/)
@@ -21,7 +21,7 @@
 - **Status analytics**: Optional local session OK / Err / Last / Avg counters in the status bar (no network telemetry)
 - **Multi-platform**: YouTube (channels / videos / Shorts / playlists), Instagram, Facebook, TikTok, adult-tube videos / playlists (cookie auth for private / unlisted)
 - **Profile crawl modes**: Shallow or deep (multi-tab / videos / shorts / posts) behind cookie auth; paced enumeration into the queue
-- **TLS impersonation**: Optional `curl_cffi` + `IMPERSONATE` (default `chrome`) so hosts that block plain clients still resolve
+- **TLS impersonation**: Optional `curl_cffi` + Suite **TLS impersonate** / `IMPERSONATE` (default `chrome`; empty disables) so hosts that block plain clients still resolve
 - **Concurrent queue**: Worker limit, retries, playlist start-slot pacing, rate-limit backoff
 - **Optional natives**: Rust / C (`zig cc`) / Go / Ruby helpers for normalize, priority, and companion inbox — Python fallback if missing (`./scripts/build_natives.sh`)
 - **Desktop-friendly load**: Optional idle I/O + nice on Start Queue so downloads yield to other apps
@@ -76,7 +76,7 @@ Edit in **Settings** (Save to `config.ini`) or edit the file directly:
 | `COUNT_TIMER_ONGOING` | Seconds between playlist/job *starts* | `2.5` |
 | `COOKIES_FROM_BROWSER` | Browser cookie source | empty |
 | `COOKIES_FILE` | Cookie file path | empty |
-| `IMPERSONATE` | TLS/HTTP client impersonation (`curl_cffi`); empty disables | `chrome` |
+| `IMPERSONATE` | TLS/HTTP client impersonation (`curl_cffi`); Suite Settings combo; empty disables | `chrome` |
 | `JS_RUNTIME` | JS runtime name | `node` |
 | `JS_RUNTIME_PATH` | Absolute runtime path | empty |
 | `MAX_WORKERS` | Concurrent download workers | `2` |
