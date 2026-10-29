@@ -18,12 +18,18 @@ Restart the app after changing config. Validating with **Check Auth** on the You
 
 ## "No supported JavaScript runtime could be found"
 
-Install Node.js and either keep `JS_RUNTIME = node` with `node` on `PATH`, or set:
+Install Node.js (20+) or Deno and either keep `JS_RUNTIME = node` with `node` on `PATH`, or set:
 
 ```ini
 JS_RUNTIME = node
 JS_RUNTIME_PATH = /usr/bin/node
 ```
+
+Suite also auto-resolves fnm-managed Node under `~/.local/share/fnm/node-versions/` when PATH is empty (common for GUI launches). Install deps with `pip install -r requirements.txt` so the `yt-dlp-ejs` challenge solver ships with `yt-dlp[default]`.
+
+## "Requested format is not available" / Format / ffmpeg triage
+
+YouTube often needs a working JS runtime (see above) so real video formats appear; without it yt-dlp may only list storyboard images and every video format fails. Suite defaults to a resilient merge chain (`bestvideo*+bestaudio/…/bv*+ba/b`) and falls back once if a custom `VIDEO_FORMAT` matches nothing. Keep ffmpeg on `PATH` so separate video+audio streams can remux to mp4.
 
 ## ffmpeg errors / missing codecs
 

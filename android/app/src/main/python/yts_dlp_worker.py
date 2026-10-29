@@ -24,7 +24,9 @@ import yt_dlp
 # Progressive / single-file only — used when no ffmpeg binary is available.
 _FORMAT_SINGLE = "best[height<=720][ext=mp4]/best[ext=mp4]/best[height<=720]/best"
 # Separate A/V streams + remux (requires ffmpeg). Cap height to keep on-device work bounded.
+# bestvideo* tolerates incomplete codec metadata; progressive best* is the last resort.
 _FORMAT_MERGE = (
+    "bestvideo*[height<=720]+bestaudio/"
     "bestvideo[height<=720]+bestaudio/"
     "best[height<=720][ext=mp4]/best[ext=mp4]/best[height<=720]/best"
 )

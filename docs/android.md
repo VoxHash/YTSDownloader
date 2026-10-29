@@ -21,7 +21,7 @@ End-to-end guide for the phone flavor (**v0.15.x**): install, use after install,
 | On-device **title resolve** (YouTube oEmbed + noembed fallback) | Yes (v0.8.0) |
 | Queue rows show title + URL | Yes |
 | On-device **yt-dlp download** (Chaquopy Python 3.12) | Yes (v0.9.0) |
-| Bundled **arm64 ffmpeg merge** (`bestvideo+bestaudio` → mp4) | Yes (v0.10.0); single-file fallback if asset/ABI missing |
+| Bundled **arm64 ffmpeg merge** (`bestvideo*+bestaudio` → mp4) | Yes (v0.10.0); single-file fallback if asset/ABI missing |
 | Optional **PNG watermark overlay** | Yes (v0.11.0); preset `watermark` or ADB `--ez yts_watermark true` |
 | **Multi-worker** concurrent downloads (1–4, default 2) | Yes (v0.12.0) |
 | **Export presets** `audio_only` / `video_audio` / `watermark` | Yes (v0.12.0) |

@@ -276,7 +276,7 @@ class WorkerThread(QThread):
 
             try:
                 ydl_opts = {
-                    'format': 'bestvideo+bestaudio/best',
+                    'format': 'bestvideo*+bestaudio/bestvideo+bestaudio/bv*+ba/b',
                     'outtmpl': f"{output_file_path}.%(ext)s",
                     'noplaylist': True,
                     'quiet': True

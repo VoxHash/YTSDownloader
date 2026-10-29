@@ -2,7 +2,7 @@
 
 > Multi-platform download suite for video/audio from YouTube, Instagram, Facebook, TikTok, adult-tube hosts, and related sites — with a concurrent queue, link grabber, optional watermarking, and a local metadata bridge for music-session matching. Built with PyQt6.
 
-[![Version](https://img.shields.io/badge/version-0.17.1-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
+[![Version](https://img.shields.io/badge/version-0.17.2-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
 [![CI](https://github.com/VoxHash/YTSDownloader/actions/workflows/ci.yml/badge.svg)](https://github.com/VoxHash/YTSDownloader/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org/)
@@ -85,7 +85,7 @@ Edit in **Settings** (Save to `config.ini`) or edit the file directly:
 | `BACKOFF_FACTOR` | Backoff multiplier per retry | `2` |
 | `BACKOFF_MAX` | Cap on retry wait (seconds) | `90` |
 | `AUDIO_FORMAT` | Audio extract format | `m4a` |
-| `VIDEO_FORMAT` | yt-dlp format expression | `bestvideo+bestaudio/best` |
+| `VIDEO_FORMAT` | yt-dlp format expression (resilient merge chain) | `bestvideo*+bestaudio/bestvideo+bestaudio/bv*+ba/b` |
 | `DEFAULT_OUTPUT` | Default output folder | empty |
 | `PROCESS_NICE` | CPU nice on Start Queue (`0` = unchanged) | `0` |
 | `PROCESS_IDLE_IO` | Linux idle I/O priority on Start Queue | `true` |

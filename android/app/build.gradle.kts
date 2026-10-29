@@ -15,8 +15,8 @@ android {
         applicationId = "dev.voxhash.ytscompanion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "0.17.1"
+        versionCode = 17
+        versionName = "0.17.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "COMPANION_SOURCE", "\"android-companion\"")
         ndk {

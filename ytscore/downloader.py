@@ -11,6 +11,12 @@ from typing import Callable, Optional
 from ytscore.adult_tube import rewrite_adult_tube_media_url
 from ytscore.backoff import compute_backoff_seconds, is_rate_limited
 from ytscore.cache import title_cache
+from ytscore.formats import (
+    DEFAULT_FORMAT_SORT,
+    is_format_unavailable_error,
+    next_format_fallback,
+    normalize_video_format,
+)
 from ytscore.resolvers import detect_platform
 from ytscore.settings import Settings, apply_auth_opts
 from ytscore.util import clean_filename
@@ -90,14 +96,18 @@ def download_item(
                 }
             ],
         }
+        active_format = "bestaudio/best"
     else:
+        active_format = normalize_video_format(settings.video_format_pref)
+        merge_fmt = output_format if output_format in ("mp4", "webm", "mkv") else None
         ydl_opts = {
-            "format": settings.video_format_pref,
+            "format": active_format,
+            "format_sort": list(DEFAULT_FORMAT_SORT),
             "outtmpl": outtmpl,
             "noplaylist": True,
             "quiet": True,
             "progress_hooks": hooks,
-            "merge_output_format": output_format if output_format in ("mp4", "webm", "mkv") else None,
+            "merge_output_format": merge_fmt,
         }
         ydl_opts = {k: v for k, v in ydl_opts.items() if v is not None}
 
@@ -109,38 +119,62 @@ def download_item(
         if rewritten and rewritten != url:
             download_url = rewritten
             logging.info("Adult-tube media rewrite %s → %s", url, download_url)
+    def _finish(info: dict) -> DownloadResult:
+        title = (info or {}).get("title") or "unknown_title"
+        title_cache.put(url, title)
+        path = _find_download(output_dir, prefix, (info or {}).get("id"))
+        if watermark_path and path and media == "video":
+            from ytscore.watermark import add_watermark
+
+            base, ext = os.path.splitext(path)
+            final = f"{base}_wm{ext if ext else '.' + output_format}"
+            msg = add_watermark(path, watermark_path, final)
+            if os.path.isfile(final):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+                path = final
+            else:
+                logging.warning("Watermark step: %s", msg)
+        return DownloadResult(ok=True, path=path, title=title)
+
     last_error = None
     saw_rate_limit = False
+    format_fallback_used = False
     attempts = settings.max_retries + 1
-    for attempt in range(1, attempts + 1):
+    attempt = 0
+    while attempt < attempts:
+        attempt += 1
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(download_url, download=True)
-            title = (info or {}).get("title") or "unknown_title"
-            title_cache.put(url, title)
-            # Locate newest matching file
-            path = _find_download(output_dir, prefix, (info or {}).get("id"))
-            if watermark_path and path and media == "video":
-                from ytscore.watermark import add_watermark
-
-                base, ext = os.path.splitext(path)
-                final = f"{base}_wm{ext if ext else '.' + output_format}"
-                msg = add_watermark(path, watermark_path, final)
-                if os.path.isfile(final):
-                    try:
-                        os.remove(path)
-                    except OSError:
-                        pass
-                    path = final
-                else:
-                    logging.warning("Watermark step: %s", msg)
-            return DownloadResult(ok=True, path=path, title=title)
+            return _finish(info)
         except Exception as exc:
             last_error = str(exc)
             limited = is_rate_limited(exc)
             if limited:
                 saw_rate_limit = True
             logging.warning("Download attempt %s/%s failed for %s: %s", attempt, attempts, url, exc)
+            # Immediate resilient format retry (does not consume a retry/backoff slot).
+            if (
+                media != "audio"
+                and not format_fallback_used
+                and is_format_unavailable_error(exc)
+            ):
+                alt = next_format_fallback(active_format)
+                if alt and alt != active_format:
+                    logging.info(
+                        "Format unavailable; falling back %r → %r for %s",
+                        active_format,
+                        alt,
+                        url,
+                    )
+                    active_format = alt
+                    ydl_opts["format"] = alt
+                    format_fallback_used = True
+                    attempt -= 1
+                    continue
             if attempt >= attempts:
                 break
             # Exponential wait; HTTP 429 / rate-limit signals use a harder base.

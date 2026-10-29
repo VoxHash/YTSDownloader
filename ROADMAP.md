@@ -1,9 +1,10 @@
 # Roadmap
 
-Current product baseline: **v0.17.1** — IMPERSONATE Settings UI (Suite **TLS impersonate** combo) on top of **v0.17.0** adult-tube deep crawl extras, **v0.16.0** adult-tube host class + TLS impersonation, **v0.15.2** Desktop Suite free window resize, **v0.15.1** end-to-end install docs, and **v0.15.0** Android slice 7 polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
+Current product baseline: **v0.17.2** — resilient YouTube format selection + JS/EJS runtime resolution on top of **v0.17.1** IMPERSONATE Settings UI, **v0.17.0** adult-tube deep crawl extras, **v0.16.0** adult-tube host class + TLS impersonation, **v0.15.2** Desktop Suite free window resize, **v0.15.1** end-to-end install docs, and **v0.15.0** Android slice 7 polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
 
 ## Now (v0.17.x)
 
+- [x] **Resilient YouTube formats / EJS** — default `bestvideo*+…` chain + format fallback; `yt-dlp[default]` / ejs; auto-resolve Node (PATH + fnm) so Suite does not fail with storyboard-only “format is not available”.
 - [x] **IMPERSONATE Settings UI** — Suite Settings **TLS impersonate** editable combo (`chrome` / empty to disable / other curl_cffi targets); save/reload via `config.ini`; applies to running Settings.
 - [x] **Adult-tube deep crawl extras** — paced model/user tabs (`/videos`, `/videos/upload`, `/gifs`, `/photos`); GIF/album listing via clean-room HTML harvest (yt-dlp wrongly collapses those paths); album→photo expand under Deep/Posts; GIF/photo CDN rewrite for download. Cookie-gated deep modes only; no AGPL scrapers in-tree.
 

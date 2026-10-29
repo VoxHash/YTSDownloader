@@ -77,6 +77,7 @@ from ytscore.crawl import (
     parse_crawl_mode,
 )
 from ytscore.folder_dialog import get_existing_directory
+from ytscore.formats import DEFAULT_VIDEO_FORMAT
 from ytscore.native_bridge import clear_native_cache, native_status
 from ytscore.persist import (
     default_queue_state_path,
@@ -1024,7 +1025,7 @@ class SuiteWindow(QMainWindow):
         self.settings_backoff_max.setValue(float(settings.backoff_max))
         self.settings_audio_format.setText(settings.audio_format or "m4a")
         self.settings_video_format.setText(
-            settings.video_format_pref or "bestvideo+bestaudio/best"
+            settings.video_format_pref or DEFAULT_VIDEO_FORMAT
         )
         self.settings_default_output.setText(settings.default_output or "")
         self.settings_show_analytics.setChecked(bool(settings.show_status_analytics))
@@ -1046,7 +1047,7 @@ class SuiteWindow(QMainWindow):
             backoff_max=float(self.settings_backoff_max.value()),
             audio_format=self.settings_audio_format.text().strip() or "m4a",
             video_format_pref=(
-                self.settings_video_format.text().strip() or "bestvideo+bestaudio/best"
+                self.settings_video_format.text().strip() or DEFAULT_VIDEO_FORMAT
             ),
             default_output=self.settings_default_output.text().strip(),
             show_status_analytics=self.settings_show_analytics.isChecked(),

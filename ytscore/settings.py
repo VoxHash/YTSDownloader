@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import configparser
+import glob
+import logging
 import os
+import shutil
 import tempfile
 from dataclasses import dataclass
 from typing import Optional, Tuple
+
+from ytscore.formats import DEFAULT_VIDEO_FORMAT, normalize_video_format
 
 DEFAULT_CONFIG_PATH = "config.ini"
 
@@ -23,7 +28,7 @@ class Settings:
     max_retries: int = 3
     default_output: str = ""
     audio_format: str = "m4a"
-    video_format_pref: str = "bestvideo+bestaudio/best"
+    video_format_pref: str = DEFAULT_VIDEO_FORMAT
     # Exponential backoff between download retries (and harder on HTTP 429).
     backoff_base: float = 2.0
     backoff_factor: float = 2.0
@@ -71,8 +76,9 @@ def load_settings(path: str = DEFAULT_CONFIG_PATH) -> Settings:
         max_retries=max(0, int(s.get("MAX_RETRIES", "3"))),
         default_output=s.get("DEFAULT_OUTPUT", "").strip(),
         audio_format=s.get("AUDIO_FORMAT", "m4a").strip() or "m4a",
-        video_format_pref=s.get("VIDEO_FORMAT", "bestvideo+bestaudio/best").strip()
-        or "bestvideo+bestaudio/best",
+        video_format_pref=normalize_video_format(
+            s.get("VIDEO_FORMAT", DEFAULT_VIDEO_FORMAT)
+        ),
         backoff_base=max(0.0, float(s.get("BACKOFF_BASE", "2"))),
         backoff_factor=max(1.0, float(s.get("BACKOFF_FACTOR", "2"))),
         backoff_max=max(0.0, float(s.get("BACKOFF_MAX", "90"))),
@@ -103,10 +109,7 @@ def save_settings(settings: Settings, path: str = DEFAULT_CONFIG_PATH) -> None:
     s["BACKOFF_FACTOR"] = str(max(1.0, float(settings.backoff_factor)))
     s["BACKOFF_MAX"] = str(max(0.0, float(settings.backoff_max)))
     s["AUDIO_FORMAT"] = (settings.audio_format or "m4a").strip() or "m4a"
-    s["VIDEO_FORMAT"] = (
-        (settings.video_format_pref or "bestvideo+bestaudio/best").strip()
-        or "bestvideo+bestaudio/best"
-    )
+    s["VIDEO_FORMAT"] = normalize_video_format(settings.video_format_pref)
     s["DEFAULT_OUTPUT"] = (settings.default_output or "").strip()
     s["SHOW_STATUS_ANALYTICS"] = (
         "true" if bool(settings.show_status_analytics) else "false"
@@ -144,16 +147,60 @@ def _impersonate_target(value: str):
         return None
 
 
+def _fnm_runtime_candidates(runtime: str) -> list:
+    """Locate fnm-managed binaries when PATH lacks them (common for GUI Suite launches)."""
+    home = os.path.expanduser("~")
+    versions_root = os.path.join(home, ".local", "share", "fnm", "node-versions")
+    if not os.path.isdir(versions_root):
+        return []
+    # Prefer highest version directory (names like v24.22.1).
+    pattern = os.path.join(versions_root, "*", "installation", "bin", runtime)
+    paths = sorted(glob.glob(pattern), reverse=True)
+    return [p for p in paths if os.path.isfile(p) and os.access(p, os.X_OK)]
+
+
+def resolve_js_runtime_path(runtime: str, explicit_path: str = "") -> Optional[str]:
+    """
+    Resolve an executable path for *runtime* (node / deno / bun / …).
+
+    Order: explicit path → PATH (shutil.which) → fnm node-versions (node only).
+    """
+    name = (runtime or "").strip()
+    if not name:
+        return None
+    explicit = (explicit_path or "").strip()
+    if explicit:
+        expanded = os.path.expanduser(explicit)
+        if os.path.isfile(expanded) and os.access(expanded, os.X_OK):
+            return expanded
+        logging.warning("JS_RUNTIME_PATH not executable: %s", explicit)
+    found = shutil.which(name)
+    if found:
+        return found
+    if name == "node":
+        for candidate in _fnm_runtime_candidates("node"):
+            return candidate
+    return None
+
+
 def apply_auth_opts(ydl_opts: dict, settings: Settings) -> dict:
     ydl_opts = dict(ydl_opts)
     ydl_opts["no_color"] = True
     # Allow fetching the external JS challenge solver used by modern extractors.
     ydl_opts.setdefault("remote_components", {"ejs:github"})
     if settings.js_runtime:
-        if settings.js_runtime_path:
-            ydl_opts["js_runtimes"] = {settings.js_runtime: {"path": settings.js_runtime_path}}
+        runtime = settings.js_runtime.strip()
+        path = resolve_js_runtime_path(runtime, settings.js_runtime_path)
+        if path:
+            ydl_opts["js_runtimes"] = {runtime: {"path": path}}
         else:
-            ydl_opts["js_runtimes"] = {settings.js_runtime: {}}
+            # Still declare the runtime so yt-dlp can search; warn for Suite operators.
+            ydl_opts["js_runtimes"] = {runtime: {}}
+            logging.warning(
+                "JS runtime %r not found on PATH (or JS_RUNTIME_PATH); "
+                "YouTube may only expose storyboard images until Node/Deno is installed",
+                runtime,
+            )
     cookies = settings.cookies_tuple()
     if cookies:
         ydl_opts["cookiesfrombrowser"] = cookies

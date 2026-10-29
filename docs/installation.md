@@ -68,7 +68,7 @@ Same venv as [Desktop Suite — install](#desktop-suite--install-venv). Optional
 
 Pinned packages (from `requirements.txt`):
 
-- `yt-dlp==2026.10.21`
+- `yt-dlp[default]==2026.10.21` (includes `yt-dlp-ejs` for YouTube JS challenges)
 - `numpy==2.4.3`
 - `moviepy==2.2.1`
 - `pillow==11.3.0`

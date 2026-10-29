@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.2] - 2026-10-28
+
+### Fixed
+- **YouTube format / ffmpeg triage:** resilient default `VIDEO_FORMAT` (`bestvideo*+bestaudio/bestvideo+bestaudio/bv*+ba/b`) with `format_sort` and one-shot fallback when a requested format is missing; legacy `bestvideo+bestaudio/best` auto-upgraded on load/save.
+- **JS challenge path:** `apply_auth_opts` resolves Node via PATH or fnm (`~/.local/share/fnm/node-versions/`) so GUI Suite launches without shell PATH still get real YouTube formats (not storyboard-only).
+- Requirements pin `yt-dlp[default]` so `yt-dlp-ejs` ships with the venv (needed for n-challenge solving).
+
+### Changed
+- Android merge selector uses `bestvideo*` first; docs/troubleshooting cover format + EJS/Node.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.17.2** / 17.
+
+### Verified
+- Host: focused format unit tests + Suite `unittest discover`; live resolve+download of reported URL with Brave cookies + Node/EJS; offscreen Suite smoke (Settings/Queue/presets).
+
 ## [0.17.1] - 2026-10-25
 
 ### Added

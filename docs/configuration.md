@@ -25,7 +25,7 @@ The Settings page also shows a **Native helpers** panel (`ytscore.native_bridge.
 | `BACKOFF_FACTOR` | Multiplier applied each retry | `2` | `2` |
 | `BACKOFF_MAX` | Maximum retry wait (seconds); rate limits use a harder base | `90` | `90` |
 | `AUDIO_FORMAT` | Preferred audio extract format | `m4a` | `mp3` |
-| `VIDEO_FORMAT` | yt-dlp format expression | `bestvideo+bestaudio/best` | `best` |
+| `VIDEO_FORMAT` | yt-dlp format expression (resilient A/V+progressive chain; legacy `bestvideo+bestaudio/best` auto-upgraded) | `bestvideo*+bestaudio/bestvideo+bestaudio/bv*+ba/b` | `best` |
 | `DEFAULT_OUTPUT` | Default output folder | empty | `/home/you/Videos` |
 | `SHOW_STATUS_ANALYTICS` | Show local session OK / Err / Last / Avg counters in the Suite status bar | `true` | `false` |
 | `PROCESS_NICE` | CPU nice applied on **Start Queue** (`0` = leave priority alone) | `0` | `5` |
