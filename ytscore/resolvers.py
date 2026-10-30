@@ -122,13 +122,15 @@ def resolve_youtube(url: str, settings: Settings, playlist_end: int = 100) -> Li
     ):
         channel_url = channel_url.split(part)[0]
 
-    ydl_opts = apply_auth_opts(
-        {"quiet": True, "extract_flat": True, "playlist_end": playlist_end},
-        settings,
-    )
+    flat_opts: dict = {"quiet": True, "extract_flat": True}
+    if playlist_end > 0:
+        flat_opts["playlist_end"] = playlist_end
+    ydl_opts = apply_auth_opts(flat_opts, settings)
     links: List[str] = []
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         for tab_path in ("/videos", "/shorts"):
+            if playlist_end > 0 and len(links) >= playlist_end:
+                break
             try:
                 result = ydl.extract_info(f"{channel_url}{tab_path}", download=False)
             except Exception as error:
@@ -137,6 +139,8 @@ def resolve_youtube(url: str, settings: Settings, playlist_end: int = 100) -> Li
             if not isinstance(result, dict) or "entries" not in result:
                 continue
             for entry in result["entries"] or []:
+                if playlist_end > 0 and len(links) >= playlist_end:
+                    break
                 if not entry:
                     continue
                 resolved = _entry_to_url(entry, base_url=input_url)
@@ -154,10 +158,10 @@ def resolve_youtube(url: str, settings: Settings, playlist_end: int = 100) -> Li
 def resolve_flat(url: str, settings: Settings, playlist_end: int = 100) -> List[str]:
     yt_dlp = _require_yt_dlp()
     input_url = canonicalize_media_url(url.strip()) or url.strip()
-    ydl_opts = apply_auth_opts(
-        {"quiet": True, "extract_flat": True, "playlist_end": playlist_end},
-        settings,
-    )
+    flat_opts: dict = {"quiet": True, "extract_flat": True}
+    if playlist_end > 0:
+        flat_opts["playlist_end"] = playlist_end
+    ydl_opts = apply_auth_opts(flat_opts, settings)
     links: List[str] = []
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

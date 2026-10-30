@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-30
+
+### Added
+- **Crawl Limit raised / Unlimited:** Download spinbox `0`–`10000` (`0` = Unlimited); `clamp_crawl_limit` and crawl/resolve paths treat `0` as no item cap (yt-dlp `playlist_end` omitted when unlimited).
+- **Skip existing files** (default on) + **Overwrite**: Suite Download + Settings; `SKIP_EXISTING` / `OVERWRITE` in `config.ini`. Skip uses local `[id]` path match and yt-dlp `download_archive` + `nooverwrites`; Overwrite wins and forces re-download.
+- **Number files in queue** (`NUMBER_FILES`, default on): toggle leading `0001_` filename prefix for new downloads.
+
+### Changed
+- Docs: configuration / usage / README note Limit, skip/overwrite, numbering.
+- ROADMAP: v0.18.0 Now for download prefs.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.18.0** / 18.
+
+### Verified
+- Host: focused crawl/download-prefs unit tests + Suite `unittest discover`; offscreen Suite smoke (Limit Unlimited / 5000, skip/overwrite/numbering save-reload).
+
 ## [0.17.2] - 2026-10-28
 
 ### Fixed

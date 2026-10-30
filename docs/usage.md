@@ -44,16 +44,17 @@ Optional activation: bash/zsh `source .venv/bin/activate`, fish `source .venv/bi
 
 1. Open **Download**, set an output folder, paste a URL, or drop links onto the drop zone (a single URL fills the field; multiple URLs crawl into the queue).
 2. Choose an **Export preset** (Audio only, Video + audio, Watermark, or Custom). Presets set media / container / watermark for new jobs; Watermark requires a PNG path.
-3. Optionally set **Crawl mode** and **Limit** (1–500). Shallow is a single-pass resolve. Deep / Videos / Shorts / Posts need cookie auth (`COOKIES_FROM_BROWSER` or `COOKIES_FILE`) and only enumerate content your signed-in session can already reach — no paywall or DRM bypass. Adult-tube model/user Deep mode paces videos, uploads, GIFs, and albums (album → photos); Shorts = GIF listings; Posts = album/photo listings.
-4. **Resolve & Queue**, then open **Queue** and press **Start** (or use **Start Queue** on Download).
-5. Filter the queue by **State** and/or **Search** (title, URL, message, export label).
-6. Optionally pick a preset on Queue and **Apply to selected** rows or **Apply to queued** items (metadata-bridge search-audio jobs are left unchanged).
-7. When items fail, select a row in the **Failure triage** panel to see the classified category and full error; use **Retry selected** or **Retry failed** (preserves URL / export options; press **Start** if the queue is paused). Right-click a row for **Remove from queue** or **Force download** (starts that item immediately, skipping pace wait, even if the queue is stopped).
-8. Use **Link Grabber** to paste many URLs (one per line); enqueue uses the Download page preset and crawl mode / limit.
-9. Optional: a browser companion, Android phone, or Quest panel can drop URLs into `.ytsdownloader/inbox/` or append NDJSON to `.ytsdownloader/companion_inbox.jsonl` while the Suite is open — the desktop app remains the downloader ([cross-platform.md](cross-platform.md), [Architecture](architecture.md#browser-companion-handoff-contract)).
-10. Use **Metadata Bridge** while a desktop music client is playing to queue a matching public-host audio download.
-11. Use **Settings** to edit and **Save** `config.ini` (cookies, pace, backoff, workers, formats, status analytics); most knobs apply without restarting the app.
-12. Watch per-item progress on the Queue page (Export column shows audio / video / video+wm). With **Show analytics in status bar** enabled (default), the status bar shows local session **OK** / **Err** counts plus **Last** and **Avg** job durations — nothing is sent over the network.
+3. Optionally set **Crawl mode** and **Limit** (1–10000, or **0 / Unlimited**). Shallow is a single-pass resolve. Deep / Videos / Shorts / Posts need cookie auth (`COOKIES_FROM_BROWSER` or `COOKIES_FILE`) and only enumerate content your signed-in session can already reach — no paywall or DRM bypass. Adult-tube model/user Deep mode paces videos, uploads, GIFs, and albums (album → photos); Shorts = GIF listings; Posts = album/photo listings.
+4. File options on Download (also under Settings → `SKIP_EXISTING` / `OVERWRITE` / `NUMBER_FILES`): **Skip existing files** (default on) avoids re-downloading ids already present in the output folder or `.yts_download_archive.txt`; **Overwrite** forces a fresh download (wins over skip); **Number files in queue** toggles the `0001_` filename prefix.
+5. **Resolve & Queue**, then open **Queue** and press **Start** (or use **Start Queue** on Download).
+6. Filter the queue by **State** and/or **Search** (title, URL, message, export label).
+7. Optionally pick a preset on Queue and **Apply to selected** rows or **Apply to queued** items (metadata-bridge search-audio jobs are left unchanged).
+8. When items fail, select a row in the **Failure triage** panel to see the classified category and full error; use **Retry selected** or **Retry failed** (preserves URL / export options; press **Start** if the queue is paused). Right-click a row for **Remove from queue** or **Force download** (starts that item immediately, skipping pace wait, even if the queue is stopped).
+9. Use **Link Grabber** to paste many URLs (one per line); enqueue uses the Download page preset and crawl mode / limit.
+10. Optional: a browser companion, Android phone, or Quest panel can drop URLs into `.ytsdownloader/inbox/` or append NDJSON to `.ytsdownloader/companion_inbox.jsonl` while the Suite is open — the desktop app remains the downloader ([cross-platform.md](cross-platform.md), [Architecture](architecture.md#browser-companion-handoff-contract)).
+11. Use **Metadata Bridge** while a desktop music client is playing to queue a matching public-host audio download.
+12. Use **Settings** to edit and **Save** `config.ini` (cookies, pace, backoff, workers, formats, skip/overwrite/numbering, status analytics); most knobs apply without restarting the app.
+13. Watch per-item progress on the Queue page (Export column shows audio / video / video+wm). With **Show analytics in status bar** enabled (default), the status bar shows local session **OK** / **Err** counts plus **Last** and **Avg** job durations — nothing is sent over the network.
 
 ## Queue persistence
 

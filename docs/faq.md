@@ -22,7 +22,11 @@ Install dependencies from `requirements.txt` (includes `curl_cffi`) and keep **T
 
 ## What are crawl modes?
 
-On **Download**, **Crawl mode** controls how profile / channel URLs expand into queue items. **Shallow** is a single-pass resolve (cookies optional). **Deep**, **Videos**, **Shorts**, and **Posts** need cookie auth and pace multi-tab or feed enumeration. They only list content your signed-in session can already reach — not private or paywalled surfaces. For adult-tube model/user profiles, Deep paces videos + uploads + GIFs + albums/photos; Shorts targets GIF/clip listings; Posts expands album listings into photo pages (clean-room HTML harvest where yt-dlp flat extract is insufficient).
+On **Download**, **Crawl mode** controls how profile / channel URLs expand into queue items. **Shallow** is a single-pass resolve (cookies optional). **Deep**, **Videos**, **Shorts**, and **Posts** need cookie auth and pace multi-tab or feed enumeration. They only list content your signed-in session can already reach — not private or paywalled surfaces. For adult-tube model/user profiles, Deep paces videos + uploads + GIFs + albums/photos; Shorts targets GIF/clip listings; Posts expands album listings into photo pages (clean-room HTML harvest where yt-dlp flat extract is insufficient). **Limit** caps how many items are enqueued (`1`–`10000`, or `0` / **Unlimited**).
+
+## How do I avoid re-downloading files I already have?
+
+Keep **Skip existing files** on (default; `SKIP_EXISTING = true`). The Suite skips when a file whose name contains `[media-id]` is already in the output folder, and uses yt-dlp’s download archive (`.yts_download_archive.txt` in that folder). Turn on **Overwrite** (`OVERWRITE = true`) only when you want a fresh copy — overwrite wins over skip. **Number files in queue** (`NUMBER_FILES`) controls whether new files get a `0001_` prefix.
 
 ## Can I run without a watermark?
 

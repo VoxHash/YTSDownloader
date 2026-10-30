@@ -60,6 +60,55 @@ def fetch_title(url: str, settings: Settings) -> str:
     return title
 
 
+DOWNLOAD_ARCHIVE_NAME = ".yts_download_archive.txt"
+
+
+def download_archive_path(output_dir: str) -> str:
+    return os.path.join(output_dir, DOWNLOAD_ARCHIVE_NAME)
+
+
+def find_existing_by_media_id(output_dir: str, media_id: Optional[str]) -> Optional[str]:
+    """Return newest file in ``output_dir`` whose name contains ``[media_id]``."""
+    if not media_id or not os.path.isdir(output_dir):
+        return None
+    needle = f"[{media_id}]"
+    found: list[str] = []
+    try:
+        names = os.listdir(output_dir)
+    except OSError:
+        return None
+    for name in names:
+        if needle not in name:
+            continue
+        full = os.path.join(output_dir, name)
+        if os.path.isfile(full):
+            found.append(full)
+    if not found:
+        return None
+    found.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+    return found[0]
+
+
+def _guess_media_id_from_url(url: str) -> Optional[str]:
+    """Best-effort id from common URL shapes (no network)."""
+    text = (url or "").strip()
+    if not text:
+        return None
+    lower = text.lower()
+    if "youtube.com" in lower or "youtu.be" in lower:
+        if "youtu.be/" in lower:
+            tail = text.split("youtu.be/", 1)[-1]
+            return tail.split("?", 1)[0].split("/", 1)[0].strip() or None
+        if "v=" in text:
+            return text.split("v=", 1)[-1].split("&", 1)[0].split("#", 1)[0].strip() or None
+        if "/shorts/" in lower:
+            tail = text.split("/shorts/", 1)[-1]
+            return tail.split("?", 1)[0].split("/", 1)[0].strip() or None
+    if "viewkey=" in lower:
+        return text.split("viewkey=", 1)[-1].split("&", 1)[0].split("#", 1)[0].strip() or None
+    return None
+
+
 def download_item(
     url: str,
     output_dir: str,
@@ -74,7 +123,11 @@ def download_item(
     """Download one URL. media: 'video' | 'audio'."""
     yt_dlp = _require_yt_dlp()
     os.makedirs(output_dir, exist_ok=True)
-    prefix = f"{index:04d}_" if index is not None else ""
+    overwrite = bool(getattr(settings, "overwrite", False))
+    skip_existing = bool(getattr(settings, "skip_existing", True)) and not overwrite
+    number_files = bool(getattr(settings, "number_files", True))
+    use_index = index is not None and number_files
+    prefix = f"{index:04d}_" if use_index else ""
     outtmpl = os.path.join(output_dir, f"{prefix}%(title).180B [%(id)s].%(ext)s")
 
     hooks = []
@@ -111,6 +164,12 @@ def download_item(
         }
         ydl_opts = {k: v for k, v in ydl_opts.items() if v is not None}
 
+    if overwrite:
+        ydl_opts["overwrites"] = True
+    elif skip_existing:
+        ydl_opts["nooverwrites"] = True
+        ydl_opts["download_archive"] = download_archive_path(output_dir)
+
     ydl_opts = apply_auth_opts(ydl_opts, settings)
     download_url = url
     if detect_platform(url) == "adult_tube":
@@ -119,10 +178,23 @@ def download_item(
         if rewritten and rewritten != url:
             download_url = rewritten
             logging.info("Adult-tube media rewrite %s → %s", url, download_url)
+
+    if skip_existing:
+        guessed = _guess_media_id_from_url(download_url) or _guess_media_id_from_url(url)
+        existing = find_existing_by_media_id(output_dir, guessed)
+        if existing:
+            title = os.path.basename(existing)
+            title_cache.put(url, title)
+            logging.info("Skip existing file for %s → %s", url, existing)
+            return DownloadResult(ok=True, path=existing, title=title)
+
     def _finish(info: dict) -> DownloadResult:
         title = (info or {}).get("title") or "unknown_title"
         title_cache.put(url, title)
-        path = _find_download(output_dir, prefix, (info or {}).get("id"))
+        media_id = (info or {}).get("id")
+        path = _find_download(output_dir, prefix, media_id)
+        if path is None and media_id:
+            path = find_existing_by_media_id(output_dir, media_id)
         if watermark_path and path and media == "video":
             from ytscore.watermark import add_watermark
 

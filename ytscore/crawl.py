@@ -100,16 +100,49 @@ def parse_crawl_mode(value: str | CrawlMode | None) -> CrawlMode:
         raise ValueError(f"Unknown crawl mode: {value!r}") from exc
 
 
-def clamp_crawl_limit(limit: int, *, default: int = 50, maximum: int = 500) -> int:
+# Soft UI / clamp ceiling for positive limits. ``0`` means unlimited.
+CRAWL_LIMIT_MAX = 10000
+
+
+def clamp_crawl_limit(
+    limit: int, *, default: int = 50, maximum: int = CRAWL_LIMIT_MAX
+) -> int:
+    """Clamp a crawl item budget.
+
+    ``0`` means unlimited (no item cap). Positive values are clamped to
+    ``1..maximum`` (default maximum ``CRAWL_LIMIT_MAX`` = 10000).
+    """
     try:
         n = int(limit)
     except (TypeError, ValueError):
         n = default
-    if n < 1:
-        n = 1
+    if n < 0:
+        n = 0
+    if n == 0:
+        return 0
     if maximum > 0 and n > maximum:
         n = maximum
     return n
+
+
+def crawl_budget_exhausted(count: int, limit: int) -> bool:
+    """True when a positive limit has been reached (``0`` = unlimited)."""
+    return limit > 0 and count >= limit
+
+
+def take_crawl_budget(items: Sequence[str], limit: int) -> List[str]:
+    """Return ``items`` truncated to ``limit`` when limit is positive."""
+    seq = list(items)
+    if limit <= 0:
+        return seq
+    return seq[:limit]
+
+
+def remaining_crawl_budget(have: int, limit: int) -> int:
+    """Slots left under ``limit``. ``0`` means unlimited (pass through as 0)."""
+    if limit <= 0:
+        return 0
+    return max(0, limit - max(0, int(have)))
 
 
 def _require_yt_dlp():
@@ -161,7 +194,7 @@ def _entries_to_urls(
 ) -> List[str]:
     links: List[str] = []
     for entry in entries or []:
-        if len(links) >= limit:
+        if crawl_budget_exhausted(len(links), limit):
             break
         if not entry or not isinstance(entry, dict):
             continue
@@ -193,17 +226,16 @@ def _extract_flat_paged(
     *,
     playlist_end: int,
 ) -> tuple[List[str], Optional[str]]:
-    """Return (urls, error_message)."""
+    """Return (urls, error_message). ``playlist_end`` 0 = unlimited."""
     ydl = _require_yt_dlp()
-    ydl_opts = apply_auth_opts(
-        {
-            "quiet": True,
-            "extract_flat": True,
-            "skip_download": True,
-            "playlist_end": playlist_end,
-        },
-        settings,
-    )
+    flat_opts: dict = {
+        "quiet": True,
+        "extract_flat": True,
+        "skip_download": True,
+    }
+    if playlist_end > 0:
+        flat_opts["playlist_end"] = playlist_end
+    ydl_opts = apply_auth_opts(flat_opts, settings)
     try:
         with ydl.YoutubeDL(ydl_opts) as client:
             result = client.extract_info(url, download=False)
@@ -288,13 +320,13 @@ def crawl_youtube(
     seen: dict[str, None] = {}
     attempt = 0
     for i, tab in enumerate(tabs):
-        if len(seen) >= limit:
+        if crawl_budget_exhausted(len(seen), limit):
             break
         tab_url = f"{root}{tab}"
         result.tabs_tried.append(tab)
         if i > 0:
             _paced_sleep(pace_seconds, sleep_fn=sleep_fn, settings=settings)
-        remaining = limit - len(seen)
+        remaining = remaining_crawl_budget(len(seen), limit)
         urls, err = _extract_flat_paged(
             tab_url, settings, playlist_end=remaining
         )
@@ -313,7 +345,7 @@ def crawl_youtube(
         for u in urls:
             if u not in seen:
                 seen[u] = None
-            if len(seen) >= limit:
+            if crawl_budget_exhausted(len(seen), limit):
                 break
 
     if not seen:
@@ -321,9 +353,9 @@ def crawl_youtube(
         fallback = resolve_flat(input_url, settings, playlist_end=limit)
         for u in fallback:
             seen[u] = None
-            if len(seen) >= limit:
+            if crawl_budget_exhausted(len(seen), limit):
                 break
-    result.urls = list(seen.keys())[:limit]
+    result.urls = take_crawl_budget(list(seen.keys()), limit)
     return result
 
 
@@ -354,7 +386,7 @@ def crawl_social_flat(
         # Soft fallback to shallow single-pass
         result.urls = resolve_flat(url, settings, playlist_end=limit)
     else:
-        result.urls = urls[:limit]
+        result.urls = take_crawl_budget(urls, limit)
     return result
 
 
@@ -418,7 +450,7 @@ def crawl_adult_tube(
             result.urls = [input_url]
         else:
             result.tabs_tried.append("album→photos")
-            result.urls = photos[:limit] or [input_url]
+            result.urls = take_crawl_budget(photos, limit) or [input_url]
         return result
 
     if is_adult_tube_single_url(input_url):
@@ -444,13 +476,13 @@ def crawl_adult_tube(
     seen: dict[str, None] = {}
     attempt = 0
     for i, tab in enumerate(tabs):
-        if len(seen) >= limit:
+        if crawl_budget_exhausted(len(seen), limit):
             break
         tab_url = f"{root}{tab}"
         result.tabs_tried.append(tab)
         if i > 0:
             _paced_sleep(pace_seconds, sleep_fn=sleep_fn, settings=settings)
-        remaining = limit - len(seen)
+        remaining = remaining_crawl_budget(len(seen), limit)
         if tab_uses_html_harvest(tab):
             urls, err = _extract_adult_tube_html_tab(
                 tab_url, settings, tab=tab, limit=remaining
@@ -476,12 +508,14 @@ def crawl_adult_tube(
             tab
         )
         for item in urls:
-            if len(seen) >= limit:
+            if crawl_budget_exhausted(len(seen), limit):
                 break
             if expand_albums and is_adult_tube_album_url(item):
                 _paced_sleep(pace_seconds, sleep_fn=sleep_fn, settings=settings)
                 photos, album_err = expand_album_to_photos(
-                    item, settings, limit=limit - len(seen)
+                    item,
+                    settings,
+                    limit=remaining_crawl_budget(len(seen), limit),
                 )
                 if album_err:
                     result.errors.append(f"album {item}: {album_err}")
@@ -491,7 +525,7 @@ def crawl_adult_tube(
                 for photo in photos:
                     if photo not in seen:
                         seen[photo] = None
-                    if len(seen) >= limit:
+                    if crawl_budget_exhausted(len(seen), limit):
                         break
                 continue
             if item not in seen:
@@ -501,9 +535,9 @@ def crawl_adult_tube(
         fallback = resolve_flat(input_url, settings, playlist_end=limit)
         for u in fallback:
             seen[u] = None
-            if len(seen) >= limit:
+            if crawl_budget_exhausted(len(seen), limit):
                 break
-    result.urls = list(seen.keys())[:limit]
+    result.urls = take_crawl_budget(list(seen.keys()), limit)
     return result
 
 
@@ -607,9 +641,9 @@ def crawl_many(
             continue
         if i > 0 and pace > 0:
             sleep_fn(pace)
-        remaining = item_limit - len(merged)
-        if remaining <= 0:
+        if crawl_budget_exhausted(len(merged), item_limit):
             break
+        remaining = remaining_crawl_budget(len(merged), item_limit)
         one = crawl_profile(
             text,
             settings,
@@ -625,10 +659,10 @@ def crawl_many(
         for u in one.urls:
             if u not in merged:
                 merged[u] = None
-            if len(merged) >= item_limit:
+            if crawl_budget_exhausted(len(merged), item_limit):
                 break
     return CrawlResult(
-        urls=list(merged.keys())[:item_limit],
+        urls=take_crawl_budget(list(merged.keys()), item_limit),
         mode=crawl_mode,
         platform=platforms[0] if len(set(platforms)) == 1 else "mixed",
         tabs_tried=tabs,

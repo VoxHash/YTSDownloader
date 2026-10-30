@@ -42,6 +42,12 @@ class Settings:
     # Optional yt-dlp TLS / HTTP impersonation client (e.g. chrome). Empty = off.
     # Requires curl_cffi (see requirements.txt). Helps hosts that block plain clients.
     impersonate: str = "chrome"
+    # Skip downloads when the media id is already on disk / in the archive.
+    # Overwrite wins when both are set (forces re-download).
+    skip_existing: bool = True
+    overwrite: bool = False
+    # Prefix filenames with queue index (0001_Title [id].ext) when True.
+    number_files: bool = True
 
     def cookies_tuple(self) -> Optional[Tuple[str, ...]]:
         parts = [p.strip() for p in self.cookies_from_browser.split(":") if p.strip()]
@@ -86,6 +92,9 @@ def load_settings(path: str = DEFAULT_CONFIG_PATH) -> Settings:
         process_nice=max(0, min(19, int(s.get("PROCESS_NICE", "0")))),
         process_idle_io=_as_bool(s.get("PROCESS_IDLE_IO", "true"), True),
         impersonate=s.get("IMPERSONATE", "chrome").strip(),
+        skip_existing=_as_bool(s.get("SKIP_EXISTING", "true"), True),
+        overwrite=_as_bool(s.get("OVERWRITE", "false"), False),
+        number_files=_as_bool(s.get("NUMBER_FILES", "true"), True),
     )
 
 
@@ -117,6 +126,12 @@ def save_settings(settings: Settings, path: str = DEFAULT_CONFIG_PATH) -> None:
     s["PROCESS_NICE"] = str(max(0, min(19, int(settings.process_nice))))
     s["PROCESS_IDLE_IO"] = "true" if bool(settings.process_idle_io) else "false"
     s["IMPERSONATE"] = (settings.impersonate or "").strip()
+    # Overwrite wins: when overwrite is on, persist skip_existing as false.
+    overwrite = bool(settings.overwrite)
+    skip_existing = bool(settings.skip_existing) and not overwrite
+    s["SKIP_EXISTING"] = "true" if skip_existing else "false"
+    s["OVERWRITE"] = "true" if overwrite else "false"
+    s["NUMBER_FILES"] = "true" if bool(settings.number_files) else "false"
 
     abs_path = os.path.abspath(path)
     directory = os.path.dirname(abs_path) or "."

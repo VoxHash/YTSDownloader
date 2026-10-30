@@ -8,15 +8,19 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from ytscore.crawl import (
+    CRAWL_LIMIT_MAX,
     CRAWL_MODE_LABELS,
     CrawlAuthError,
     CrawlMode,
     clamp_crawl_limit,
     cookie_auth_configured,
+    crawl_budget_exhausted,
     crawl_many,
     crawl_profile,
     crawl_requires_auth,
     parse_crawl_mode,
+    remaining_crawl_budget,
+    take_crawl_budget,
 )
 from ytscore.queue import JobState
 from ytscore.settings import Settings, load_settings, save_settings
@@ -47,9 +51,17 @@ class CrawlHelpersTests(unittest.TestCase):
         self.assertEqual(parse_crawl_mode(CrawlMode.POSTS), CrawlMode.POSTS)
         with self.assertRaises(ValueError):
             parse_crawl_mode("nope")
-        self.assertEqual(clamp_crawl_limit(0), 1)
-        self.assertEqual(clamp_crawl_limit(9999), 500)
+        self.assertEqual(clamp_crawl_limit(0), 0)  # unlimited
+        self.assertEqual(clamp_crawl_limit(9999), 9999)
+        self.assertEqual(clamp_crawl_limit(12000), CRAWL_LIMIT_MAX)
         self.assertEqual(clamp_crawl_limit(25), 25)
+        self.assertEqual(clamp_crawl_limit(5000), 5000)
+        self.assertFalse(crawl_budget_exhausted(10, 0))
+        self.assertTrue(crawl_budget_exhausted(50, 50))
+        self.assertEqual(remaining_crawl_budget(10, 0), 0)
+        self.assertEqual(remaining_crawl_budget(10, 50), 40)
+        self.assertEqual(take_crawl_budget(["a", "b", "c"], 0), ["a", "b", "c"])
+        self.assertEqual(take_crawl_budget(["a", "b", "c"], 2), ["a", "b"])
 
     def test_mode_labels_cover_all(self) -> None:
         for mode in CrawlMode:

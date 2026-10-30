@@ -116,6 +116,7 @@ class DownloadFormatFallbackTests(unittest.TestCase):
             max_retries=0,
             impersonate="",
             js_runtime="",
+            skip_existing=False,
         )
         with tempfile.TemporaryDirectory() as tmp:
             # Touch a file so _find_download succeeds.
@@ -159,6 +160,7 @@ class DownloadFormatFallbackTests(unittest.TestCase):
             max_retries=0,
             impersonate="",
             js_runtime="",
+            skip_existing=False,
         )
         with tempfile.TemporaryDirectory() as tmp:
             with open(os.path.join(tmp, "ok [id].mp4"), "wb") as fh:

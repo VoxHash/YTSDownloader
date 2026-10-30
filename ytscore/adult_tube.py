@@ -150,15 +150,19 @@ def harvest_profile_listing(
 
     ``kinds`` may include ``gif`` and/or ``album``.
     """
-    if not html or limit < 1:
+    # limit <= 0 means unlimited (Suite crawl budget 0).
+    if not html or limit < 0:
         return []
     want_gif = "gif" in kinds
     want_album = "album" in kinds
     seen: dict[str, None] = {}
     host_base = canonicalize_media_url(base_url) or base_url
 
+    def _budget_full() -> bool:
+        return limit > 0 and len(seen) >= limit
+
     def _add(url: str) -> None:
-        if not url or len(seen) >= limit:
+        if not url or _budget_full():
             return
         cleaned = canonicalize_media_url(url, base_url=host_base)
         if cleaned.startswith("http") and cleaned not in seen:
@@ -167,11 +171,11 @@ def harvest_profile_listing(
     if want_gif:
         for gif_id in _GIF_ID_ATTR_RE.findall(html):
             _add(_abs(host_base, f"/gif/{gif_id}"))
-            if len(seen) >= limit:
+            if _budget_full():
                 return list(seen.keys())
         for href in _HREF_GIF_RE.findall(html):
             _add(_abs(host_base, href))
-            if len(seen) >= limit:
+            if _budget_full():
                 return list(seen.keys())
 
     if want_album:
@@ -179,11 +183,11 @@ def harvest_profile_listing(
             # Skip /albums index / search noise.
             if re.search(r"/album/\d+", href, re.IGNORECASE):
                 _add(_abs(host_base, href))
-            if len(seen) >= limit:
+            if _budget_full():
                 return list(seen.keys())
         for album_id in _ALBUM_PHOTO_ATTR_RE.findall(html):
             _add(_abs(host_base, f"/album/{album_id}"))
-            if len(seen) >= limit:
+            if _budget_full():
                 return list(seen.keys())
 
     return list(seen.keys())
@@ -196,7 +200,8 @@ def harvest_album_photos(
     limit: int,
 ) -> List[str]:
     """Extract ``/photo/<id>`` page URLs from an album HTML page."""
-    if not html or limit < 1:
+    # limit <= 0 means unlimited.
+    if not html or limit < 0:
         return []
     seen: dict[str, None] = {}
     host_base = canonicalize_media_url(base_url) or base_url
@@ -204,7 +209,7 @@ def harvest_album_photos(
         cleaned = canonicalize_media_url(urljoin(host_base, href), base_url=host_base)
         if cleaned.startswith("http") and cleaned not in seen:
             seen[cleaned] = None
-        if len(seen) >= limit:
+        if limit > 0 and len(seen) >= limit:
             break
     return list(seen.keys())
 

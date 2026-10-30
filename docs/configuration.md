@@ -30,6 +30,11 @@ The Settings page also shows a **Native helpers** panel (`ytscore.native_bridge.
 | `SHOW_STATUS_ANALYTICS` | Show local session OK / Err / Last / Avg counters in the Suite status bar | `true` | `false` |
 | `PROCESS_NICE` | CPU nice applied on **Start Queue** (`0` = leave priority alone) | `0` | `5` |
 | `PROCESS_IDLE_IO` | Linux idle I/O class on **Start Queue** (yields disk to interactive apps) | `true` | `false` |
+| `SKIP_EXISTING` | Skip downloads when a matching media id is already on disk or in `.yts_download_archive.txt` (Suite **Skip existing files**; default on). Overwrite wins when both are set. | `true` | `false` |
+| `OVERWRITE` | Force re-download / replace existing files (Suite **Overwrite**). Disables skip-existing while on. | `false` | `true` |
+| `NUMBER_FILES` | Prefix new downloads with the queue index (`0001_Title [id].ext`). Off → `Title [id].ext` only. | `true` | `false` |
+
+**Crawl Limit** on the Download page is a Suite control (not a `config.ini` key): `1`–`10000`, or `0` / **Unlimited** for no item cap.
 
 Status analytics are **local and session-scoped** only. Nothing is sent over the network.
 

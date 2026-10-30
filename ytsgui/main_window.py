@@ -66,6 +66,7 @@ from ytscore.companion import (
     ensure_inbox_layout,
 )
 from ytscore.crawl import (
+    CRAWL_LIMIT_MAX,
     CRAWL_MODE_LABELS,
     CrawlAuthError,
     CrawlMode,
@@ -428,10 +429,12 @@ class SuiteWindow(QMainWindow):
         self.crawl_mode_combo.setCurrentIndex(0)
         self.crawl_mode_combo.currentIndexChanged.connect(self._refresh_crawl_auth_hint)
         self.crawl_limit_spin = QSpinBox()
-        self.crawl_limit_spin.setRange(1, 500)
+        self.crawl_limit_spin.setRange(0, CRAWL_LIMIT_MAX)
+        self.crawl_limit_spin.setSpecialValueText("Unlimited")
         self.crawl_limit_spin.setValue(50)
         self.crawl_limit_spin.setToolTip(
-            "Max items to enqueue from a profile / channel crawl (1–500)."
+            f"Max items to enqueue from a profile / channel crawl "
+            f"(1–{CRAWL_LIMIT_MAX}; 0 = Unlimited)."
         )
         crawl_row = QHBoxLayout()
         crawl_row.addWidget(self.crawl_mode_combo, stretch=2)
@@ -442,18 +445,47 @@ class SuiteWindow(QMainWindow):
         self.crawl_auth_hint.setObjectName("pageHint")
         self.crawl_auth_hint.setWordWrap(True)
 
+        self.skip_existing_cb = QCheckBox("Skip existing files")
+        self.skip_existing_cb.setChecked(bool(getattr(self.settings, "skip_existing", True)))
+        self.skip_existing_cb.setToolTip(
+            "Skip when a file with the same media id already exists in the output "
+            "folder, or when the id is listed in the download archive. Default on."
+        )
+        self.overwrite_cb = QCheckBox("Overwrite")
+        self.overwrite_cb.setChecked(bool(getattr(self.settings, "overwrite", False)))
+        self.overwrite_cb.setToolTip(
+            "Force re-download even if the file or archive entry already exists. "
+            "When on, Skip existing is ignored."
+        )
+        self.number_files_cb = QCheckBox("Number files in queue")
+        self.number_files_cb.setChecked(bool(getattr(self.settings, "number_files", True)))
+        self.number_files_cb.setToolTip(
+            "Prefix new downloads with the queue index (e.g. 0001_Title [id].mp4). "
+            "Uncheck to save Title [id].ext only."
+        )
+        self.skip_existing_cb.toggled.connect(self._on_skip_existing_toggled)
+        self.overwrite_cb.toggled.connect(self._on_overwrite_toggled)
+        self.number_files_cb.toggled.connect(self._on_number_files_toggled)
+        file_opts_row = QHBoxLayout()
+        file_opts_row.addWidget(self.skip_existing_cb)
+        file_opts_row.addWidget(self.overwrite_cb)
+        file_opts_row.addWidget(self.number_files_cb)
+        file_opts_row.addStretch(1)
+
         form.addRow("URL", self.url_edit)
         form.addRow("Output", out_row)
         form.addRow("Export preset", self.preset_combo)
         form.addRow("", self.preset_hint)
         form.addRow("Crawl mode", crawl_row)
         form.addRow("", self.crawl_auth_hint)
+        form.addRow("Files", file_opts_row)
         form.addRow("Watermark PNG", wm_row)
         form.addRow("Media", media_row)
         form.addRow("Container", self.format_combo)
         layout.addLayout(form)
         self._apply_preset_to_download_form(self._selected_download_preset(), announce=False)
         self._refresh_crawl_auth_hint()
+        self._sync_download_file_opts_from_settings(self.settings)
 
         actions = QHBoxLayout()
         resolve_btn = QPushButton("Resolve & Queue")
@@ -830,6 +862,21 @@ class SuiteWindow(QMainWindow):
             "Linux ionice idle class so downloads yield disk bandwidth to interactive apps. "
             "Uses native yts-prio when built; otherwise ionice CLI / no-op."
         )
+        self.settings_skip_existing = QCheckBox("Skip existing files")
+        self.settings_skip_existing.setToolTip(
+            "Skip when a matching media id is already on disk or in the download archive. "
+            "Default on. Overwrite wins when both are enabled."
+        )
+        self.settings_overwrite = QCheckBox("Overwrite existing downloads")
+        self.settings_overwrite.setToolTip(
+            "Force re-download and replace existing files. Disables skip-existing while on."
+        )
+        self.settings_number_files = QCheckBox("Number files in queue")
+        self.settings_number_files.setToolTip(
+            "Prefix new downloads with the queue index (0001_…). Uncheck for Title [id].ext only."
+        )
+        self.settings_skip_existing.toggled.connect(self._on_settings_skip_existing_toggled)
+        self.settings_overwrite.toggled.connect(self._on_settings_overwrite_toggled)
 
         form.addRow("Theme", self.settings_theme)
         form.addRow("Cookies from browser", self.settings_cookies_browser)
@@ -846,6 +893,9 @@ class SuiteWindow(QMainWindow):
         form.addRow("Audio format", self.settings_audio_format)
         form.addRow("Video format", self.settings_video_format)
         form.addRow("Default output", out_row)
+        form.addRow("Skip existing", self.settings_skip_existing)
+        form.addRow("Overwrite", self.settings_overwrite)
+        form.addRow("Number files", self.settings_number_files)
         form.addRow("Status analytics", self.settings_show_analytics)
         form.addRow("Process nice", self.settings_process_nice)
         form.addRow("Disk priority", self.settings_process_idle_io)
@@ -1031,8 +1081,20 @@ class SuiteWindow(QMainWindow):
         self.settings_show_analytics.setChecked(bool(settings.show_status_analytics))
         self.settings_process_nice.setValue(max(0, min(19, int(settings.process_nice))))
         self.settings_process_idle_io.setChecked(bool(settings.process_idle_io))
+        overwrite = bool(getattr(settings, "overwrite", False))
+        skip_existing = bool(getattr(settings, "skip_existing", True)) and not overwrite
+        self.settings_overwrite.blockSignals(True)
+        self.settings_skip_existing.blockSignals(True)
+        self.settings_overwrite.setChecked(overwrite)
+        self.settings_skip_existing.setChecked(skip_existing)
+        self.settings_overwrite.blockSignals(False)
+        self.settings_skip_existing.blockSignals(False)
+        self.settings_number_files.setChecked(bool(getattr(settings, "number_files", True)))
+        self._sync_download_file_opts_from_settings(settings)
 
     def _settings_from_form(self) -> Settings:
+        overwrite = self.settings_overwrite.isChecked()
+        skip_existing = self.settings_skip_existing.isChecked() and not overwrite
         return Settings(
             theme=self.settings_theme.currentText().strip() or "SuiteDark",
             cookies_from_browser=self.settings_cookies_browser.text().strip(),
@@ -1054,6 +1116,9 @@ class SuiteWindow(QMainWindow):
             process_nice=int(self.settings_process_nice.value()),
             process_idle_io=self.settings_process_idle_io.isChecked(),
             impersonate=self.settings_impersonate.currentText().strip(),
+            skip_existing=skip_existing,
+            overwrite=overwrite,
+            number_files=self.settings_number_files.isChecked(),
         )
 
     def _browse_cookies_file(self) -> None:
@@ -1086,6 +1151,78 @@ class SuiteWindow(QMainWindow):
                 self.out_edit.setText(default_out)
         self._refresh_analytics_label()
         self._refresh_crawl_auth_hint()
+        self._sync_download_file_opts_from_settings(settings)
+
+    def _sync_download_file_opts_from_settings(self, settings: Settings) -> None:
+        if not hasattr(self, "skip_existing_cb"):
+            return
+        overwrite = bool(getattr(settings, "overwrite", False))
+        skip_existing = bool(getattr(settings, "skip_existing", True)) and not overwrite
+        for cb, value in (
+            (self.skip_existing_cb, skip_existing),
+            (self.overwrite_cb, overwrite),
+            (self.number_files_cb, bool(getattr(settings, "number_files", True))),
+        ):
+            cb.blockSignals(True)
+            cb.setChecked(value)
+            cb.blockSignals(False)
+
+    def _apply_download_file_opts_to_settings(self) -> None:
+        if not hasattr(self, "skip_existing_cb"):
+            return
+        overwrite = self.overwrite_cb.isChecked()
+        self.settings.overwrite = overwrite
+        self.settings.skip_existing = self.skip_existing_cb.isChecked() and not overwrite
+        self.settings.number_files = self.number_files_cb.isChecked()
+        if self.queue is not None:
+            self.queue.settings = self.settings
+
+    def _on_skip_existing_toggled(self, checked: bool) -> None:
+        if checked and hasattr(self, "overwrite_cb") and self.overwrite_cb.isChecked():
+            self.overwrite_cb.blockSignals(True)
+            self.overwrite_cb.setChecked(False)
+            self.overwrite_cb.blockSignals(False)
+        self._apply_download_file_opts_to_settings()
+        if hasattr(self, "settings_skip_existing"):
+            self.settings_skip_existing.blockSignals(True)
+            self.settings_overwrite.blockSignals(True)
+            self.settings_skip_existing.setChecked(self.settings.skip_existing)
+            self.settings_overwrite.setChecked(self.settings.overwrite)
+            self.settings_skip_existing.blockSignals(False)
+            self.settings_overwrite.blockSignals(False)
+
+    def _on_overwrite_toggled(self, checked: bool) -> None:
+        if checked and hasattr(self, "skip_existing_cb") and self.skip_existing_cb.isChecked():
+            self.skip_existing_cb.blockSignals(True)
+            self.skip_existing_cb.setChecked(False)
+            self.skip_existing_cb.blockSignals(False)
+        self._apply_download_file_opts_to_settings()
+        if hasattr(self, "settings_skip_existing"):
+            self.settings_skip_existing.blockSignals(True)
+            self.settings_overwrite.blockSignals(True)
+            self.settings_skip_existing.setChecked(self.settings.skip_existing)
+            self.settings_overwrite.setChecked(self.settings.overwrite)
+            self.settings_skip_existing.blockSignals(False)
+            self.settings_overwrite.blockSignals(False)
+
+    def _on_number_files_toggled(self, checked: bool) -> None:
+        self._apply_download_file_opts_to_settings()
+        if hasattr(self, "settings_number_files"):
+            self.settings_number_files.blockSignals(True)
+            self.settings_number_files.setChecked(checked)
+            self.settings_number_files.blockSignals(False)
+
+    def _on_settings_skip_existing_toggled(self, checked: bool) -> None:
+        if checked and self.settings_overwrite.isChecked():
+            self.settings_overwrite.blockSignals(True)
+            self.settings_overwrite.setChecked(False)
+            self.settings_overwrite.blockSignals(False)
+
+    def _on_settings_overwrite_toggled(self, checked: bool) -> None:
+        if checked and self.settings_skip_existing.isChecked():
+            self.settings_skip_existing.blockSignals(True)
+            self.settings_skip_existing.setChecked(False)
+            self.settings_skip_existing.blockSignals(False)
 
     # ----- helpers -----
     def _browse_out(self) -> None:
@@ -1116,6 +1253,10 @@ class SuiteWindow(QMainWindow):
         if not hasattr(self, "crawl_limit_spin"):
             return 50
         return clamp_crawl_limit(self.crawl_limit_spin.value())
+
+    def _crawl_limit_label(self) -> str:
+        limit = self._crawl_limit()
+        return "unlimited" if limit <= 0 else str(limit)
 
     def _refresh_crawl_auth_hint(self) -> None:
         if not hasattr(self, "crawl_auth_hint"):
@@ -1364,7 +1505,7 @@ class SuiteWindow(QMainWindow):
         mode = self._selected_crawl_mode()
         limit = self._crawl_limit()
         self.download_log.append(
-            f"Dropped {len(urls)} URLs — crawling ({mode.value}, limit {limit})…"
+            f"Dropped {len(urls)} URLs — crawling ({mode.value}, limit {self._crawl_limit_label()})…"
         )
         self._refresh_status(f"Crawling {len(urls)} dropped URL(s)…")
         try:
@@ -1536,7 +1677,8 @@ class SuiteWindow(QMainWindow):
         mode = self._selected_crawl_mode()
         limit = self._crawl_limit()
         self.download_log.append(
-            f"Crawling {url} ({detect_platform(url)}, mode={mode.value}, limit={limit})…"
+            f"Crawling {url} ({detect_platform(url)}, mode={mode.value}, "
+            f"limit={self._crawl_limit_label()})…"
         )
         try:
             crawled = crawl_profile(

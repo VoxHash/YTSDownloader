@@ -2,7 +2,7 @@
 
 > Multi-platform download suite for video/audio from YouTube, Instagram, Facebook, TikTok, adult-tube hosts, and related sites — with a concurrent queue, link grabber, optional watermarking, and a local metadata bridge for music-session matching. Built with PyQt6.
 
-[![Version](https://img.shields.io/badge/version-0.17.2-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
+[![Version](https://img.shields.io/badge/version-0.18.0-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
 [![CI](https://github.com/VoxHash/YTSDownloader/actions/workflows/ci.yml/badge.svg)](https://github.com/VoxHash/YTSDownloader/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org/)
@@ -98,7 +98,7 @@ No cloud API keys are required. Treat cookie files as secrets.
 ## Usage
 
 1. Launch `.venv/bin/python main.py` (or `./run.sh`)
-2. On **Download**, pick an **Export preset**, optionally set **Crawl mode** + **Limit**, set output folder, paste or drop a URL → **Resolve & Queue** → **Start Queue** (deep crawl needs cookies in Settings)
+2. On **Download**, pick an **Export preset**, optionally set **Crawl mode** + **Limit** (0 = Unlimited), **Skip existing** / **Overwrite** / **Number files**, set output folder, paste or drop a URL → **Resolve & Queue** → **Start Queue** (deep crawl needs cookies in Settings)
 3. Or use **Link Grabber** for many URLs (uses the Download page preset + crawl mode)
 4. Or use **Metadata Bridge** with a playing desktop music session / catalog URL
 5. Monitor **Queue** (filter by state / search); inspect failures in the triage panel; **Retry selected** / **Retry failed**; optionally **Apply to selected** / **Apply to queued** with another preset
