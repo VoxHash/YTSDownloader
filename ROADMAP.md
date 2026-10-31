@@ -1,16 +1,20 @@
 # Roadmap
 
-Current product baseline: **v0.18.0** — crawl Limit Unlimited / 10k, skip-existing + overwrite, and filename numbering toggles on top of **v0.17.2** resilient YouTube formats / EJS, **v0.17.1** IMPERSONATE Settings UI, **v0.17.0** adult-tube deep crawl extras, and earlier adult-tube / resize / Android polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
+Current product baseline: **v0.19.0** — adult video host (`rule34_video`) resolve / crawl / CDN download on top of **v0.18.0** crawl Limit Unlimited / skip-existing / numbering, **v0.17.2** resilient YouTube formats / EJS, and earlier adult-tube / Suite polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
 
-## Now (v0.18.x)
+## Now (v0.19.x)
 
-- [x] **Crawl Limit > 500 / Unlimited** — spinbox `0`–`10000` (`0` = Unlimited); clamp + crawl/resolve budget helpers propagate through profile crawls.
-- [x] **Skip existing / Overwrite** — Suite Download + Settings (`SKIP_EXISTING` / `OVERWRITE`); path `[id]` match + yt-dlp archive / nooverwrites; overwrite wins.
-- [x] **Number files in queue** — `NUMBER_FILES` toggles `0001_` prefix on new downloads.
+- [x] **Adult video host (`rule34_video`)** — platform detect, video / listing / tag / member / search resolve, paced Deep crawl, CDN rewrite + direct stream download (cookies + impersonate).
 
 ## Next
 
 _(no active desktop milestone — see Later)_
+
+### Prior (v0.18.x)
+
+- [x] **Crawl Limit > 500 / Unlimited** — see v0.18.0.
+- [x] **Skip existing / Overwrite** — see v0.18.0.
+- [x] **Number files in queue** — see v0.18.0.
 
 ### Prior (v0.17.x)
 

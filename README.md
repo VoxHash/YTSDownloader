@@ -2,7 +2,7 @@
 
 > Multi-platform download suite for video/audio from YouTube, Instagram, Facebook, TikTok, adult-tube hosts, and related sites — with a concurrent queue, link grabber, optional watermarking, and a local metadata bridge for music-session matching. Built with PyQt6.
 
-[![Version](https://img.shields.io/badge/version-0.18.0-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
+[![Version](https://img.shields.io/badge/version-0.19.0-blue.svg)](https://github.com/VoxHash/YTSDownloader/releases)
 [![CI](https://github.com/VoxHash/YTSDownloader/actions/workflows/ci.yml/badge.svg)](https://github.com/VoxHash/YTSDownloader/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10+-green.svg)](https://python.org/)
@@ -19,7 +19,7 @@
 - **Queue filters**: Filter by state and search title / URL / message
 - **Failure triage**: Per-item error category + detail panel with **Retry selected** / **Retry failed**
 - **Status analytics**: Optional local session OK / Err / Last / Avg counters in the status bar (no network telemetry)
-- **Multi-platform**: YouTube (channels / videos / Shorts / playlists), Instagram, Facebook, TikTok, adult-tube videos / playlists (cookie auth for private / unlisted)
+- **Multi-platform**: YouTube (channels / videos / Shorts / playlists), Instagram, Facebook, TikTok, adult-tube videos / playlists (cookie auth for private / unlisted), adult video host listings / tags / members (`rule34_video`)
 - **Profile crawl modes**: Shallow or deep (multi-tab / videos / shorts / posts) behind cookie auth; paced enumeration into the queue
 - **TLS impersonation**: Optional `curl_cffi` + Suite **TLS impersonate** / `IMPERSONATE` (default `chrome`; empty disables) so hosts that block plain clients still resolve
 - **Concurrent queue**: Worker limit, retries, playlist start-slot pacing, rate-limit backoff

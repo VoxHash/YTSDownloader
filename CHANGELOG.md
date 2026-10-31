@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-31
+
+### Added
+- **Adult video host class (`rule34_video`):** platform detect for `rule34video.com`, single-video resolve (normalize `/videos/` → `/video/` keeping slug), listing / tag / member / search / feed harvest via clean-room HTML, paced Deep/Videos crawl pagination.
+- CDN media rewrite when the stock yt-dlp extractor misses formats; direct stream download for `get_file` URLs that redirect through unsafe `.php` endpoints (cookies + TLS impersonate still applied).
+- Unit tests: `tests/test_resolvers_rule34_video.py`, `tests/test_rule34_video_crawl.py`.
+
+### Changed
+- Docs: usage / FAQ / configuration / troubleshooting note cookies for age-gated or restricted surfaces on this host class.
+- ROADMAP: v0.19.0 Now for adult video host resolve/crawl/download.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.19.0** / 19.
+
+### Verified
+- Host: focused rule34_video unit tests + Suite `unittest discover`.
+- Live resolve (single + listing + member) and light CDN download with Brave cookies when configured locally (secrets redacted).
+
 ## [0.18.0] - 2026-10-30
 
 ### Added

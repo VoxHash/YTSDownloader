@@ -8,6 +8,13 @@ from typing import List, Sequence
 from urllib.parse import urlparse
 
 from ytscore.cache import title_cache
+from ytscore.rule34_video import (
+    PLATFORM_ID as RULE34_VIDEO_PLATFORM,
+    is_rule34_video_host,
+    is_rule34_video_listing_url,
+    is_rule34_video_single_url,
+    resolve_listing_pages,
+)
 from ytscore.settings import Settings, apply_auth_opts
 from ytscore.util import canonicalize_media_url
 
@@ -54,6 +61,8 @@ def detect_platform(url: str) -> str:
         return "tiktok"
     if "spotify" in host:
         return "spotify"
+    if is_rule34_video_host(url):
+        return RULE34_VIDEO_PLATFORM
     if any(marker in host for marker in _ADULT_TUBE_HOST_MARKERS):
         return "adult_tube"
     return "generic"
@@ -100,6 +109,10 @@ def _entry_to_url(entry: dict, *, base_url: str) -> str:
         return canonicalize_media_url(
             f"https://{host}/view_video.php?viewkey={entry_id}"
         )
+    if entry_id and detect_platform(base_url) == RULE34_VIDEO_PLATFORM:
+        host = urlparse(base_url).hostname or "rule34video.com"
+        # Slug-less video URLs 404 on this host; keep id path as a last resort.
+        return canonicalize_media_url(f"https://{host}/video/{entry_id}/placeholder/")
     return ""
 
 
@@ -237,12 +250,57 @@ def resolve_adult_tube(
     return links
 
 
+def resolve_rule34_video(
+    url: str,
+    settings: Settings,
+    playlist_end: int = 100,
+) -> List[str]:
+    """
+    Resolve rule34video.com singles and listing / tag / member / search URLs.
+
+    Singles return the canonical video page URL. Listings use clean-room HTML
+    harvest (yt-dlp has no flat playlist extractor for this host). Cookies help
+    for age-gated or account-restricted surfaces.
+    """
+    input_url = canonicalize_media_url(url.strip()) or url.strip()
+    if is_rule34_video_single_url(input_url):
+        # Host requires the slug segment; /video/<id>/ alone 404s. Only
+        # normalize plural /videos/ → /video/ while keeping the rest of the path.
+        parsed = urlparse(input_url)
+        path = parsed.path or ""
+        if path.lower().startswith("/videos/"):
+            path = "/video/" + path[len("/videos/") :]
+        host = parsed.hostname or "rule34video.com"
+        canonical = canonicalize_media_url(
+            f"https://{host}{path}"
+            + (("?" + parsed.query) if parsed.query else "")
+        )
+        return [canonical]
+    if is_rule34_video_listing_url(input_url):
+        # ~20 thumbs per page on this host; playlist_end 0 → paced multi-page.
+        if playlist_end <= 0:
+            max_pages = 25
+        else:
+            max_pages = min(50, max(1, 1 + (playlist_end - 1) // 20))
+        links = resolve_listing_pages(
+            input_url,
+            settings,
+            limit=playlist_end,
+            max_pages=max_pages,
+            pace_seconds=float(getattr(settings, "pace_seconds", 0) or 0),
+        )
+        return links or [input_url]
+    return resolve_flat(input_url, settings, playlist_end=playlist_end)
+
+
 def resolve_url(url: str, settings: Settings, playlist_end: int = 100) -> List[str]:
     platform = detect_platform(url)
     if platform == "youtube":
         return resolve_youtube(url, settings, playlist_end=playlist_end)
     if platform == "spotify":
         return [canonicalize_media_url(url.strip()) or url.strip()]
+    if platform == RULE34_VIDEO_PLATFORM:
+        return resolve_rule34_video(url, settings, playlist_end=playlist_end)
     if platform == "adult_tube":
         # Playlist seeds require cookies (private/unlisted path); singles do not.
         return resolve_adult_tube(

@@ -18,6 +18,14 @@ from ytscore.formats import (
     normalize_video_format,
 )
 from ytscore.resolvers import detect_platform
+from ytscore.rule34_video import (
+    PLATFORM_ID as RULE34_VIDEO_PLATFORM,
+    download_cdn_media,
+    extract_page_title,
+    fetch_html as rule34_fetch_html,
+    rewrite_rule34_video_media_url,
+    rule34_video_id,
+)
 from ytscore.settings import Settings, apply_auth_opts
 from ytscore.util import clean_filename
 
@@ -106,6 +114,9 @@ def _guess_media_id_from_url(url: str) -> Optional[str]:
             return tail.split("?", 1)[0].split("/", 1)[0].strip() or None
     if "viewkey=" in lower:
         return text.split("viewkey=", 1)[-1].split("&", 1)[0].split("#", 1)[0].strip() or None
+    r34_id = rule34_video_id(text)
+    if r34_id:
+        return r34_id
     return None
 
 
@@ -178,6 +189,13 @@ def download_item(
         if rewritten and rewritten != url:
             download_url = rewritten
             logging.info("Adult-tube media rewrite %s → %s", url, download_url)
+    elif detect_platform(url) == RULE34_VIDEO_PLATFORM:
+        # Stock extractor misses formats when the download sheet markup drifts;
+        # map video pages to direct get_file CDN URLs (cookies still applied).
+        rewritten = rewrite_rule34_video_media_url(url, settings)
+        if rewritten and rewritten != url:
+            download_url = rewritten
+            logging.info("rule34_video media rewrite %s → %s", url, download_url)
 
     if skip_existing:
         guessed = _guess_media_id_from_url(download_url) or _guess_media_id_from_url(url)
@@ -187,6 +205,46 @@ def download_item(
             title_cache.put(url, title)
             logging.info("Skip existing file for %s → %s", url, existing)
             return DownloadResult(ok=True, path=existing, title=title)
+
+    # rule34_video CDN redirects through a .php endpoint yt-dlp refuses to save.
+    if (
+        detect_platform(url) == RULE34_VIDEO_PLATFORM
+        and media == "video"
+        and "get_file/" in download_url
+    ):
+        media_id = rule34_video_id(url) or _guess_media_id_from_url(url) or "video"
+        title = ""
+        if rule34_video_id(url):
+            html, _err = rule34_fetch_html(url, settings)
+            title = extract_page_title(html or "")
+        title = title or f"rule34_video_{media_id}"
+        safe = clean_filename(title) or f"rule34_video_{media_id}"
+        dest = os.path.join(output_dir, f"{prefix}{safe} [{media_id}].mp4")
+        err = download_cdn_media(
+            download_url,
+            dest,
+            settings,
+            referer=url,
+            progress_hook=progress_hook,
+        )
+        if err:
+            return DownloadResult(ok=False, error=err)
+        title_cache.put(url, title)
+        if watermark_path and os.path.isfile(dest):
+            from ytscore.watermark import add_watermark
+
+            base, ext = os.path.splitext(dest)
+            final = f"{base}_wm{ext if ext else '.mp4'}"
+            msg = add_watermark(dest, watermark_path, final)
+            if os.path.isfile(final):
+                try:
+                    os.remove(dest)
+                except OSError:
+                    pass
+                dest = final
+            else:
+                logging.warning("Watermark step: %s", msg)
+        return DownloadResult(ok=True, path=dest, title=title)
 
     def _finish(info: dict) -> DownloadResult:
         title = (info or {}).get("title") or "unknown_title"

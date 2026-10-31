@@ -14,7 +14,7 @@ Many YouTube extractions requests require authenticated cookies to pass bot chec
 
 ## Why do private / unlisted playlists fail?
 
-Private and unlisted playlists (including adult-tube lists) only resolve when your configured browser cookies or cookie file belong to a session that can already open them. The Suite does not bypass DRM, paywalls, or other people's accounts.
+Private and unlisted playlists (including adult-tube lists) only resolve when your configured browser cookies or cookie file belong to a session that can already open them. Age-gated or account-restricted adult video host pages likewise need a signed-in browser profile or cookie file. The Suite does not bypass DRM, paywalls, or other people's accounts.
 
 ## Why do some hosts return HTTP 403?
 

@@ -74,6 +74,7 @@ On Linux, **Browse** for the output folder (Download page and Settings default o
 - Facebook page / post / watch URLs
 - TikTok profile / video URLs
 - Adult-tube video / playlist / model URLs (private / unlisted playlists need cookies; Deep crawl enumerates videos / GIFs / albums when cookies are set)
+- Adult video host (`rule34video.com` class): single videos, latest/top feeds, tags, members, search — paste into Download URL; Deep / Videos crawl paginates listings (cookies recommended for age-gated or restricted surfaces)
 - Catalog track / playlist / album URLs for the metadata bridge
 
 ## Auth check

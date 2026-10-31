@@ -46,6 +46,7 @@ Install ffmpeg via your OS package manager and ensure **both** `ffmpeg` and `ffp
 - Private / age-gated / unlisted content needs cookies (`COOKIES_FROM_BROWSER` or `COOKIES_FILE`)
 - Profile pages may require authentication for Instagram / Facebook / TikTok
 - Adult-tube playlists: configure cookies for private/unlisted lists; public singles still need `curl_cffi` + `IMPERSONATE` when the host returns HTTP 403
+- Adult video host (`rule34_video`): if resolve returns empty or download fails on restricted pages, set `COOKIES_FROM_BROWSER` (e.g. `brave:Default`) or `COOKIES_FILE` for a session that can already open the URL; keep `IMPERSONATE = chrome`
 
 ## HTTP 403 / "impersonation" warnings from yt-dlp
 

@@ -16,8 +16,9 @@
 | `apply_process_priority` | Optional nice / idle I/O (optional C/`zig cc` `yts-prio`) |
 | `native_status` / `find_binary` / `native_bin_candidates` | Discover optional sidecars (`YTS_NATIVE_DIR`, freeze `<onedir>/native/bin`, checkout, cwd) |
 | `resolve_url` / `resolve_many` | Expand playlist / channel / profile URLs (shallow) |
-| `crawl_profile` / `crawl_many` / `CrawlMode` | Cookie-gated profile crawl (shallow / deep / videos / shorts / posts) with limit + pacing; adult-tube multi-tab + GIF/album harvest |
+| `crawl_profile` / `crawl_many` / `CrawlMode` | Cookie-gated profile crawl (shallow / deep / videos / shorts / posts) with limit + pacing; adult-tube multi-tab + GIF/album harvest; `rule34_video` listing pagination |
 | `ytscore.adult_tube` helpers | Profile tabs, HTML listing harvest, GIF/photo CDN rewrite |
+| `ytscore.rule34_video` helpers | Host detect, listing harvest, CDN rewrite + direct stream download |
 | `DownloadQueue` | Concurrent workers with start-slot pacing, retries, `retry_jobs` / `retry_failed`, `remove_jobs` / `clear_all` / `force_download` |
 | `get_existing_directory` / `volume_sidebar_paths` | Output-folder picker with Linux sidebar URLs (system root + mounts) |
 | `resolve_app_icon_path` (`ytscore.icons`) | Locate Suite app icon under `assets/icons/` |

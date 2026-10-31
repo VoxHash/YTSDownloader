@@ -58,8 +58,9 @@ Sensitive local inputs:
 2. Otherwise export cookies to a file and set `COOKIES_FILE`.
 3. Deep **Crawl mode** options on Download (Deep / Videos / Shorts / Posts) require one of the above; Shallow works without cookies. Crawls only enumerate content your session can already reach via yt-dlp.
 4. **Private / unlisted playlists** (including adult-tube playlists) need the same cookie auth — only surfaces your signed-in browser session can already open. No credential stuffing, DRM, or paywall bypass.
-5. Keep `JS_RUNTIME = node` and set `JS_RUNTIME_PATH` only when `node` is not on `PATH`.
-6. Install `curl_cffi` (via `requirements.txt`) and keep `IMPERSONATE = chrome` when hosts return HTTP 403 to plain clients.
+5. **Adult video host** (`rule34_video` / `rule34video.com`): public singles and listings often resolve anonymously; use Brave/Chrome cookies (`COOKIES_FROM_BROWSER`) or a cookie file for age-gated, members-only, or otherwise restricted pages your session can already open.
+6. Keep `JS_RUNTIME = node` and set `JS_RUNTIME_PATH` only when `node` is not on `PATH`.
+7. Install `curl_cffi` (via `requirements.txt`) and keep `IMPERSONATE = chrome` when hosts return HTTP 403 to plain clients.
 
 ## Themes
 

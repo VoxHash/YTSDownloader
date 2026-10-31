@@ -30,6 +30,12 @@ from ytscore.adult_tube import (
 from ytscore.backoff import compute_backoff_seconds, is_rate_limited
 from ytscore.cache import title_cache
 from ytscore.resolvers import detect_platform, resolve_flat, resolve_url
+from ytscore.rule34_video import (
+    PLATFORM_ID as RULE34_VIDEO_PLATFORM,
+    is_rule34_video_listing_url,
+    is_rule34_video_single_url,
+    resolve_listing_pages,
+)
 from ytscore.settings import Settings, apply_auth_opts
 from ytscore.util import canonicalize_media_url
 
@@ -541,6 +547,60 @@ def crawl_adult_tube(
     return result
 
 
+def crawl_rule34_video(
+    url: str,
+    settings: Settings,
+    *,
+    mode: CrawlMode,
+    limit: int,
+    pace_seconds: float,
+    sleep_fn: SleepFn = time.sleep,
+) -> CrawlResult:
+    """
+    Paced listing crawl for the rule34video.com host class.
+
+    Singles pass through. Shallow harvests the first listing page (or resolves
+    via ``resolve_url``). Deep / Videos paginate listing / tag / member / search
+    feeds. Shorts / Posts fall back to the same video listing (no GIF/album
+    tabs on this host).
+    """
+    platform = RULE34_VIDEO_PLATFORM
+    result = CrawlResult(
+        mode=mode,
+        platform=platform,
+        auth_required=crawl_requires_auth(mode),
+        auth_configured=cookie_auth_configured(settings),
+    )
+    input_url = canonicalize_media_url(url.strip()) or url.strip()
+
+    if is_rule34_video_single_url(input_url):
+        result.urls = resolve_url(input_url, settings, playlist_end=1)
+        return result
+
+    if mode == CrawlMode.SHALLOW or not is_rule34_video_listing_url(input_url):
+        result.urls = resolve_url(input_url, settings, playlist_end=limit)
+        result.tabs_tried.append("shallow")
+        return result
+
+    if limit <= 0:
+        max_pages = 25
+    else:
+        max_pages = min(50, max(1, 1 + (limit - 1) // 20))
+    result.tabs_tried.append("listing")
+    links = resolve_listing_pages(
+        input_url,
+        settings,
+        limit=limit,
+        max_pages=max_pages,
+        pace_seconds=pace_seconds,
+        sleep_fn=sleep_fn,
+    )
+    result.urls = take_crawl_budget(links, limit) or resolve_url(
+        input_url, settings, playlist_end=limit
+    )
+    return result
+
+
 def crawl_profile(
     url: str,
     settings: Settings,
@@ -596,6 +656,16 @@ def crawl_profile(
 
     if platform == "adult_tube":
         return crawl_adult_tube(
+            url,
+            settings,
+            mode=crawl_mode,
+            limit=item_limit,
+            pace_seconds=pace,
+            sleep_fn=sleep_fn,
+        )
+
+    if platform == RULE34_VIDEO_PLATFORM:
+        return crawl_rule34_video(
             url,
             settings,
             mode=crawl_mode,
