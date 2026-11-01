@@ -12,7 +12,7 @@ import logging
 import os
 import re
 from typing import List, Optional, Sequence, Tuple
-from urllib.parse import urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 from ytscore.settings import Settings, apply_auth_opts
 from ytscore.util import canonicalize_media_url, clean_filename
@@ -83,8 +83,96 @@ _ARYION_DATA_RE = re.compile(
     r"""(?:src|href)=["']([^"']*/g4/data/\d+-[^"']+)["']""",
     re.IGNORECASE,
 )
+_ARYION_DATA_PHP_RE = re.compile(
+    r"""(?:src|href)=["']([^"']*data\.php\?id=\d+[^"']*)["']""",
+    re.IGNORECASE,
+)
 _ARYION_FAV_RE = re.compile(
     r"^/g4/(?:favorites|user|gallery|latest\.php|browse\.php|tags\.php)",
+    re.IGNORECASE,
+)
+
+# Extensions Aryion (and sibling gallery hosts) commonly expose via CDN / data.php.
+_DIRECT_EXTENSIONS = (
+    ".mp4",
+    ".webm",
+    ".m4v",
+    ".mov",
+    ".mkv",
+    ".avi",
+    ".mpg",
+    ".mpeg",
+    ".flv",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+    ".gif",
+    ".avif",
+    ".bmp",
+    ".pdf",
+    ".txt",
+    ".rtf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".ppt",
+    ".pptx",
+    ".swf",
+    ".zip",
+    ".rar",
+    ".7z",
+    ".mp3",
+    ".wav",
+    ".ogg",
+    ".flac",
+    ".m4a",
+    ".html",
+    ".htm",
+)
+_CONTENT_TYPE_EXTENSION = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "image/avif": ".avif",
+    "image/bmp": ".bmp",
+    "video/mp4": ".mp4",
+    "video/webm": ".webm",
+    "video/quicktime": ".mov",
+    "video/x-msvideo": ".avi",
+    "video/mpeg": ".mpg",
+    "video/x-flv": ".flv",
+    "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
+    "audio/mp4": ".m4a",
+    "audio/wav": ".wav",
+    "audio/x-wav": ".wav",
+    "audio/ogg": ".ogg",
+    "audio/flac": ".flac",
+    "application/pdf": ".pdf",
+    "application/msword": ".doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/vnd.ms-excel": ".xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    "application/vnd.ms-powerpoint": ".ppt",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+    "application/rtf": ".rtf",
+    "text/rtf": ".rtf",
+    "text/plain": ".txt",
+    "text/html": ".html",
+    "application/x-shockwave-flash": ".swf",
+    "application/vnd.adobe.flash.movie": ".swf",
+    "application/zip": ".zip",
+    "application/x-zip-compressed": ".zip",
+    "application/x-rar-compressed": ".rar",
+    "application/vnd.rar": ".rar",
+    "application/x-7z-compressed": ".7z",
+}
+_DISPOSITION_FILENAME_RE = re.compile(
+    r"""filename\*\s*=\s*(?:UTF-8''|utf-8'')([^;]+)|filename\s*=\s*"([^"]+)"|filename\s*=\s*([^;]+)""",
     re.IGNORECASE,
 )
 
@@ -264,10 +352,30 @@ def harvest_aryion_views(html: str, *, base_url: str, limit: int) -> List[str]:
     return list(seen.keys())
 
 
+def aryion_data_php_url(view_url_or_id: str) -> str:
+    """Canonical original-file endpoint for every Aryion item type."""
+    text = (view_url_or_id or "").strip()
+    vid = aryion_view_id(text)
+    if not vid and text.isdigit():
+        vid = text
+    if not vid:
+        return ""
+    return f"https://aryion.com/g4/data.php?id={vid}"
+
+
 def extract_aryion_media_url(html: str, *, base_url: str) -> str:
-    """Prefer full /g4/data/ asset over derivative preview."""
+    """Prefer data.php (original file) over /g4/data/ HTML/PDF previews."""
+    # View pages often embed an HTML conversion of .doc/.docx; data.php returns
+    # the uploaded original (pdf/doc/docx/swf/zip/video/audio/image).
+    data_php = aryion_data_php_url(base_url)
+    if data_php:
+        return data_php
     if not html:
         return ""
+    for href in _ARYION_DATA_PHP_RE.findall(html):
+        resolved = _abs(base_url, href)
+        if resolved:
+            return resolved
     for href in _ARYION_DATA_RE.findall(html):
         resolved = _abs(base_url, href)
         if resolved:
@@ -662,12 +770,16 @@ def rewrite_creator_media_url(url: str, settings: Settings) -> str:
         preview = extract_clips4sale_preview_url(html)
         return preview or text
     if platform == PLATFORM_ARYION and is_aryion_single_url(text):
+        # data.php serves the original upload for every item type; no need to
+        # scrape derivative /g4/data/*.doc.html previews from the view page.
+        media = aryion_data_php_url(text)
+        if media:
+            return media
         html, err = fetch_html(text, settings)
         if err or not html:
             logging.warning("aryion rewrite fetch failed %s: %s", text, err)
             return text
-        media = extract_aryion_media_url(html, base_url=text)
-        return media or text
+        return extract_aryion_media_url(html, base_url=text) or text
     if platform == PLATFORM_FAPELLO and is_fapello_content_url(text):
         html, err = fetch_html(text, settings)
         if err or not html:
@@ -696,6 +808,65 @@ def rewrite_creator_media_url(url: str, settings: Settings) -> str:
     return text
 
 
+def extension_from_content_type(content_type: str) -> str:
+    """Map a Content-Type header value to a dotted extension, or ''."""
+    raw = (content_type or "").split(";", 1)[0].strip().lower()
+    if not raw:
+        return ""
+    return _CONTENT_TYPE_EXTENSION.get(raw, "")
+
+
+def extension_from_filename(filename: str) -> str:
+    """Return a known dotted extension from a bare filename, or ''."""
+    name = (filename or "").strip().strip('"').split("\\")[-1].split("/")[-1]
+    if not name or "." not in name:
+        return ""
+    # Prefer longest known suffix (docx before doc, jpeg before …).
+    lower = name.lower()
+    for ext in sorted(_DIRECT_EXTENSIONS, key=len, reverse=True):
+        if lower.endswith(ext):
+            return ".jpg" if ext == ".jpeg" else (".html" if ext == ".htm" else ext)
+    return ""
+
+
+def extension_from_content_disposition(disposition: str) -> str:
+    """Parse Content-Disposition filename= / filename*= for a known extension."""
+    text = disposition or ""
+    match = _DISPOSITION_FILENAME_RE.search(text)
+    if not match:
+        return ""
+    raw = (match.group(1) or match.group(2) or match.group(3) or "").strip()
+    if match.group(1):
+        raw = unquote(raw)
+    return extension_from_filename(raw)
+
+
+def guess_direct_extension(
+    url: str,
+    default: str = ".mp4",
+    *,
+    content_type: str = "",
+    content_disposition: str = "",
+) -> str:
+    """Pick a file extension from headers first, then the URL path."""
+    for candidate in (
+        extension_from_content_disposition(content_disposition),
+        extension_from_content_type(content_type),
+    ):
+        if candidate:
+            return candidate
+    path = (urlparse(url).path or "").lower()
+    # Walk path segments so /g4/data/id-hash.png/file.png and bare *.pdf work.
+    for segment in reversed([p for p in path.split("/") if p]):
+        ext = extension_from_filename(segment)
+        if ext:
+            return ext
+    query = (urlparse(url).query or "").lower()
+    if "data.php" in path or "id=" in query:
+        return default
+    return default
+
+
 def download_direct_media(
     media_url: str,
     dest_path: str,
@@ -703,31 +874,47 @@ def download_direct_media(
     *,
     referer: str = "",
     progress_hook=None,
-) -> Optional[str]:
-    """Stream a direct CDN / asset URL to disk via yt-dlp networking."""
+) -> Tuple[Optional[str], Optional[str]]:
+    """Stream a direct CDN / asset URL to disk via yt-dlp networking.
+
+    Returns ``(error, saved_path)``. ``saved_path`` may differ from
+    ``dest_path`` when Content-Type / Content-Disposition correct the extension.
+    """
     if yt_dlp is None:
-        return "yt-dlp is not installed"
+        return "yt-dlp is not installed", None
     text = canonicalize_media_url(media_url)
     if not text:
-        return "empty media url"
+        return "empty media url", None
     ydl_opts = apply_auth_opts({"quiet": True, "noprogress": True}, settings)
     headers = dict(ydl_opts.get("http_headers") or {})
     if referer:
         headers["Referer"] = referer
     if headers:
         ydl_opts["http_headers"] = headers
+    saved = dest_path
     try:
         parent = os.path.dirname(dest_path) or "."
         os.makedirs(parent, exist_ok=True)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             resp = ydl.urlopen(text)
+            ctype = resp.headers.get("Content-Type") or ""
+            cdisp = resp.headers.get("Content-Disposition") or ""
+            corrected = guess_direct_extension(
+                text,
+                default=os.path.splitext(dest_path)[1] or ".bin",
+                content_type=ctype,
+                content_disposition=cdisp,
+            )
+            base, cur_ext = os.path.splitext(dest_path)
+            if corrected and corrected.lower() != (cur_ext or "").lower():
+                saved = base + corrected
             total = 0
             expected = None
             try:
                 expected = int(resp.headers.get("Content-Length") or 0) or None
             except (TypeError, ValueError):
                 expected = None
-            with open(dest_path, "wb") as handle:
+            with open(saved, "wb") as handle:
                 while True:
                     chunk = resp.read(256 * 1024)
                     if not chunk:
@@ -740,7 +927,7 @@ def download_direct_media(
                                 "status": "downloading",
                                 "downloaded_bytes": total,
                                 "total_bytes": expected,
-                                "filename": dest_path,
+                                "filename": saved,
                             }
                         )
         if progress_hook:
@@ -749,20 +936,17 @@ def download_direct_media(
                     "status": "finished",
                     "downloaded_bytes": total,
                     "total_bytes": expected or total,
-                    "filename": dest_path,
+                    "filename": saved,
                 }
             )
+        if saved != dest_path and os.path.isfile(dest_path):
+            try:
+                os.remove(dest_path)
+            except OSError:
+                pass
     except Exception as error:
-        return str(error)
-    return None
-
-
-def guess_direct_extension(url: str, default: str = ".mp4") -> str:
-    path = (urlparse(url).path or "").lower()
-    for ext in (".mp4", ".webm", ".m4v", ".mov", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"):
-        if ext in path:
-            return ".jpg" if ext == ".jpeg" else ext
-    return default
+        return str(error), None
+    return None, saved
 
 
 def safe_title_for_url(url: str, html: str = "") -> str:
@@ -772,6 +956,55 @@ def safe_title_for_url(url: str, html: str = "") -> str:
     media_id = creator_media_id(url) or "media"
     platform = detect_creator_platform(url) or "creator"
     return clean_filename(f"{platform}_{media_id}") or f"{platform}_{media_id}"
+
+
+def media_payload_mismatches_extension(path: str) -> bool:
+    """True when on-disk magic clearly disagrees with the file extension.
+
+    Used so skip-existing does not keep Aryion HTML/PDF payloads saved as ``.mp4``.
+    """
+    if not path or not os.path.isfile(path):
+        return False
+    ext = os.path.splitext(path)[1].lower()
+    try:
+        with open(path, "rb") as handle:
+            head = handle.read(64)
+    except OSError:
+        return False
+    if not head:
+        return True
+    stripped = head.lstrip()
+    is_html = stripped[:15].lower().startswith(b"<!doctype html") or stripped[
+        :6
+    ].lower().startswith(b"<html")
+    is_pdf = head.startswith(b"%PDF")
+    is_png = head.startswith(b"\x89PNG\r\n\x1a\n")
+    is_jpeg = head.startswith(b"\xff\xd8\xff")
+    is_gif = head.startswith(b"GIF87a") or head.startswith(b"GIF89a")
+    is_zip = head.startswith(b"PK\x03\x04")  # docx/xlsx/zip
+    is_ole = head.startswith(b"\xd0\xcf\x11\xe0")  # legacy .doc
+    is_mp4 = b"ftyp" in head[4:12]
+    is_swf = head[:3] in (b"FWS", b"CWS", b"ZWS")
+    if is_html and ext not in (".html", ".htm"):
+        return True
+    if is_pdf and ext != ".pdf":
+        return True
+    if is_png and ext != ".png":
+        return True
+    if is_jpeg and ext not in (".jpg", ".jpeg"):
+        return True
+    if is_gif and ext != ".gif":
+        return True
+    if is_mp4 and ext not in (".mp4", ".m4v", ".mov", ".m4a"):
+        return True
+    if is_swf and ext != ".swf":
+        return True
+    if is_ole and ext != ".doc":
+        return True
+    if is_zip and ext in (".mp4", ".png", ".jpg", ".jpeg", ".gif", ".webm", ".pdf", ".html", ".htm", ".txt"):
+        # ZIP container saved under a media/doc-preview extension → likely docx etc.
+        return True
+    return False
 
 
 def needs_direct_cdn_download(original_url: str, download_url: str) -> bool:
@@ -787,6 +1020,7 @@ def needs_direct_cdn_download(original_url: str, download_url: str) -> bool:
         for marker in (
             "clips_previews/",
             "/g4/data/",
+            "data.php",
             "cdni.pornpics.com",
             ".mp4",
             ".webm",
@@ -794,6 +1028,10 @@ def needs_direct_cdn_download(original_url: str, download_url: str) -> bool:
             ".png",
             ".webp",
             ".gif",
+            ".pdf",
+            ".swf",
+            ".doc",
+            ".zip",
         )
     ):
         return True

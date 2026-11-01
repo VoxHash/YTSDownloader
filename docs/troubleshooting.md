@@ -47,7 +47,7 @@ Install ffmpeg via your OS package manager and ensure **both** `ffmpeg` and `ffp
 - Profile pages may require authentication for Instagram / Facebook / TikTok
 - Adult-tube playlists: configure cookies for private/unlisted lists; public singles still need `curl_cffi` + `IMPERSONATE` when the host returns HTTP 403
 - Adult video host (`rule34_video`): if resolve returns empty or download fails on restricted pages, set `COOKIES_FROM_BROWSER` (e.g. `brave:Default`) or `COOKIES_FILE` for a session that can already open the URL; keep `IMPERSONATE = chrome`
-- Creator / gallery / clip hosts (`creator_media`): ManyVids may only expose previews without purchase cookies; Reddit / Vimeo often need a signed-in browser profile; Clips4Sale rewrite uses public preview MP4 when present; Aryion favorites harvest `/g4/view/` items then stream `/g4/data/` assets
+- Creator / gallery / clip hosts (`creator_media`): ManyVids may only expose previews without purchase cookies; Reddit / Vimeo often need a signed-in browser profile; Clips4Sale rewrite uses public preview MP4 when present; Aryion favorites harvest `/g4/view/` items then stream original uploads via `/g4/data.php?id=` (image, video, audio, PDF/DOC/DOCX, Flash/SWF, ZIP, etc.) with extension from Content-Type / Content-Disposition — re-run with skip-existing if older runs saved HTML/PDF payloads as `.mp4`
 
 ## HTTP 403 / "impersonation" warnings from yt-dlp
 

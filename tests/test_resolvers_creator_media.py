@@ -17,9 +17,13 @@ from ytscore.creator_media import (
     PLATFORM_TWPORNSTARS,
     PLATFORM_VIMEO,
     PLATFORM_VK,
+    aryion_data_php_url,
     creator_media_id,
+    extension_from_content_disposition,
+    extension_from_content_type,
     extract_aryion_media_url,
     extract_clips4sale_preview_url,
+    guess_direct_extension,
     harvest_aryion_views,
     harvest_clips4sale_clips,
     harvest_fapello_media,
@@ -28,6 +32,8 @@ from ytscore.creator_media import (
     is_aryion_single_url,
     is_clips4sale_listing_url,
     is_clips4sale_single_url,
+    media_payload_mismatches_extension,
+    needs_direct_cdn_download,
 )
 from ytscore.resolvers import detect_platform, resolve_creator_media, resolve_url
 from ytscore.settings import Settings
@@ -105,11 +111,99 @@ class AryionHarvestTests(unittest.TestCase):
         html = """
         <meta property="og:image" content="https://aryion.com/g4/derivative/1-preview.avif"/>
         <img src="//aryion.com/g4/data/1316304-108350-1gv6elx.png/file.png"/>
+        <a href="data.php?id=1316304">download</a>
         """
         media = extract_aryion_media_url(
             html, base_url="https://aryion.com/g4/view/1316304"
         )
-        self.assertIn("/g4/data/1316304-", media)
+        self.assertEqual(media, "https://aryion.com/g4/data.php?id=1316304")
+        self.assertEqual(
+            aryion_data_php_url("https://aryion.com/g4/view/1316304"),
+            "https://aryion.com/g4/data.php?id=1316304",
+        )
+        self.assertTrue(
+            needs_direct_cdn_download(
+                "https://aryion.com/g4/view/1316304",
+                "https://aryion.com/g4/data.php?id=1316304",
+            )
+        )
+
+
+class AryionExtensionTests(unittest.TestCase):
+    def test_content_type_and_disposition(self) -> None:
+        self.assertEqual(extension_from_content_type("application/pdf"), ".pdf")
+        self.assertEqual(extension_from_content_type("image/png; charset=binary"), ".png")
+        self.assertEqual(
+            extension_from_content_type(
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            ),
+            ".docx",
+        )
+        self.assertEqual(
+            extension_from_content_type("application/x-shockwave-flash"),
+            ".swf",
+        )
+        self.assertEqual(
+            extension_from_content_disposition(
+                'attachment; filename="FairyTaleEater12-1319172-story.pdf"'
+            ),
+            ".pdf",
+        )
+        self.assertEqual(
+            extension_from_content_disposition(
+                "attachment; filename*=UTF-8''RealZikik-1194110-Halloween%20Favor.docx"
+            ),
+            ".docx",
+        )
+
+    def test_guess_direct_extension_url_and_headers(self) -> None:
+        self.assertEqual(
+            guess_direct_extension(
+                "https://aryion.com/g4/data/1319172-134593-1iwpsaw.pdf"
+            ),
+            ".pdf",
+        )
+        self.assertEqual(
+            guess_direct_extension(
+                "https://aryion.com/g4/data/1254924-9242-1qcec2y.doc.html"
+            ),
+            ".html",
+        )
+        self.assertEqual(
+            guess_direct_extension(
+                "https://aryion.com/g4/data.php?id=1254924",
+                default=".bin",
+                content_type="application/msword",
+                content_disposition='attachment; filename="hunnter-1254924-story.doc"',
+            ),
+            ".doc",
+        )
+        self.assertEqual(
+            guess_direct_extension(
+                "https://aryion.com/g4/data.php?id=1",
+                default=".mp4",
+                content_type="application/pdf",
+            ),
+            ".pdf",
+        )
+
+    def test_payload_mismatch(self) -> None:
+        import os
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pdf_as_mp4 = os.path.join(tmp, "item [1].mp4")
+            with open(pdf_as_mp4, "wb") as handle:
+                handle.write(b"%PDF-1.4\n%")
+            self.assertTrue(media_payload_mismatches_extension(pdf_as_mp4))
+            good = os.path.join(tmp, "item [2].pdf")
+            with open(good, "wb") as handle:
+                handle.write(b"%PDF-1.4\n%")
+            self.assertFalse(media_payload_mismatches_extension(good))
+            html_as_mp4 = os.path.join(tmp, "item [3].mp4")
+            with open(html_as_mp4, "wb") as handle:
+                handle.write(b"<html><head></head></html>")
+            self.assertTrue(media_payload_mismatches_extension(html_as_mp4))
 
 
 class Clips4SaleHarvestTests(unittest.TestCase):

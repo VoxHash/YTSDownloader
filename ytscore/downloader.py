@@ -17,6 +17,7 @@ from ytscore.creator_media import (
     download_direct_media,
     fetch_html as creator_fetch_html,
     guess_direct_extension,
+    media_payload_mismatches_extension,
     needs_direct_cdn_download,
     rewrite_creator_media_url,
     safe_title_for_url,
@@ -219,6 +220,17 @@ def download_item(
     if skip_existing:
         guessed = _guess_media_id_from_url(download_url) or _guess_media_id_from_url(url)
         existing = find_existing_by_media_id(output_dir, guessed)
+        if existing and media_payload_mismatches_extension(existing):
+            logging.info(
+                "Existing file mismatched type for %s → %s; re-downloading",
+                url,
+                existing,
+            )
+            try:
+                os.remove(existing)
+            except OSError as err:
+                logging.warning("Could not remove mismatched file %s: %s", existing, err)
+            existing = None
         if existing:
             title = os.path.basename(existing)
             title_cache.put(url, title)
@@ -281,7 +293,7 @@ def download_item(
         title = safe_title_for_url(url, html or "")
         ext = guess_direct_extension(download_url, default=".mp4")
         dest = os.path.join(output_dir, f"{prefix}{title} [{media_id}]{ext}")
-        err = download_direct_media(
+        err, saved = download_direct_media(
             download_url,
             dest,
             settings,
@@ -290,6 +302,8 @@ def download_item(
         )
         if err:
             return DownloadResult(ok=False, error=err)
+        dest = saved or dest
+        ext = os.path.splitext(dest)[1].lower() or ext
         title_cache.put(url, title)
         if watermark_path and os.path.isfile(dest) and ext in (".mp4", ".webm", ".m4v", ".mov"):
             from ytscore.watermark import add_watermark

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-10-31
+
+### Fixed
+- **Aryion content types:** rewrite singles to `g4/data.php?id=` so original uploads download (image, video, audio, PDF, DOC/DOCX, TXT/RTF, Flash/SWF, ZIP/archives) instead of HTML story previews or wrong extensions.
+- Direct CDN saves use Content-Disposition / Content-Type for the file extension; `guess_direct_extension` covers document/audio/flash/archive suffixes.
+- Skip-existing no longer keeps mislabeled payloads (e.g. PDF/HTML saved as `.mp4`); mismatched magic triggers a re-download.
+
+### Changed
+- Docs: Aryion troubleshooting notes `data.php` originals + type detection.
+- ROADMAP: v0.20.1 Aryion type coverage.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.20.1** / 21.
+
+### Verified
+- Unit tests for Aryion `data.php` preference, extension mapping, and payload mismatch.
+- Live E2E against favorites URL + Cloud library repair for mislabeled items (cookies when configured).
+
 ## [0.20.0] - 2026-10-31
 
 ### Added
