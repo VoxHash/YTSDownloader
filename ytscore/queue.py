@@ -80,6 +80,28 @@ class DownloadQueue:
         with self._lock:
             return [self._jobs[i] for i in self._order]
 
+    def job_count(self) -> int:
+        with self._lock:
+            return len(self._order)
+
+    def progress_stats(self) -> tuple[int, int, int, float]:
+        """Return (total, done_count, failed_count, average_progress) under one lock."""
+        with self._lock:
+            total = len(self._order)
+            if total == 0:
+                return 0, 0, 0, 0.0
+            done = 0
+            failed = 0
+            prog = 0.0
+            for jid in self._order:
+                job = self._jobs[jid]
+                prog += float(job.progress)
+                if job.state == JobState.DONE:
+                    done += 1
+                elif job.state == JobState.FAILED:
+                    failed += 1
+            return total, done, failed, prog / total
+
     def add(
         self,
         url: str,
@@ -426,6 +448,13 @@ class DownloadQueue:
             job.message = "Downloading…"
         self._emit(job)
 
+        # Throttle progress-only listener emits; always keep job fields fresh.
+        last_progress_emit = [0.0]
+        try:
+            from ytscore.queue_view import PROGRESS_EMIT_MIN_INTERVAL_S
+        except Exception:  # pragma: no cover - circular-import guard
+            PROGRESS_EMIT_MIN_INTERVAL_S = 0.35
+
         def hook(d: dict) -> None:
             if d.get("status") == "downloading":
                 total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
@@ -434,6 +463,10 @@ class DownloadQueue:
                 with self._lock:
                     job.progress = min(99.0, pct)
                     job.message = d.get("_percent_str") or f"{pct:.1f}%"
+                now = time.monotonic()
+                if now - last_progress_emit[0] < PROGRESS_EMIT_MIN_INTERVAL_S:
+                    return
+                last_progress_emit[0] = now
                 self._emit(job)
 
         try:

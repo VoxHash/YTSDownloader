@@ -54,13 +54,13 @@ Optional activation: bash/zsh `source .venv/bin/activate`, fish `source .venv/bi
 10. Optional: a browser companion, Android phone, or Quest panel can drop URLs into `.ytsdownloader/inbox/` or append NDJSON to `.ytsdownloader/companion_inbox.jsonl` while the Suite is open — the desktop app remains the downloader ([cross-platform.md](cross-platform.md), [Architecture](architecture.md#browser-companion-handoff-contract)).
 11. Use **Metadata Bridge** while a desktop music client is playing to queue a matching public-host audio download.
 12. Use **Settings** to edit and **Save** `config.ini` (cookies, pace, backoff, workers, formats, skip/overwrite/numbering, status analytics); most knobs apply without restarting the app.
-13. Watch per-item progress on the Queue page (Export column shows audio / video / video+wm). With **Show analytics in status bar** enabled (default), the status bar shows local session **OK** / **Err** counts plus **Last** and **Avg** job durations — nothing is sent over the network.
+13. Watch per-item progress on the Queue page (Export column shows audio / video / video+wm). Large queues show **one filtered page** (Prev/Next); the status line still reports full `done/total` counts. With **Show analytics in status bar** enabled (default), the status bar shows local session **OK** / **Err** counts plus **Last** and **Avg** job durations — nothing is sent over the network.
 
 ## Queue persistence
 
-The Suite saves the download queue to `.ytsdownloader/queue_state.json` (gitignored) whenever items are enqueued, change state, you clear finished / clear all, or the app closes.
+The Suite saves the download queue to `.ytsdownloader/queue_state.json` (gitignored) when items are enqueued, change state, you clear finished / clear all, or the app closes. Large queues debounce and compact that write so the UI stays responsive.
 
-On the next launch the queue is restored into the table. Items that were **running** come back as **queued** with a resume hint — downloads are **not** auto-started. Press **Start** when you are ready.
+On the next launch the queue is restored (table shows the first filtered page). Items that were **running** come back as **queued** with a resume hint — downloads are **not** auto-started. Press **Start** when you are ready.
 
 **Clear Finished** removes done / failed / cancelled jobs from both the table and the saved file. **Clear All** asks for confirmation, then removes every item and persists the empty queue.
 

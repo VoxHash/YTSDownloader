@@ -52,7 +52,9 @@ class QuestPackagingSourceTests(unittest.TestCase):
         self.assertIn("targetSdk = 34", text)
         self.assertIn("arm64-v8a", text)
         self.assertIn("questRelease", text)
-        self.assertIn('versionName = "0.20.1"', text)
+        from ytscore import __version__ as desk_ver
+
+        self.assertIn(f'versionName = "{desk_ver}"', text)
         self.assertIn("meta-spatial-sdk", text)
 
     def test_check_quest_packaging_script_source_gate(self) -> None:

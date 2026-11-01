@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-01
+
+### Fixed
+- **Large-queue Suite freeze (“Not Responding”):** Queue no longer rebuilds/hides 10k+ `QTableWidget` rows on every progress tick. Table renders a filtered page (250 rows) with Prev/Next; UI updates coalesce (~300 ms); progress listener emits throttle (~350 ms).
+- Persist debounce scales with queue size (~3.5 s for large N); compact JSON + background write so 13k snapshots do not block the Qt event loop.
+
+### Changed
+- Docs: architecture / ROADMAP note that download core stays Python+PyQt6+yt-dlp — freezes were UI/persist O(n), not I/O language choice; native helpers remain optional for normalize/inbox/prio only.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.21.0** / 23.
+
+### Verified
+- Unit tests for filter/paginate/persist pacing + progress emit throttle (`tests/test_queue_view.py`).
+- Offscreen smoke: 3000 fake jobs, Failed filter renders subset only, coalesced in-place progress update.
+
 ## [0.20.2] - 2026-11-01
 
 ### Fixed

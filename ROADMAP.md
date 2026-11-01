@@ -1,8 +1,12 @@
 # Roadmap
 
-Current product baseline: **v0.20.2** — Aryion favorites/category listings paginate all `?p=` pages on top of **v0.20.1** multi-type `data.php` downloads, **v0.20.0** creator / gallery / clip hosts (`creator_media`), **v0.19.0** adult video host (`rule34_video`), and earlier Suite polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
+Current product baseline: **v0.21.0** — large-queue Suite stays responsive (paged table, coalesced UI, paced persist) on top of **v0.20.2** Aryion full listing pagination, **v0.20.1** multi-type `data.php` downloads, **v0.20.0** creator / gallery / clip hosts (`creator_media`), and earlier Suite polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
 
-## Now (v0.20.x)
+## Now (v0.21.x)
+
+- [x] **Large-queue responsiveness** — paginated/filtered queue table, coalesced progress UI, size-aware JSON persist; keep Python+PyQt6 (freeze was UI/persist, not download language) (v0.21.0).
+
+### Prior (v0.20.x)
 
 - [x] **Aryion full listing pagination** — Deep/Videos (and Unlimited shallow resolve) walk `Page X of Y` / `Next >>` / `?p=N` until exhausted (v0.20.2).
 - [x] **Aryion all content types** — `data.php?id=` originals + Content-Type/Disposition extensions (image/video/audio/document/flash/archive); skip-existing rejects mislabeled payloads (v0.20.1).
@@ -48,6 +52,7 @@ _(no active desktop milestone — see Later)_
 
 ### Native / core (deferred with rationale)
 
+- [ ] **Rewrite download core in Rust/Go** — **not recommended for Suite “Not Responding” at 10k+ queue size.** Downloads are I/O-bound (yt-dlp + network); measured freezes were main-thread UI rebuild + full JSON persist O(n). Fix UI architecture (v0.21.0). Keep Python+PyQt6+yt-dlp unless profiling proves otherwise; native helpers only where they already help (normalize / inbox / prio).
 - [ ] Pure-Zig `build-exe` rewrite of `yts-prio` — deferred while Zig 0.17 process/Io and `@cImport` settle; **`zig cc` on the C sources** is the supported Zig toolchain path today.
 - [ ] Cross-process Rust slot-broker sidecar — deferred; in-process `ThreadPoolExecutor` + `MAX_WORKERS` already bounds concurrency; no measured multi-process win yet.
 - [ ] Native watermark preprocess (Zig/C) — deferred; profiling shows encode cost dominates spawn/preprocess.

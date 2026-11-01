@@ -158,7 +158,15 @@ class TriageUiSmokeTests(unittest.TestCase):
             try:
                 self.assertTrue(hasattr(win, "triage_detail"))
                 self.assertTrue(hasattr(win, "triage_category"))
+                # Isolate from the developer's real queue_state.json / large restores.
+                win._persist_enabled = False
+                win._queue_state_path = os.path.join(tmp, "queue_state.json")
+                if win.queue:
+                    win.queue.clear_all()
+                    win._rebuild_queue_table()
                 q = win._ensure_queue()
+                q.clear_all()
+                win._rebuild_queue_table()
                 job = q.add(
                     "https://example.com/smoke-fail",
                     media="video",
@@ -170,6 +178,7 @@ class TriageUiSmokeTests(unittest.TestCase):
                 job.message = job.error
                 job.progress = 18.0
                 win._upsert_job_row(job)
+                self.assertIn(job.id, win._job_rows)
                 win.queue_table.selectRow(win._job_rows[job.id])
                 win._refresh_failure_triage()
                 self.assertIn("Auth", win.triage_category.text())

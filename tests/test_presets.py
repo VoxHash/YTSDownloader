@@ -173,6 +173,11 @@ class PresetUiSmokeTests(unittest.TestCase):
             save_settings(Settings(theme="SuiteDark", cookies_from_browser="brave:Default"), path)
             win = SuiteWindow(settings=Settings(theme="SuiteDark"), config_path=path)
             try:
+                win._persist_enabled = False
+                win._queue_state_path = os.path.join(tmp, "queue_state.json")
+                if win.queue:
+                    win.queue.clear_all()
+                    win._rebuild_queue_table()
                 self.assertGreaterEqual(win.preset_combo.count(), 3)
                 # Select Audio only
                 idx = win.preset_combo.findData("audio_only")
@@ -185,6 +190,8 @@ class PresetUiSmokeTests(unittest.TestCase):
 
                 # Queue a fake job and apply Video + audio via queue controls
                 q = win._ensure_queue()
+                q.clear_all()
+                win._rebuild_queue_table()
                 job = q.add(
                     "https://example.com/smoke",
                     media="audio",

@@ -22,6 +22,18 @@ main.py ──► ytsgui (Suite UI)          [--legacy ► classic tabs]
 
 Downloads are network-bound. The suite stays on **Python + PyQt6 + yt-dlp** so extractor maintenance stays with yt-dlp and the GUI remains one process.
 
+### Large queues vs language rewrite (v0.21.0)
+
+A Suite window marked **Not Responding** with ~10k–15k queued jobs while the progress bar still moves is almost always **main-thread UI + persistence**, not download CPU:
+
+| Path | Cost at N≈13k | Mitigation (v0.21.0) |
+| --- | --- | --- |
+| Progress → table | Full-table filter / `setRowHidden` / item rebuild per tick | Coalesce UI (~300 ms); throttle progress emits; render **one filtered page** (250 rows) |
+| `queue_state.json` | Serialize + pretty-print entire queue on the UI thread | Size-aware debounce (~3.5 s), compact JSON, background write |
+| Workers / yt-dlp | I/O-bound network + extract | Unchanged — rewriting this layer in Rust/Go would **not** unfreeze the Qt UI |
+
+**Recommendation:** keep Python+PyQt6+yt-dlp. Prefer further queue-index / persist helpers only if profiling shows them hotter than the UI path. Optional native sidecars below stay for normalize / inbox / process priority — not a download-core rewrite.
+
 ### Optional native sidecars (v0.5.0)
 
 Focused helpers reduce GIL/disk contention without rewriting the download path. Missing binaries fail soft to Python.
@@ -60,7 +72,7 @@ Local 10 000-URL batch (5 000 unique × 2): Python fallback ~26 ms; Rust sid
 2. **UI (Suite)** — Sidebar navigation: Download (with URL drop zone, crawl mode + limit), Queue (state/search filters, failure triage + one-click retry), Link Grabber, Metadata Bridge, editable Settings. Dark suite theme under `themes/SuiteDark/`. Optional permanent status-bar analytics (OK / Err / Last / Avg).
 3. **UI (Legacy)** — `python main.py --legacy` keeps the classic multi-tab window.
 4. **Extraction** — yt-dlp resolves playlists/profiles and downloads best video+audio or audio-only. Optional TLS impersonation (`curl_cffi` + `IMPERSONATE`) helps hosts that block plain clients. `ytscore.crawl` adds deeper profile/channel modes (multi-tab YouTube; flat social / adult-tube feeds; `rule34_video` listing pagination; `creator_media` creator/gallery/clip hosts) gated on cookie auth where required; pacing between tab fetches reuses `COUNT_TIMER_ONGOING` / backoff helpers. Private/unlisted playlists need cookies. Adult video and creator-host CDN/preview streams may use Suite-owned HTTP streaming when stock extractors miss formats, while still using yt-dlp networking + cookies. Only legally reachable surfaces for the signed-in session.
-5. **Queue** — Thread-pool workers with start-slot pacing, exponential retry backoff (harder on HTTP 429), and per-item progress. Snapshot persistence via `ytscore.persist` writes `.ytsdownloader/queue_state.json`; restore remaps in-flight jobs to queued (no auto-start). Export presets (`ytscore.presets`) set per-job media / watermark / container on enqueue or batch-apply. Failure triage (`ytscore.triage`) classifies errors; `retry_jobs` / `retry_failed` re-queue cleanly without dropping URL or export options. Context actions call `remove_jobs` / `force_download` (front-of-queue + pace bypass); folder Browse uses `ytscore.folder_dialog` sidebar URLs (system root + external volumes). App icon lives under `assets/icons/` (`ytscore.icons`).
+5. **Queue** — Thread-pool workers with start-slot pacing, exponential retry backoff (harder on HTTP 429), and per-item progress. Suite table uses `ytscore.queue_view` (filter + paginate; coalesce updates). Snapshot persistence via `ytscore.persist` writes `.ytsdownloader/queue_state.json` with size-aware debounce/compact JSON; restore remaps in-flight jobs to queued (no auto-start) and refreshes one table page. Export presets (`ytscore.presets`) set per-job media / watermark / container on enqueue or batch-apply. Failure triage (`ytscore.triage`) classifies errors; `retry_jobs` / `retry_failed` re-queue cleanly without dropping URL or export options. Context actions call `remove_jobs` / `force_download` (front-of-queue + pace bypass); folder Browse uses `ytscore.folder_dialog` sidebar URLs (system root + external volumes). App icon lives under `assets/icons/` (`ytscore.icons`).
 6. **Companion handoff** — Optional browser companion, Android companion (`android/`, see [android.md](android.md)), or script may send media URLs into a local inbox under `.ytsdownloader/`; the Suite polls and feeds the same resolve/queue path as drag-and-drop. The desktop app remains the only downloader.
 7. **Metadata bridge** — Reads the open desktop music-session metadata (MPRIS on Linux), builds a search query, and queues a matching public-host audio download.
 8. **Post-process** — Optional full-frame PNG watermark composite (Watermark export preset or Custom with a PNG path).

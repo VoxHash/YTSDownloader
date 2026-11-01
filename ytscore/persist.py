@@ -132,12 +132,25 @@ def deserialize_queue_snapshot(
     return jobs, meta
 
 
-def save_queue_state(path: str, snapshot: Dict[str, Any]) -> None:
+def save_queue_state(
+    path: str,
+    snapshot: Dict[str, Any],
+    *,
+    indent: Optional[int] = 2,
+) -> None:
+    """
+    Atomically write queue snapshot JSON.
+
+    ``indent=None`` writes compact JSON (preferred for large queues).
+    """
     directory = os.path.dirname(path) or "."
     os.makedirs(directory, exist_ok=True)
     tmp = f"{path}.tmp"
     with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(snapshot, fh, indent=2, ensure_ascii=False)
+        if indent is None:
+            json.dump(snapshot, fh, ensure_ascii=False, separators=(",", ":"))
+        else:
+            json.dump(snapshot, fh, indent=indent, ensure_ascii=False)
         fh.write("\n")
     os.replace(tmp, path)
 

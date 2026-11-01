@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
 from typing import Dict, List, Optional, Set
 
@@ -95,6 +96,15 @@ from ytscore.presets import (
     resolve_job_options,
 )
 from ytscore.queue import DownloadQueue, QueueJob, JobState
+from ytscore.queue_view import (
+    QUEUE_TABLE_PAGE_SIZE,
+    UI_FLUSH_INTERVAL_MS,
+    filter_jobs,
+    job_matches_filters,
+    paginate_jobs,
+    persist_debounce_ms,
+    persist_json_indent,
+)
 from ytscore.resolvers import auth_probe, detect_platform
 from ytscore.settings import Settings, load_settings, save_settings, DEFAULT_CONFIG_PATH
 from ytscore.triage import (
@@ -216,7 +226,12 @@ class SuiteWindow(QMainWindow):
         self.queue: Optional[DownloadQueue] = None
         self._bridge = QueueBridge()
         self._bridge.job_updated.connect(self._on_job_updated)
-        self._job_rows = {}
+        self._job_rows: Dict[str, int] = {}
+        self._row_jobs: Dict[int, str] = {}
+        self._pending_job_updates: Dict[str, QueueJob] = {}
+        self._queue_page = 0
+        self._queue_view_dirty = False
+        self._persist_write_lock = threading.Lock()
         self._queue_state_path = default_queue_state_path()
         self._persist_enabled = True
         self._companion_inbox_dir = default_inbox_dir()
@@ -277,8 +292,18 @@ class SuiteWindow(QMainWindow):
 
         self._persist_timer = QTimer(self)
         self._persist_timer.setSingleShot(True)
-        self._persist_timer.setInterval(400)
+        self._persist_timer.setInterval(persist_debounce_ms(0))
         self._persist_timer.timeout.connect(self._persist_queue_now)
+
+        self._ui_flush_timer = QTimer(self)
+        self._ui_flush_timer.setSingleShot(True)
+        self._ui_flush_timer.setInterval(UI_FLUSH_INTERVAL_MS)
+        self._ui_flush_timer.timeout.connect(self._flush_pending_job_updates)
+
+        self._filter_debounce_timer = QTimer(self)
+        self._filter_debounce_timer.setSingleShot(True)
+        self._filter_debounce_timer.setInterval(150)
+        self._filter_debounce_timer.timeout.connect(self._refresh_queue_view)
 
         self._spotify_timer = QTimer(self)
         self._spotify_timer.setInterval(2000)
@@ -554,6 +579,25 @@ class SuiteWindow(QMainWindow):
         self.queue_filter_count.setObjectName("pageHint")
         filter_row.addWidget(self.queue_filter_count)
         layout.addLayout(filter_row)
+
+        page_row = QHBoxLayout()
+        self.queue_prev_page_btn = QPushButton("Prev")
+        self.queue_prev_page_btn.setStyleSheet(
+            "QPushButton { background: transparent; color: #fff; border: 1px solid #727272; border-radius: 20px; }"
+        )
+        self.queue_prev_page_btn.clicked.connect(self._queue_prev_page)
+        self.queue_next_page_btn = QPushButton("Next")
+        self.queue_next_page_btn.setStyleSheet(
+            "QPushButton { background: transparent; color: #fff; border: 1px solid #727272; border-radius: 20px; }"
+        )
+        self.queue_next_page_btn.clicked.connect(self._queue_next_page)
+        self.queue_page_label = QLabel("Page 1/1")
+        self.queue_page_label.setObjectName("pageHint")
+        page_row.addWidget(self.queue_prev_page_btn)
+        page_row.addWidget(self.queue_next_page_btn)
+        page_row.addWidget(self.queue_page_label)
+        page_row.addStretch(1)
+        layout.addLayout(page_row)
 
         preset_row = QHBoxLayout()
         preset_row.addWidget(QLabel("Export preset"))
@@ -1328,13 +1372,16 @@ class SuiteWindow(QMainWindow):
         ids: List[str] = []
         seen = set()
         for idx in self.queue_table.selectionModel().selectedRows():
-            row = idx.row()
-            for jid, r in self._job_rows.items():
-                if r == row and jid not in seen:
-                    ids.append(jid)
-                    seen.add(jid)
-                    break
+            jid = self._row_jobs.get(idx.row())
+            if jid and jid not in seen:
+                ids.append(jid)
+                seen.add(jid)
         return ids
+
+    def _current_queue_filters(self) -> tuple[str, str]:
+        state_want = self.queue_state_filter.currentData() or ""
+        needle = self.queue_search_filter.text().strip()
+        return str(state_want), needle
 
     def _refresh_failure_triage(self) -> None:
         if not hasattr(self, "triage_detail"):
@@ -1551,37 +1598,19 @@ class SuiteWindow(QMainWindow):
         self._refresh_status(f"Queued {len(links)} from drop ({preset.name})")
 
     def _apply_queue_filters(self) -> None:
-        state_want = self.queue_state_filter.currentData() or ""
-        needle = self.queue_search_filter.text().strip().lower()
-        visible = 0
-        total = self.queue_table.rowCount()
-        for row in range(total):
-            state_item = self.queue_table.item(row, 2)
-            title_item = self.queue_table.item(row, 1)
-            export_item = self.queue_table.item(row, 3)
-            msg_item = self.queue_table.item(row, 5)
-            state = (state_item.text() if state_item else "").lower()
-            title = (title_item.text() if title_item else "").lower()
-            export = (export_item.text() if export_item else "").lower()
-            msg = (msg_item.text() if msg_item else "").lower()
-            state_ok = not state_want or state == state_want.lower()
-            text_ok = (
-                not needle
-                or needle in title
-                or needle in msg
-                or needle in state
-                or needle in export
-            )
-            show = state_ok and text_ok
-            self.queue_table.setRowHidden(row, not show)
-            if show:
-                visible += 1
-        if total == 0:
-            self.queue_filter_count.setText("")
-        elif visible == total and not state_want and not needle:
-            self.queue_filter_count.setText(f"{total} item(s)")
-        else:
-            self.queue_filter_count.setText(f"{visible}/{total} shown")
+        """Debounce filter/search changes; rebuild only the visible page."""
+        self._queue_page = 0
+        self._filter_debounce_timer.start()
+
+    def _queue_prev_page(self) -> None:
+        if self._queue_page <= 0:
+            return
+        self._queue_page -= 1
+        self._refresh_queue_view()
+
+    def _queue_next_page(self) -> None:
+        self._queue_page += 1
+        self._refresh_queue_view()
 
     def _ensure_queue(self) -> DownloadQueue:
         out = self.out_edit.text().strip() or os.path.expanduser("~/Downloads/YTSDownloader")
@@ -1614,21 +1643,36 @@ class SuiteWindow(QMainWindow):
     def _schedule_persist(self) -> None:
         if not self._persist_enabled:
             return
+        n = self.queue.job_count() if self.queue else 0
+        self._persist_timer.setInterval(persist_debounce_ms(n))
         self._persist_timer.start()
 
-    def _persist_queue_now(self) -> None:
+    def _persist_queue_now(self, *, wait: bool = False) -> None:
         if not self._persist_enabled or not self.queue:
             return
+        jobs = self.queue.jobs()
         snapshot = serialize_queue_snapshot(
-            jobs=self.queue.jobs(),
+            jobs=jobs,
             output_dir=self.queue.output_dir,
             watermark_path=self.queue.watermark_path,
             output_format=self.queue.output_format,
         )
-        try:
-            save_queue_state(self._queue_state_path, snapshot)
-        except OSError:
-            pass
+        path = self._queue_state_path
+        indent = persist_json_indent(len(jobs))
+        lock = self._persist_write_lock
+
+        def _write() -> None:
+            with lock:
+                try:
+                    save_queue_state(path, snapshot, indent=indent)
+                except OSError:
+                    pass
+
+        # Large snapshots must not block the Qt event loop (Not Responding).
+        if not wait and len(jobs) >= 200:
+            threading.Thread(target=_write, name="yts-queue-persist", daemon=True).start()
+        else:
+            _write()
 
     def _restore_queue_from_disk(self) -> None:
         data = load_queue_state(self._queue_state_path)
@@ -1652,8 +1696,8 @@ class SuiteWindow(QMainWindow):
                     self.format_combo.setCurrentIndex(idx)
             q = self._ensure_queue()
             q.restore_jobs(jobs)
-            for job in q.jobs():
-                self._upsert_job_row(job)
+            self._queue_page = 0
+            self._refresh_queue_view()
             pending = sum(1 for j in jobs if j.state == JobState.QUEUED)
             done = sum(1 for j in jobs if j.state == JobState.DONE)
             failed = sum(1 for j in jobs if j.state == JobState.FAILED)
@@ -1811,15 +1855,62 @@ class SuiteWindow(QMainWindow):
             self._refresh_status("Queue stopped")
 
     def _rebuild_queue_table(self) -> None:
+        self._pending_job_updates.clear()
+        self._queue_view_dirty = False
+        self._refresh_queue_view()
+
+    def _refresh_queue_view(self) -> None:
+        """Render only the current filtered page (never 10k+ hidden QTable rows)."""
+        self._filter_debounce_timer.stop()
         self.queue_table.setRowCount(0)
         self._job_rows.clear()
-        if not self.queue:
-            return
-        for job in self.queue.jobs():
-            self._upsert_job_row(job)
-        self._apply_queue_filters()
+        self._row_jobs.clear()
+        jobs = self.queue.jobs() if self.queue else []
+        state_want, needle = self._current_queue_filters()
+        matched = filter_jobs(jobs, state_want, needle)
+        page_items, page_i, pages, matched_total = paginate_jobs(
+            matched, self._queue_page, QUEUE_TABLE_PAGE_SIZE
+        )
+        self._queue_page = page_i
+        self.queue_table.setUpdatesEnabled(False)
+        try:
+            self.queue_table.setRowCount(len(page_items))
+            for row, job in enumerate(page_items):
+                self._job_rows[job.id] = row
+                self._row_jobs[row] = job.id
+                self._fill_job_row(row, job)
+        finally:
+            self.queue_table.setUpdatesEnabled(True)
+        self._queue_view_dirty = False
+        if not jobs:
+            self.queue_filter_count.setText("")
+        elif matched_total == len(jobs) and not state_want and not needle:
+            if matched_total <= QUEUE_TABLE_PAGE_SIZE:
+                self.queue_filter_count.setText(f"{matched_total} item(s)")
+            else:
+                shown = len(page_items)
+                self.queue_filter_count.setText(
+                    f"{shown}/{matched_total} on page (cap {QUEUE_TABLE_PAGE_SIZE})"
+                )
+        else:
+            self.queue_filter_count.setText(
+                f"{len(page_items)}/{matched_total} shown "
+                f"({len(jobs)} total)"
+            )
+        if hasattr(self, "queue_page_label"):
+            self.queue_page_label.setText(f"Page {page_i + 1}/{pages}")
+            self.queue_prev_page_btn.setEnabled(page_i > 0)
+            self.queue_next_page_btn.setEnabled(page_i + 1 < pages)
         self._refresh_failure_triage()
         self._update_overall()
+
+    def _fill_job_row(self, row: int, job: QueueJob) -> None:
+        self.queue_table.setItem(row, 0, QTableWidgetItem(str(job.index or "")))
+        self.queue_table.setItem(row, 1, QTableWidgetItem(job.title or job.url))
+        self.queue_table.setItem(row, 2, QTableWidgetItem(job.state.value))
+        self.queue_table.setItem(row, 3, QTableWidgetItem(self._job_export_label(job)))
+        self.queue_table.setItem(row, 4, QTableWidgetItem(f"{job.progress:.0f}%"))
+        self.queue_table.setItem(row, 5, QTableWidgetItem(job.message or job.error or ""))
 
     def _clear_finished(self) -> None:
         if not self.queue:
@@ -1847,10 +1938,7 @@ class SuiteWindow(QMainWindow):
         self._refresh_status(f"Cleared {n} queue item(s)")
 
     def _job_id_at_row(self, row: int) -> Optional[str]:
-        for jid, r in self._job_rows.items():
-            if r == row:
-                return jid
-        return None
+        return self._row_jobs.get(row)
 
     def _queue_table_context_menu(self, pos: QPoint) -> None:
         if not self.queue:
@@ -1906,14 +1994,44 @@ class SuiteWindow(QMainWindow):
             QMessageBox.information(self, "Force download", "No matching queue items.")
 
     def _on_job_updated(self, job: QueueJob) -> None:
-        self._upsert_job_row(job)
-        self._update_overall()
+        # Coalesce high-frequency progress onto a timer; keep analytics immediate.
+        self._pending_job_updates[job.id] = job
         self._track_job_analytics(job)
-        self.cache_label.setText(title_cache.status_text())
+        if job.state in (JobState.DONE, JobState.FAILED, JobState.CANCELLED, JobState.QUEUED):
+            # Membership of filtered pages may change on terminal / re-queue.
+            self._queue_view_dirty = True
+        if not self._ui_flush_timer.isActive():
+            self._ui_flush_timer.start()
         self._schedule_persist()
-        selected = self._selected_queue_job_ids()
-        if job.id in selected or job.state == JobState.FAILED:
-            self._refresh_failure_triage()
+
+    def _flush_pending_job_updates(self) -> None:
+        pending = self._pending_job_updates
+        if not pending and not self._queue_view_dirty:
+            self._update_overall()
+            return
+        jobs = list(pending.values())
+        pending.clear()
+        state_want, needle = self._current_queue_filters()
+        need_refresh = self._queue_view_dirty
+        for job in jobs:
+            row = self._job_rows.get(job.id)
+            matches = job_matches_filters(job, state_want, needle)
+            if row is not None:
+                if matches:
+                    self._fill_job_row(row, job)
+                else:
+                    need_refresh = True
+            elif matches:
+                need_refresh = True
+        if need_refresh:
+            self._refresh_queue_view()
+        else:
+            self._update_overall()
+            selected = self._selected_queue_job_ids()
+            if any(j.id in selected or j.state == JobState.FAILED for j in jobs):
+                self._refresh_failure_triage()
+        if hasattr(self, "cache_label"):
+            self.cache_label.setText(title_cache.status_text())
 
     def _track_job_analytics(self, job: QueueJob) -> None:
         """Update local session counters when a job finishes (or is re-queued)."""
@@ -1940,32 +2058,30 @@ class SuiteWindow(QMainWindow):
         self._refresh_analytics_label()
 
     def _upsert_job_row(self, job: QueueJob) -> None:
+        """Update a visible row in place, or refresh the filtered page if needed."""
+        state_want, needle = self._current_queue_filters()
         row = self._job_rows.get(job.id)
-        if row is None:
-            row = self.queue_table.rowCount()
-            self.queue_table.insertRow(row)
-            self._job_rows[job.id] = row
-        self.queue_table.setItem(row, 0, QTableWidgetItem(str(job.index or "")))
-        self.queue_table.setItem(row, 1, QTableWidgetItem(job.title or job.url))
-        self.queue_table.setItem(row, 2, QTableWidgetItem(job.state.value))
-        self.queue_table.setItem(row, 3, QTableWidgetItem(self._job_export_label(job)))
-        self.queue_table.setItem(row, 4, QTableWidgetItem(f"{job.progress:.0f}%"))
-        self.queue_table.setItem(row, 5, QTableWidgetItem(job.message or job.error or ""))
-        self._apply_queue_filters()
+        matches = job_matches_filters(job, state_want, needle)
+        if row is not None:
+            if matches:
+                self._fill_job_row(row, job)
+            else:
+                self._refresh_queue_view()
+            return
+        if matches:
+            # New visible job — rebuild page so pagination stays correct.
+            self._refresh_queue_view()
 
     def _update_overall(self) -> None:
         if not self.queue:
             self.overall_progress.setValue(0)
             return
-        jobs = self.queue.jobs()
-        if not jobs:
+        total, done, failed, avg = self.queue.progress_stats()
+        if total == 0:
             self.overall_progress.setValue(0)
             return
-        avg = sum(j.progress for j in jobs) / len(jobs)
         self.overall_progress.setValue(int(avg))
-        done = sum(1 for j in jobs if j.state == JobState.DONE)
-        failed = sum(1 for j in jobs if j.state == JobState.FAILED)
-        self._refresh_status(f"Queue: {done}/{len(jobs)} done, {failed} failed")
+        self._refresh_status(f"Queue: {done}/{total} done, {failed} failed")
 
     @staticmethod
     def _compact_ui_text(text: str, max_len: int = 160) -> str:
@@ -2096,9 +2212,12 @@ class SuiteWindow(QMainWindow):
     def closeEvent(self, event) -> None:  # noqa: N802
         self._spotify_timer.stop()
         self._companion_timer.stop()
+        self._ui_flush_timer.stop()
+        self._filter_debounce_timer.stop()
         self._persist_timer.stop()
+        self._flush_pending_job_updates()
         self._save_window_geometry()
         if self.queue:
             self.queue.stop()
-            self._persist_queue_now()
+            self._persist_queue_now(wait=True)
         super().closeEvent(event)

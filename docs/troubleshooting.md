@@ -68,6 +68,18 @@ Clear the Suite field (or empty `IMPERSONATE`) to disable the Suite default. Ext
 - Verify `themes/<THEME>/style.qss` exists
 - Ensure `THEME` in `config.ini` matches the folder name exactly
 
+## Suite shows “Not Responding” with a huge Queue
+
+Workers can keep downloading while the window frame freezes. That was usually **Queue UI + JSON persist on the main thread** (full-table filter / rebuild, rewriting `.ytsdownloader/queue_state.json` for every progress tick), not proof that the download core needs a new language.
+
+From **v0.21.0** the Queue table shows one **filtered page** (Prev/Next, 250 rows), coalesces progress updates, and debounces compact snapshots off the UI thread. Practical tips for 10k+ jobs:
+
+1. Update to **≥ 0.21.0**, then restart the Suite so restore uses the paged view (not one row insert per job).
+2. Filter **State → Failed** (or Running) instead of scrolling All; use Prev/Next for other pages.
+3. Prefer **Clear Finished** periodically so done/failed rows leave the persisted snapshot.
+4. Avoid hammering Search while thousands of items are mid-progress; filters debounce, but typing still rescans the in-memory job list.
+5. If the window was frozen mid-run on an older build, Stop → wait for the process to accept input → upgrade → Start again (restore remaps in-flight jobs to queued).
+
 ## GUI / logging handler errors on exit
 
 Known edge case during Qt shutdown order. Prefer confirming downloads completed; improvements are tracked under Milestone “Now” in `ROADMAP.md`.
