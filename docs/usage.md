@@ -75,6 +75,7 @@ On Linux, **Browse** for the output folder (Download page and Settings default o
 - TikTok profile / video URLs
 - Adult-tube video / playlist / model URLs (private / unlisted playlists need cookies; Deep crawl enumerates videos / GIFs / albums when cookies are set)
 - Adult video host (`rule34video.com` class): single videos, latest/top feeds, tags, members, search — paste into Download URL; Deep / Videos crawl paginates listings (cookies recommended for age-gated or restricted surfaces)
+- Creator / gallery / clip hosts (`creator_media`): ManyVids, RedGifs, Vimeo, VK, Reddit, Twitter/X via yt-dlp when the extractor works; Clips4Sale / Aryion favorites + gallery-class hosts via clean-room HTML harvest and public preview/CDN rewrite (cookies for purchased or restricted surfaces your session can already open)
 - Catalog track / playlist / album URLs for the metadata bridge
 
 ## Auth check

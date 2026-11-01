@@ -1,10 +1,14 @@
 # Roadmap
 
-Current product baseline: **v0.19.0** — adult video host (`rule34_video`) resolve / crawl / CDN download on top of **v0.18.0** crawl Limit Unlimited / skip-existing / numbering, **v0.17.2** resilient YouTube formats / EJS, and earlier adult-tube / Suite polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
+Current product baseline: **v0.20.0** — creator / gallery / clip hosts (`creator_media`) on top of **v0.19.0** adult video host (`rule34_video`), **v0.18.0** crawl Limit Unlimited / skip-existing / numbering, and earlier adult-tube / Suite polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
 
-## Now (v0.19.x)
+## Now (v0.20.x)
 
-- [x] **Adult video host (`rule34_video`)** — platform detect, video / listing / tag / member / search resolve, paced Deep crawl, CDN rewrite + direct stream download (cookies + impersonate).
+- [x] **Creator / gallery / clip hosts (`creator_media`)** — platform detect for yt-dlp-backed and clean-room HTML hosts (ManyVids, RedGifs, Vimeo, VK, Reddit, Twitter/X, Clips4Sale, Aryion, gallery-class); resolve / crawl / CDN-or-preview download via Suite auth stack.
+
+### Prior (v0.19.x)
+
+- [x] **Adult video host (`rule34_video`)** — see v0.19.0.
 
 ## Next
 

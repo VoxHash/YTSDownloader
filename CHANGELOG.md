@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-31
+
+### Added
+- **Creator / gallery / clip host class (`creator_media`):** platform detect for ManyVids, RedGifs, Vimeo, VK, Reddit, Twitter/X, Clips4Sale, Aryion, Fapello, PornPics, and TWPornstars-class URLs.
+- yt-dlp resolve/crawl path for extractor-backed hosts; clean-room HTML listing harvest + CDN/preview rewrite for hosts without (or beyond) stock extractors — wired into Download URL, crawl modes, cookies, TLS impersonate, skip-existing, and format fallbacks.
+- Unit tests: `tests/test_resolvers_creator_media.py`, `tests/test_creator_media_crawl.py`.
+
+### Changed
+- Docs: usage / FAQ / configuration / architecture note creator-media hosts generically.
+- ROADMAP: v0.20.0 Now for browser-companion-class → desktop Suite host coverage.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.20.0** / 20.
+
+### Verified
+- Host: focused creator_media unit tests + Suite `unittest discover`.
+- Live resolve (+ light download when safe) for ManyVids / RedGifs-class URLs and Aryion favorites listing harvest with local cookies when configured (secrets redacted).
+
 ## [0.19.0] - 2026-10-31
 
 ### Added

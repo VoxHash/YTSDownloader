@@ -1,6 +1,6 @@
 # YTSDownloader Documentation
 
-Desktop tool by **VoxHash Technologies** for downloading short-form videos from YouTube, Instagram, Facebook, TikTok, adult-tube hosts, and related adult video hosts with optional watermarking.
+Desktop tool by **VoxHash Technologies** for downloading short-form videos from YouTube, Instagram, Facebook, TikTok, adult-tube hosts, related adult video hosts, and creator / gallery / clip hosts with optional watermarking.
 
 ## Guides
 

@@ -11,6 +11,16 @@ from typing import Callable, Optional
 from ytscore.adult_tube import rewrite_adult_tube_media_url
 from ytscore.backoff import compute_backoff_seconds, is_rate_limited
 from ytscore.cache import title_cache
+from ytscore.creator_media import (
+    HTML_CREATOR_PLATFORMS,
+    creator_media_id,
+    download_direct_media,
+    fetch_html as creator_fetch_html,
+    guess_direct_extension,
+    needs_direct_cdn_download,
+    rewrite_creator_media_url,
+    safe_title_for_url,
+)
 from ytscore.formats import (
     DEFAULT_FORMAT_SORT,
     is_format_unavailable_error,
@@ -117,6 +127,9 @@ def _guess_media_id_from_url(url: str) -> Optional[str]:
     r34_id = rule34_video_id(text)
     if r34_id:
         return r34_id
+    creator_id = creator_media_id(text)
+    if creator_id:
+        return creator_id
     return None
 
 
@@ -183,19 +196,25 @@ def download_item(
 
     ydl_opts = apply_auth_opts(ydl_opts, settings)
     download_url = url
-    if detect_platform(url) == "adult_tube":
+    platform = detect_platform(url)
+    if platform == "adult_tube":
         # GIF / photo pages are not handled by yt-dlp extractors; map to CDN media.
         rewritten = rewrite_adult_tube_media_url(url, settings)
         if rewritten and rewritten != url:
             download_url = rewritten
             logging.info("Adult-tube media rewrite %s → %s", url, download_url)
-    elif detect_platform(url) == RULE34_VIDEO_PLATFORM:
+    elif platform == RULE34_VIDEO_PLATFORM:
         # Stock extractor misses formats when the download sheet markup drifts;
         # map video pages to direct get_file CDN URLs (cookies still applied).
         rewritten = rewrite_rule34_video_media_url(url, settings)
         if rewritten and rewritten != url:
             download_url = rewritten
             logging.info("rule34_video media rewrite %s → %s", url, download_url)
+    elif platform in HTML_CREATOR_PLATFORMS:
+        rewritten = rewrite_creator_media_url(url, settings)
+        if rewritten and rewritten != url:
+            download_url = rewritten
+            logging.info("creator_media rewrite %s → %s", url, download_url)
 
     if skip_existing:
         guessed = _guess_media_id_from_url(download_url) or _guess_media_id_from_url(url)
@@ -208,7 +227,7 @@ def download_item(
 
     # rule34_video CDN redirects through a .php endpoint yt-dlp refuses to save.
     if (
-        detect_platform(url) == RULE34_VIDEO_PLATFORM
+        platform == RULE34_VIDEO_PLATFORM
         and media == "video"
         and "get_file/" in download_url
     ):
@@ -235,6 +254,48 @@ def download_item(
 
             base, ext = os.path.splitext(dest)
             final = f"{base}_wm{ext if ext else '.mp4'}"
+            msg = add_watermark(dest, watermark_path, final)
+            if os.path.isfile(final):
+                try:
+                    os.remove(dest)
+                except OSError:
+                    pass
+                dest = final
+            else:
+                logging.warning("Watermark step: %s", msg)
+        return DownloadResult(ok=True, path=dest, title=title)
+
+    # Creator HTML hosts: stream rewritten preview / gallery assets directly.
+    if (
+        platform in HTML_CREATOR_PLATFORMS
+        and media == "video"
+        and needs_direct_cdn_download(url, download_url)
+    ):
+        media_id = creator_media_id(url) or _guess_media_id_from_url(url) or "media"
+        html = ""
+        page_err = None
+        if creator_media_id(url):
+            html, page_err = creator_fetch_html(url, settings)
+            if page_err:
+                logging.debug("creator_media title fetch: %s", page_err)
+        title = safe_title_for_url(url, html or "")
+        ext = guess_direct_extension(download_url, default=".mp4")
+        dest = os.path.join(output_dir, f"{prefix}{title} [{media_id}]{ext}")
+        err = download_direct_media(
+            download_url,
+            dest,
+            settings,
+            referer=url,
+            progress_hook=progress_hook,
+        )
+        if err:
+            return DownloadResult(ok=False, error=err)
+        title_cache.put(url, title)
+        if watermark_path and os.path.isfile(dest) and ext in (".mp4", ".webm", ".m4v", ".mov"):
+            from ytscore.watermark import add_watermark
+
+            base, file_ext = os.path.splitext(dest)
+            final = f"{base}_wm{file_ext if file_ext else '.mp4'}"
             msg = add_watermark(dest, watermark_path, final)
             if os.path.isfile(final):
                 try:

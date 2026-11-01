@@ -8,6 +8,15 @@ from typing import List, Sequence
 from urllib.parse import urlparse
 
 from ytscore.cache import title_cache
+from ytscore.creator_media import (
+    CREATOR_PLATFORMS,
+    HTML_CREATOR_PLATFORMS,
+    YTDLP_CREATOR_PLATFORMS,
+    detect_creator_platform,
+    is_html_listing_url,
+    resolve_html_creator,
+    resolve_listing_pages as resolve_creator_listing_pages,
+)
 from ytscore.rule34_video import (
     PLATFORM_ID as RULE34_VIDEO_PLATFORM,
     is_rule34_video_host,
@@ -63,6 +72,9 @@ def detect_platform(url: str) -> str:
         return "spotify"
     if is_rule34_video_host(url):
         return RULE34_VIDEO_PLATFORM
+    creator = detect_creator_platform(url)
+    if creator:
+        return creator
     if any(marker in host for marker in _ADULT_TUBE_HOST_MARKERS):
         return "adult_tube"
     return "generic"
@@ -293,6 +305,43 @@ def resolve_rule34_video(
     return resolve_flat(input_url, settings, playlist_end=playlist_end)
 
 
+def resolve_creator_media(
+    url: str,
+    settings: Settings,
+    playlist_end: int = 100,
+) -> List[str]:
+    """
+    Resolve creator / gallery / clip hosts (yt-dlp or clean-room HTML).
+
+    Cookie auth helps for age-gated, purchased, or account-restricted surfaces
+    the signed-in session can already open. Paid full clips without purchase
+    may only expose public previews.
+    """
+    input_url = canonicalize_media_url(url.strip()) or url.strip()
+    platform = detect_creator_platform(input_url)
+    if platform in HTML_CREATOR_PLATFORMS:
+        if is_html_listing_url(input_url) and playlist_end != 1:
+            if playlist_end <= 0:
+                max_pages = 10
+            else:
+                max_pages = min(25, max(1, 1 + (playlist_end - 1) // 24))
+            links = resolve_creator_listing_pages(
+                input_url,
+                settings,
+                limit=playlist_end,
+                max_pages=max_pages,
+                pace_seconds=float(getattr(settings, "pace_seconds", 0) or 0),
+            )
+            if links:
+                return links
+        return resolve_html_creator(
+            input_url, settings, playlist_end=playlist_end
+        )
+    if platform in YTDLP_CREATOR_PLATFORMS:
+        return resolve_flat(input_url, settings, playlist_end=playlist_end)
+    return resolve_flat(input_url, settings, playlist_end=playlist_end)
+
+
 def resolve_url(url: str, settings: Settings, playlist_end: int = 100) -> List[str]:
     platform = detect_platform(url)
     if platform == "youtube":
@@ -309,6 +358,8 @@ def resolve_url(url: str, settings: Settings, playlist_end: int = 100) -> List[s
             playlist_end=playlist_end,
             require_playlist_cookies=True,
         )
+    if platform in CREATOR_PLATFORMS:
+        return resolve_creator_media(url, settings, playlist_end=playlist_end)
     return resolve_flat(url, settings, playlist_end=playlist_end)
 
 

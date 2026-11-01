@@ -29,6 +29,14 @@ from ytscore.adult_tube import (
 )
 from ytscore.backoff import compute_backoff_seconds, is_rate_limited
 from ytscore.cache import title_cache
+from ytscore.creator_media import (
+    CREATOR_PLATFORMS,
+    HTML_CREATOR_PLATFORMS,
+    YTDLP_CREATOR_PLATFORMS,
+    is_html_listing_url,
+    is_html_single_url,
+    resolve_listing_pages as resolve_creator_listing_pages,
+)
 from ytscore.resolvers import detect_platform, resolve_flat, resolve_url
 from ytscore.rule34_video import (
     PLATFORM_ID as RULE34_VIDEO_PLATFORM,
@@ -601,6 +609,77 @@ def crawl_rule34_video(
     return result
 
 
+def crawl_creator_media(
+    url: str,
+    settings: Settings,
+    *,
+    mode: CrawlMode,
+    limit: int,
+    pace_seconds: float,
+    sleep_fn: SleepFn = time.sleep,
+) -> CrawlResult:
+    """
+    Crawl creator / gallery / clip hosts.
+
+    yt-dlp platforms use flat extract. HTML platforms harvest listing pages
+    (favorites, categories, model galleries) with optional paced pagination
+    under Deep / Videos modes.
+    """
+    platform = detect_platform(url)
+    result = CrawlResult(
+        mode=mode,
+        platform=platform,
+        auth_required=crawl_requires_auth(mode),
+        auth_configured=cookie_auth_configured(settings),
+    )
+    input_url = canonicalize_media_url(url.strip()) or url.strip()
+
+    if platform in YTDLP_CREATOR_PLATFORMS:
+        return crawl_social_flat(
+            input_url,
+            settings,
+            mode=mode,
+            limit=limit,
+            platform=platform,
+        )
+
+    if platform not in HTML_CREATOR_PLATFORMS:
+        return crawl_social_flat(
+            input_url,
+            settings,
+            mode=mode,
+            limit=limit,
+            platform=platform or "generic",
+        )
+
+    if is_html_single_url(input_url):
+        result.urls = resolve_url(input_url, settings, playlist_end=1)
+        return result
+
+    if mode == CrawlMode.SHALLOW or not is_html_listing_url(input_url):
+        result.urls = resolve_url(input_url, settings, playlist_end=limit)
+        result.tabs_tried.append("shallow")
+        return result
+
+    if limit <= 0:
+        max_pages = 10
+    else:
+        max_pages = min(25, max(1, 1 + (limit - 1) // 24))
+    result.tabs_tried.append("listing")
+    links = resolve_creator_listing_pages(
+        input_url,
+        settings,
+        limit=limit,
+        max_pages=max_pages,
+        pace_seconds=pace_seconds,
+        sleep_fn=sleep_fn,
+    )
+    result.urls = take_crawl_budget(links, limit) or resolve_url(
+        input_url, settings, playlist_end=limit
+    )
+    return result
+
+
 def crawl_profile(
     url: str,
     settings: Settings,
@@ -666,6 +745,16 @@ def crawl_profile(
 
     if platform == RULE34_VIDEO_PLATFORM:
         return crawl_rule34_video(
+            url,
+            settings,
+            mode=crawl_mode,
+            limit=item_limit,
+            pace_seconds=pace,
+            sleep_fn=sleep_fn,
+        )
+
+    if platform in CREATOR_PLATFORMS:
+        return crawl_creator_media(
             url,
             settings,
             mode=crawl_mode,
