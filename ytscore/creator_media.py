@@ -12,7 +12,7 @@ import logging
 import os
 import re
 from typing import List, Optional, Sequence, Tuple
-from urllib.parse import unquote, urljoin, urlparse
+from urllib.parse import parse_qs, unquote, urlencode, urljoin, urlparse, urlunparse
 
 from ytscore.settings import Settings, apply_auth_opts
 from ytscore.util import canonicalize_media_url, clean_filename
@@ -91,6 +91,14 @@ _ARYION_FAV_RE = re.compile(
     r"^/g4/(?:favorites|user|gallery|latest\.php|browse\.php|tags\.php)",
     re.IGNORECASE,
 )
+# Aryion pagenav: "Page 1 of 294" + ?p=N links (also page=/offset=/from= elsewhere).
+_PAGE_OF_RE = re.compile(
+    r"Page\s+(?P<cur>\d+)\s+of\s+(?P<total>\d+)",
+    re.IGNORECASE,
+)
+_LISTING_PAGE_QUERY_KEYS = ("p", "page", "offset", "from")
+# Soft ceiling when Limit is Unlimited (0); real stop is missing Next / last page.
+_UNLIMITED_LISTING_MAX_PAGES = 10000
 
 # Extensions Aryion (and sibling gallery hosts) commonly expose via CDN / data.php.
 _DIRECT_EXTENSIONS = (
@@ -350,6 +358,68 @@ def harvest_aryion_views(html: str, *, base_url: str, limit: int) -> List[str]:
         if limit > 0 and len(seen) >= limit:
             break
     return list(seen.keys())
+
+
+def parse_listing_page_of(html: str) -> Tuple[Optional[int], Optional[int]]:
+    """Return ``(current, total)`` from Aryion-style ``Page X of Y``, else ``(None, None)``."""
+    if not html:
+        return None, None
+    match = _PAGE_OF_RE.search(html)
+    if not match:
+        return None, None
+    try:
+        current = int(match.group("cur"))
+        total = int(match.group("total"))
+    except (TypeError, ValueError):
+        return None, None
+    if current < 1 or total < 1:
+        return None, None
+    return current, total
+
+
+def listing_query_page(url: str) -> int:
+    """1-based page index from ``?p=`` / ``?page=`` / ``?offset=`` / ``?from=`` (default 1)."""
+    parsed = urlparse((url or "").strip())
+    qs = parse_qs(parsed.query)
+    for key in _LISTING_PAGE_QUERY_KEYS:
+        values = qs.get(key) or []
+        if not values:
+            continue
+        try:
+            return max(1, int(values[0]))
+        except (TypeError, ValueError):
+            continue
+    return 1
+
+
+def with_listing_query_page(url: str, page: int) -> str:
+    """Set/replace the listing page query param (prefer existing ``p``/``page`` key)."""
+    text = (url or "").strip()
+    if not text or page < 1:
+        return text
+    parsed = urlparse(text)
+    qs = parse_qs(parsed.query, keep_blank_values=True)
+    key = "p"
+    for candidate in _LISTING_PAGE_QUERY_KEYS:
+        if candidate in qs:
+            key = candidate
+            break
+    qs[key] = [str(int(page))]
+    pairs: List[Tuple[str, str]] = []
+    for name, values in qs.items():
+        for value in values:
+            pairs.append((name, value))
+    return canonicalize_media_url(
+        urlunparse(parsed._replace(query=urlencode(pairs)))
+    ) or urlunparse(parsed._replace(query=urlencode(pairs)))
+
+
+def creator_listing_max_pages(limit: int, *, per_page: int = 24) -> int:
+    """Page budget for HTML creator listings (``limit`` ``0`` = Unlimited)."""
+    if limit <= 0:
+        return _UNLIMITED_LISTING_MAX_PAGES
+    per = max(1, int(per_page))
+    return max(1, 1 + (int(limit) - 1) // per)
 
 
 def aryion_data_php_url(view_url_or_id: str) -> str:
@@ -680,7 +750,12 @@ def resolve_listing_pages(
     pace_seconds: float = 0.0,
     sleep_fn=None,
 ) -> List[str]:
-    """Paced multi-page harvest for HTML creator listings (best-effort next links)."""
+    """Paced multi-page harvest for HTML creator listings (best-effort next links).
+
+    Walks ``Next`` / ``?p=N`` until exhausted, ``max_pages``, or the item ``limit``.
+    When HTML exposes ``Page X of Y``, the page budget expands up to ``Y`` (still
+    capped by ``max_pages`` and the Unlimited soft ceiling).
+    """
     import time as _time
 
     sleeper = sleep_fn or _time.sleep
@@ -689,7 +764,8 @@ def resolve_listing_pages(
     seen: dict[str, None] = {}
     page_url = input_url
     pages = 0
-    while page_url and pages < max(1, int(max_pages)):
+    page_budget = max(1, int(max_pages))
+    while page_url and pages < page_budget:
         if limit > 0 and len(seen) >= limit:
             break
         if pages > 0 and pace_seconds > 0:
@@ -699,6 +775,13 @@ def resolve_listing_pages(
         if err or not html:
             logging.warning("creator_media page fetch failed %s: %s", page_url, err)
             break
+        # When HTML reports "Page X of Y", raise the budget up to Y (still capped
+        # by the Unlimited soft ceiling so intentional low max_pages for tests
+        # can stay low unless the caller already opted into a large walk).
+        current_page, total_pages = parse_listing_page_of(html)
+        if total_pages and page_budget < int(total_pages):
+            if int(max_pages) >= int(total_pages) or int(max_pages) >= 100:
+                page_budget = min(int(total_pages), _UNLIMITED_LISTING_MAX_PAGES)
         remaining = 0 if limit <= 0 else max(0, limit - len(seen))
         batch = harvest_listing(
             html, base_url=page_url, platform=platform, limit=remaining
@@ -708,6 +791,8 @@ def resolve_listing_pages(
                 seen[item] = None
             if limit > 0 and len(seen) >= limit:
                 break
+        if current_page and total_pages and current_page >= total_pages:
+            break
         nxt = _find_next_page(html, base_url=page_url, current_url=page_url)
         if not nxt or nxt == page_url:
             break
@@ -716,9 +801,14 @@ def resolve_listing_pages(
 
 
 _NEXT_HREF_RE = re.compile(
-    r"""href=["']([^"']+)["'][^>]*>\s*(?:Next|»|>|Older|More)\s*<"""
+    # Aryion encodes "Next >>" as "Next &gt;&gt;" — allow trailing entities/glyphs.
+    r"""href=["']([^"']+)["'][^>]*>\s*(?:Next\b[^<]*|»|&raquo;|Older|More)\s*<"""
     r"""|rel=["']next["'][^>]*href=["']([^"']+)["']"""
     r"""|href=["']([^"']+)["'][^>]*rel=["']next["']""",
+    re.IGNORECASE,
+)
+_PAGEJUMP_HREF_RE = re.compile(
+    r"""href=["']([^"']*[?&](?:p|page|offset|from)=(\d+)[^"']*)["']""",
     re.IGNORECASE,
 )
 
@@ -733,21 +823,47 @@ def _find_next_page(html: str, *, base_url: str, current_url: str) -> Optional[s
         resolved = _abs(base_url, href)
         if resolved and resolved != current_url:
             return resolved
-    # Clips4Sale / Aryion page-number bump (Page2, /2/, from:2).
+    current_page = listing_query_page(current_url)
+    nav_current, nav_total = parse_listing_page_of(html)
+    if nav_current:
+        current_page = nav_current
+    # Prefer the smallest pagejump / ?p=N link strictly greater than current.
+    candidates: List[Tuple[int, str]] = []
+    for href, num_text in _PAGEJUMP_HREF_RE.findall(html or ""):
+        try:
+            page_num = int(num_text)
+        except (TypeError, ValueError):
+            continue
+        if page_num <= current_page:
+            continue
+        resolved = _abs(base_url, href.split("#", 1)[0])
+        if resolved and resolved != current_url:
+            candidates.append((page_num, resolved))
+    if candidates:
+        candidates.sort(key=lambda item: item[0])
+        return candidates[0][1]
+    if nav_total and current_page < nav_total:
+        bumped = with_listing_query_page(current_url, current_page + 1)
+        if bumped and bumped != current_url:
+            return bumped
+    # Clips4Sale-style path bump (Page2) when query pagination is absent.
     parsed = urlparse(current_url)
     path = parsed.path or ""
-    bumped = re.sub(
+    bumped_path = re.sub(
         r"(Page)(\d+)",
         lambda m: f"{m.group(1)}{int(m.group(2)) + 1}",
         path,
         count=1,
         flags=re.IGNORECASE,
     )
-    if bumped != path:
+    if bumped_path != path:
         return canonicalize_media_url(
-            f"{parsed.scheme}://{parsed.netloc}{bumped}"
+            f"{parsed.scheme}://{parsed.netloc}{bumped_path}"
             + (("?" + parsed.query) if parsed.query else "")
         )
+    # Last resort: append/bump ?p= when the document advertises more pages.
+    if nav_total and current_page < nav_total:
+        return with_listing_query_page(current_url, current_page + 1)
     return None
 
 

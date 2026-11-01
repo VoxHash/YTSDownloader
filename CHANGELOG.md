@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.2] - 2026-11-01
+
+### Fixed
+- **Aryion listing pagination:** favorites / category / gallery listing crawls follow `Next >>` (`Next &gt;&gt;`) and `?p=N` pagejumps through **all** pages (e.g. “Page 1 of 294”), not only the first page.
+- Parse `Page X of Y` + last pagejump to bound the walk; Unlimited (`limit`/`playlist_end` `0`) uses a high page ceiling instead of a hard 10-page cap.
+
+### Changed
+- Docs: Aryion troubleshooting notes multi-page favorites harvest.
+- ROADMAP: v0.20.2 Aryion full listing pagination.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.20.2** / 22.
+
+### Verified
+- Unit tests for `Page X of Y`, `?p=` next links, paced multi-page resolve.
+- Live resolve/crawl of a multi-hundred-page favorites listing (URL count grows past one page) with Brave cookies when configured.
+
 ## [0.20.1] - 2026-10-31
 
 ### Fixed

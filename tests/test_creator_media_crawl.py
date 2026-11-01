@@ -39,7 +39,7 @@ class CreatorCrawlTests(unittest.TestCase):
                 "https://aryion.com/g4/view/2",
                 "https://aryion.com/g4/view/3",
             ],
-        ):
+        ) as mocked:
             result = crawl_creator_media(
                 "https://aryion.com/g4/favorites/faceinthebutt/Pref",
                 Settings(cookies_from_browser="brave:Default"),
@@ -50,6 +50,23 @@ class CreatorCrawlTests(unittest.TestCase):
         self.assertEqual(result.platform, PLATFORM_ARYION)
         self.assertEqual(result.tabs_tried, ["listing"])
         self.assertEqual(len(result.urls), 2)
+        mocked.assert_called_once()
+        self.assertEqual(mocked.call_args.kwargs.get("max_pages"), 1)
+
+    def test_aryion_deep_unlimited_max_pages(self) -> None:
+        with patch(
+            "ytscore.crawl.resolve_creator_listing_pages",
+            return_value=["https://aryion.com/g4/view/1"],
+        ) as mocked:
+            crawl_creator_media(
+                "https://aryion.com/g4/favorites/faceinthebutt/Belly+Vore",
+                Settings(cookies_from_browser="brave:Default"),
+                mode=CrawlMode.DEEP,
+                limit=0,
+                pace_seconds=0,
+            )
+        self.assertEqual(mocked.call_args.kwargs.get("max_pages"), 10000)
+        self.assertEqual(mocked.call_args.kwargs.get("limit"), 0)
 
     def test_crawl_profile_routes_aryion(self) -> None:
         with patch(

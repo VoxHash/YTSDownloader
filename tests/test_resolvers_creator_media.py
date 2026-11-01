@@ -17,7 +17,9 @@ from ytscore.creator_media import (
     PLATFORM_TWPORNSTARS,
     PLATFORM_VIMEO,
     PLATFORM_VK,
+    _find_next_page,
     aryion_data_php_url,
+    creator_listing_max_pages,
     creator_media_id,
     extension_from_content_disposition,
     extension_from_content_type,
@@ -32,8 +34,12 @@ from ytscore.creator_media import (
     is_aryion_single_url,
     is_clips4sale_listing_url,
     is_clips4sale_single_url,
+    listing_query_page,
     media_payload_mismatches_extension,
     needs_direct_cdn_download,
+    parse_listing_page_of,
+    resolve_listing_pages,
+    with_listing_query_page,
 )
 from ytscore.resolvers import detect_platform, resolve_creator_media, resolve_url
 from ytscore.settings import Settings
@@ -127,6 +133,83 @@ class AryionHarvestTests(unittest.TestCase):
                 "https://aryion.com/g4/data.php?id=1316304",
             )
         )
+
+
+class AryionPaginationTests(unittest.TestCase):
+    _PAGENAV = """
+    <span class='pagenav'> Page 1 of 294 &bull; <span class='pagejumps'><strong>1</strong>
+    <a href='/g4/favorites/faceinthebutt/Belly+Vore?p=2'>2</a>
+    <a href='/g4/favorites/faceinthebutt/Belly+Vore?p=3'>3</a>
+     ... <a href='/g4/favorites/faceinthebutt/Belly+Vore?p=294'>294</a></span>
+     &bull; <a href='/g4/favorites/faceinthebutt/Belly+Vore?p=2'>Next &gt;&gt;</a></span>
+    """
+    _BASE = "https://aryion.com/g4/favorites/faceinthebutt/Belly+Vore"
+
+    def test_parse_page_of_and_query(self) -> None:
+        self.assertEqual(parse_listing_page_of(self._PAGENAV), (1, 294))
+        self.assertEqual(parse_listing_page_of(""), (None, None))
+        self.assertEqual(listing_query_page(self._BASE), 1)
+        self.assertEqual(listing_query_page(self._BASE + "?p=12"), 12)
+        self.assertIn("p=2", with_listing_query_page(self._BASE, 2))
+        self.assertEqual(creator_listing_max_pages(0), 10000)
+        self.assertEqual(creator_listing_max_pages(50), 3)
+
+    def test_find_next_handles_encoded_next(self) -> None:
+        nxt = _find_next_page(
+            self._PAGENAV, base_url=self._BASE, current_url=self._BASE
+        )
+        self.assertIsNotNone(nxt)
+        assert nxt is not None
+        self.assertIn("p=2", nxt)
+        last_html = (
+            "<span class='pagenav'> Page 294 of 294 &bull; "
+            "<span class='pagejumps'><a href='?p=293'>293</a> "
+            "<strong>294</strong></span></span>"
+        )
+        last_url = self._BASE + "?p=294"
+        self.assertIsNone(
+            _find_next_page(last_html, base_url=last_url, current_url=last_url)
+        )
+
+    def test_resolve_listing_pages_walks_query_pages(self) -> None:
+        pages = {
+            self._BASE: (
+                self._PAGENAV
+                + '<a href="/g4/view/1">a</a><a href="/g4/view/2">b</a>',
+                None,
+            ),
+            self._BASE + "?p=2": (
+                "<span class='pagenav'> Page 2 of 294 &bull; "
+                "<a href='?p=3'>Next &gt;&gt;</a></span>"
+                '<a href="/g4/view/3">c</a><a href="/g4/view/4">d</a>',
+                None,
+            ),
+            self._BASE + "?p=3": (
+                "<span class='pagenav'> Page 3 of 294 </span>"
+                '<a href="/g4/view/5">e</a>',
+                None,
+            ),
+        }
+
+        def fake_fetch(url: str, _settings):
+            return pages[url]
+
+        sleeps: list[float] = []
+        with patch(
+            "ytscore.creator_media.fetch_html",
+            side_effect=fake_fetch,
+        ):
+            out = resolve_listing_pages(
+                self._BASE,
+                Settings(),
+                limit=0,
+                max_pages=3,
+                pace_seconds=0.5,
+                sleep_fn=sleeps.append,
+            )
+        self.assertEqual(len(out), 5)
+        self.assertEqual(len(sleeps), 2)
+        self.assertTrue(all("/g4/view/" in u for u in out))
 
 
 class AryionExtensionTests(unittest.TestCase):

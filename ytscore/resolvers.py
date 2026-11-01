@@ -12,6 +12,7 @@ from ytscore.creator_media import (
     CREATOR_PLATFORMS,
     HTML_CREATOR_PLATFORMS,
     YTDLP_CREATOR_PLATFORMS,
+    creator_listing_max_pages,
     detect_creator_platform,
     is_html_listing_url,
     resolve_html_creator,
@@ -321,10 +322,7 @@ def resolve_creator_media(
     platform = detect_creator_platform(input_url)
     if platform in HTML_CREATOR_PLATFORMS:
         if is_html_listing_url(input_url) and playlist_end != 1:
-            if playlist_end <= 0:
-                max_pages = 10
-            else:
-                max_pages = min(25, max(1, 1 + (playlist_end - 1) // 24))
+            max_pages = creator_listing_max_pages(playlist_end)
             links = resolve_creator_listing_pages(
                 input_url,
                 settings,

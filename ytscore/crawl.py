@@ -33,6 +33,7 @@ from ytscore.creator_media import (
     CREATOR_PLATFORMS,
     HTML_CREATOR_PLATFORMS,
     YTDLP_CREATOR_PLATFORMS,
+    creator_listing_max_pages,
     is_html_listing_url,
     is_html_single_url,
     resolve_listing_pages as resolve_creator_listing_pages,
@@ -661,10 +662,7 @@ def crawl_creator_media(
         result.tabs_tried.append("shallow")
         return result
 
-    if limit <= 0:
-        max_pages = 10
-    else:
-        max_pages = min(25, max(1, 1 + (limit - 1) // 24))
+    max_pages = creator_listing_max_pages(limit)
     result.tabs_tried.append("listing")
     links = resolve_creator_listing_pages(
         input_url,
