@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-11-02
+
+### Fixed
+- **Sibling Qt process coupling:** desktop launches now use `scripts/run_ytsdownloader.sh` (`setsid` new session, unset `QT_PLUGIN_PATH` / related host plugin vars) so closing another local PyQt tool does not tear down YTSDownloader via a shared process group or plugin host.
+- Unique Qt identity before `QApplication`: organization `VoxHash`, application name `YTSDownloader`, desktop file name `ytsdownloader` (matches `StartupWMClass` / `.desktop` basename).
+
+### Changed
+- `scripts/install_local.sh` PATH wrapper calls the isolated launcher instead of bare `.venv/bin/python main.py`.
+- Docs: installation / architecture note on sibling Qt coupling (generic).
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.21.1** / 24.
+
+### Verified
+- Unit tests for identity constants vs sibling names and installer/launcher wiring (`tests/test_desktop_identity.py`).
+- Offscreen import smoke: `configure_qt_identity` + `ytsgui.app` under `QT_QPA_PLATFORM=offscreen`.
+
 ## [0.21.0] - 2026-11-01
 
 ### Fixed

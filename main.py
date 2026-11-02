@@ -660,6 +660,16 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     # Default: modern Suite UI. Pass --legacy for the classic tabbed window.
     if "--legacy" in sys.argv:
+        # Unique Qt identity before QApplication (isolates from sibling Qt tools).
+        try:
+            from ytscore.desktop_identity import configure_qt_identity
+            configure_qt_identity()
+        except Exception:
+            from PyQt6.QtCore import QCoreApplication
+            from PyQt6.QtGui import QGuiApplication
+            QCoreApplication.setOrganizationName("VoxHash")
+            QCoreApplication.setApplicationName("YTSDownloader")
+            QGuiApplication.setDesktopFileName("ytsdownloader")
         app = QApplication(sys.argv)
         try:
             from ytsgui.app import apply_app_icon

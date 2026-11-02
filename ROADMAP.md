@@ -1,9 +1,10 @@
 # Roadmap
 
-Current product baseline: **v0.21.0** — large-queue Suite stays responsive (paged table, coalesced UI, paced persist) on top of **v0.20.2** Aryion full listing pagination, **v0.20.1** multi-type `data.php` downloads, **v0.20.0** creator / gallery / clip hosts (`creator_media`), and earlier Suite polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
+Current product baseline: **v0.21.1** — desktop process isolation from sibling Qt tools (unique Qt identity + `setsid` launcher), on top of **v0.21.0** large-queue Suite responsiveness, **v0.20.2** Aryion full listing pagination, **v0.20.1** multi-type `data.php` downloads, **v0.20.0** creator / gallery / clip hosts (`creator_media`), and earlier Suite polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
 
 ## Now (v0.21.x)
 
+- [x] **Sibling Qt isolation** — unique `QCoreApplication` name / desktop file + `scripts/run_ytsdownloader.sh` (`setsid`, unset host Qt plugin vars); `install_local.sh` wires PATH/desktop to that launcher (v0.21.1).
 - [x] **Large-queue responsiveness** — paginated/filtered queue table, coalesced progress UI, size-aware JSON persist; keep Python+PyQt6 (freeze was UI/persist, not download language) (v0.21.0).
 
 ### Prior (v0.20.x)

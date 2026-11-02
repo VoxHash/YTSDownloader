@@ -80,6 +80,27 @@ From **v0.21.0** the Queue table shows one **filtered page** (Prev/Next, 250 row
 4. Avoid hammering Search while thousands of items are mid-progress; filters debounce, but typing still rescans the in-memory job list.
 5. If the window was frozen mid-run on an older build, Stop → wait for the process to accept input → upgrade → Start again (restore remaps in-flight jobs to queued).
 
+## Closing YTSDownloader also closes other VoxHash Qt apps (or vice versa)
+
+From **v0.21.1** the Suite sets a unique Qt identity (`VoxHash` / `YTSDownloader` / desktop id `ytsdownloader`) before `QApplication`, and Linux menu/PATH launches go through `scripts/run_ytsdownloader.sh` (`setsid` + cleared host `QT_PLUGIN_PATH`). Re-install the desktop entry after upgrading:
+
+```bash
+./scripts/install_local.sh
+```
+
+Then fully quit and relaunch each app from its own menu/PATH entry (not a shared parent shell that backgrounds several `python main.py` jobs in one process group).
+
+Sibling apps should each call `setApplicationName(<unique>)`, `setDesktopFileName(<desktop-basename>)`, and ship a matching `StartupWMClass` — recommended ids:
+
+| App | ApplicationName | desktop file / `setDesktopFileName` |
+| --- | --- | --- |
+| YTSDownloader | `YTSDownloader` | `ytsdownloader` |
+| ForexSmartBot | `ForexSmartBot` | `forexsmartbot` |
+| DB Storage Manager | (existing `APP_NAME`) | `db-storage-manager` |
+| Telegram Multi-Account Message Sender | `Telegram Multi-Account Message Sender` | match installed `.desktop` basename |
+
+If a top strip shows “On Playground” / “On Workspace” with X buttons, that is the Cursor agent UI for multiple project chats — closing those cards does not quit the desktop apps.
+
 ## GUI / logging handler errors on exit
 
 Known edge case during Qt shutdown order. Prefer confirming downloads completed; improvements are tracked under Milestone “Now” in `ROADMAP.md`.

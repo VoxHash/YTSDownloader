@@ -18,6 +18,10 @@ main.py ──► ytsgui (Suite UI)          [--legacy ► classic tabs]
                 └─ watermark (moviepy + Pillow + ffmpeg)
 ```
 
+## Process isolation (v0.21.1)
+
+Desktop Linux launches go through `scripts/run_ytsdownloader.sh` (wired by `install_local.sh`): new session (`setsid`), cleared host Qt plugin vars, then the project venv. Before `QApplication`, the Suite sets organization `VoxHash`, application name `YTSDownloader`, and desktop file name `ytsdownloader` so WM class / Wayland app id stay unique. Sibling PyQt tools on the same machine should use the same pattern (own launcher + own application / desktop identity) to avoid shared chrome strips or group teardown when one window closes.
+
 ## Language choice
 
 Downloads are network-bound. The suite stays on **Python + PyQt6 + yt-dlp** so extractor maintenance stays with yt-dlp and the GUI remains one process.

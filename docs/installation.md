@@ -85,7 +85,7 @@ ffprobe -version
 
 ## Local desktop install (Linux menu / PATH)
 
-Registers **one** user-local PATH wrapper and `.desktop` entry that always launch this checkout via `.venv/bin/python main.py` (fish-safe; no venv activate). Does **not** put `dist/` freeze binaries on PATH — keep the freeze as a build artifact only. Creates the venv and installs `requirements.txt` if needed.
+Registers **one** user-local PATH wrapper and `.desktop` entry that always launch this checkout via `scripts/run_ytsdownloader.sh` (fish-safe; no venv activate). That launcher `cd`s to the repo, clears inherited Qt plugin host vars (`QT_PLUGIN_PATH` and related), starts a new session with `setsid`, then execs `.venv/bin/python main.py`. Does **not** put `dist/` freeze binaries on PATH — keep the freeze as a build artifact only. Creates the venv and installs `requirements.txt` if needed.
 
 ```bash
 chmod +x scripts/install_local.sh
@@ -97,11 +97,14 @@ Creates:
 
 | Path | Role |
 | --- | --- |
-| `~/.local/bin/ytsdownloader` | Wrapper → absolute project `.venv/bin/python main.py` |
-| `~/.local/share/applications/ytsdownloader.desktop` | Application menu entry (`Exec` → that wrapper, `Icon=ytsdownloader`) |
+| `scripts/run_ytsdownloader.sh` | Isolated launcher (new session + clean Qt plugin env → `.venv/bin/python main.py`) |
+| `~/.local/bin/ytsdownloader` | Wrapper → that isolated launcher |
+| `~/.local/share/applications/ytsdownloader.desktop` | Menu entry (`Exec` → wrapper, `StartupWMClass=YTSDownloader`, `Icon=ytsdownloader`) |
 | `~/.local/share/icons/hicolor/*/apps/ytsdownloader.{png,svg}` | Freedesktop icon from `assets/icons/` |
 
 Re-run the script after moving the repo (or after icon updates) so paths and icons stay correct. Personal `.desktop` / bin / icon files under `~/.local` are machine-local and are not committed.
+
+**Sibling Qt apps:** other local PyQt tools can share a launcher process group or host `QT_PLUGIN_PATH`. Prefer each app’s own isolated launcher + unique `setApplicationName` / `StartupWMClass` / desktop-file basename so closing one does not kill the others.
 
 ## Optional native sidecars
 

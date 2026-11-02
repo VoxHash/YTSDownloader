@@ -7,6 +7,7 @@ import sys
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication
 
+from ytscore.desktop_identity import configure_qt_identity
 from ytscore.icons import resolve_app_icon_path
 from ytscore.settings import load_settings
 from ytsgui.main_window import SuiteWindow
@@ -23,6 +24,8 @@ def apply_app_icon(app: QApplication) -> None:
 
 def run_suite(argv=None) -> int:
     argv = argv if argv is not None else sys.argv
+    # Unique Qt identity before QApplication (isolates from sibling Qt tools).
+    configure_qt_identity()
     app = QApplication(argv)
     apply_app_icon(app)
     settings = load_settings()

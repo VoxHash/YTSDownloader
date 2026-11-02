@@ -76,18 +76,24 @@ for desk in "$APP_DIR"/ytsdownloader.desktop "$APP_DIR"/YTSDownloader.desktop \
   fi
 done
 
-echo "==> Writing $WRAPPER"
+LAUNCHER="$ROOT/scripts/run_ytsdownloader.sh"
+if [[ ! -f "$LAUNCHER" ]]; then
+  echo "Missing isolated launcher: $LAUNCHER" >&2
+  exit 1
+fi
+chmod +x "$LAUNCHER"
+
+echo "==> Writing $WRAPPER (→ scripts/run_ytsdownloader.sh)"
 cat > "$WRAPPER" <<EOF
 #!/usr/bin/env bash
-# Single machine install: YTSDownloader (project venv)
-ROOT="$ROOT"
-cd "\$ROOT" || exit 1
-unset PYTHONPATH
-exec "\$ROOT/.venv/bin/python" "\$ROOT/main.py" "\$@"
+# Single machine install: YTSDownloader (isolated session + clean Qt env)
+exec "$LAUNCHER" "\$@"
 EOF
 chmod +x "$WRAPPER"
 
 echo "==> Writing $DESKTOP"
+# StartupWMClass must match Qt setApplicationName (X11 WM_CLASS).
+# Wayland app_id comes from setDesktopFileName("ytsdownloader") → this file's basename.
 cat > "$DESKTOP" <<EOF
 [Desktop Entry]
 Type=Application

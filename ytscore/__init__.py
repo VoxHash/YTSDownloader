@@ -1,3 +1,3 @@
 """YTSDownloader core: resolve, queue, download, metadata bridge."""
 
-__version__ = "0.21.0"
+__version__ = "0.21.1"
