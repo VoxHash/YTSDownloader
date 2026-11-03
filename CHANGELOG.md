@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.2] - 2026-11-02
+
+### Fixed
+- **Browse “Select output folder (Not Responding)”** on Linux when the non-native `QFileDialog` sidebar/start path touched slow or stuck removable volumes (Cloud 1/2, NTFS/exFAT, FUSE/NFS): mount discovery now soft-times out and skips unresponsive paths; sidebar URLs are cached briefly; start directory falls back to home/`/` if the requested path does not answer.
+- Dialog options set before sidebar/directory changes: `DontResolveSymlinks`, `DontUseCustomDirectoryIcons`, List view; re-entrant Browse while a picker is open is ignored.
+
+### Changed
+- Docs: architecture / ROADMAP note that a Rust download-core rewrite would **not** fix Browse hangs (Qt file-dialog I/O on the UI thread). Keep Python+PyQt6.
+- Version bump: desktop `ytscore` + Android `versionName`/`versionCode` → **0.21.2** / 25.
+
+### Verified
+- Unit tests for `path_ready` / discover timeout skip, sidebar cache, safe start fallback, re-entrancy guard, and dialog option flags (`tests/test_queue_actions.py`).
+
 ## [0.21.1] - 2026-11-02
 
 ### Fixed

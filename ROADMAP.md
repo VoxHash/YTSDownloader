@@ -1,9 +1,10 @@
 # Roadmap
 
-Current product baseline: **v0.21.1** — desktop process isolation from sibling Qt tools (unique Qt identity + `setsid` launcher), on top of **v0.21.0** large-queue Suite responsiveness, **v0.20.2** Aryion full listing pagination, **v0.20.1** multi-type `data.php` downloads, **v0.20.0** creator / gallery / clip hosts (`creator_media`), and earlier Suite polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
+Current product baseline: **v0.21.2** — Browse folder-dialog soft-timeouts for slow Cloud/USB mounts, on top of **v0.21.1** sibling Qt isolation, **v0.21.0** large-queue Suite responsiveness, **v0.20.2** Aryion full listing pagination, **v0.20.1** multi-type `data.php` downloads, **v0.20.0** creator / gallery / clip hosts (`creator_media`), and earlier Suite polish. Desktop Suite remains richest for deep crawl / browser cookie *profiles* (cookies-from-browser).
 
 ## Now (v0.21.x)
 
+- [x] **Browse dialog freeze** — soft-timeout mount probes, cached sidebar URLs, `DontUseCustomDirectoryIcons` / `DontResolveSymlinks`, safe start-dir fallback; keep Python+PyQt6 (hang was Qt file-dialog I/O on UI thread, not download language) (v0.21.2).
 - [x] **Sibling Qt isolation** — unique `QCoreApplication` name / desktop file + `scripts/run_ytsdownloader.sh` (`setsid`, unset host Qt plugin vars); `install_local.sh` wires PATH/desktop to that launcher (v0.21.1).
 - [x] **Large-queue responsiveness** — paginated/filtered queue table, coalesced progress UI, size-aware JSON persist; keep Python+PyQt6 (freeze was UI/persist, not download language) (v0.21.0).
 
@@ -53,7 +54,7 @@ _(no active desktop milestone — see Later)_
 
 ### Native / core (deferred with rationale)
 
-- [ ] **Rewrite download core in Rust/Go** — **not recommended for Suite “Not Responding” at 10k+ queue size.** Downloads are I/O-bound (yt-dlp + network); measured freezes were main-thread UI rebuild + full JSON persist O(n). Fix UI architecture (v0.21.0). Keep Python+PyQt6+yt-dlp unless profiling proves otherwise; native helpers only where they already help (normalize / inbox / prio).
+- [ ] **Rewrite download core in Rust/Go** — **not recommended** for Suite “Not Responding” cases measured so far. Downloads are I/O-bound (yt-dlp + network). Freezes were (1) main-thread UI rebuild + full JSON persist O(n) at 10k+ jobs (v0.21.0) and (2) Qt `QFileDialog` synchronous mount/icon/listing I/O on Browse (v0.21.2). A Rust download core would not unblock the Qt UI thread. Keep Python+PyQt6+yt-dlp unless profiling proves otherwise; native helpers only where they already help (normalize / inbox / prio).
 - [ ] Pure-Zig `build-exe` rewrite of `yts-prio` — deferred while Zig 0.17 process/Io and `@cImport` settle; **`zig cc` on the C sources** is the supported Zig toolchain path today.
 - [ ] Cross-process Rust slot-broker sidecar — deferred; in-process `ThreadPoolExecutor` + `MAX_WORKERS` already bounds concurrency; no measured multi-process win yet.
 - [ ] Native watermark preprocess (Zig/C) — deferred; profiling shows encode cost dominates spawn/preprocess.

@@ -10,8 +10,12 @@ import unittest
 from unittest import mock
 
 from ytscore.folder_dialog import (
+    clear_sidebar_cache,
     discover_mount_points,
+    get_existing_directory,
+    path_ready,
     primary_system_volume,
+    safe_start_directory,
     volume_sidebar_paths,
 )
 from ytscore.queue import DownloadQueue, JobState, QueueJob
@@ -127,7 +131,8 @@ class FolderSidebarTests(unittest.TestCase):
 
     def test_live_sidebar_has_system_and_media_mounts_not_xdg(self) -> None:
         """System root plus real /run/media/$USER mounts; XDG names do not."""
-        paths = volume_sidebar_paths()
+        clear_sidebar_cache()
+        paths = volume_sidebar_paths(use_cache=False)
         self.assertIn("/", paths)
         self.assertEqual(paths[0], "/")
         for name in (
@@ -158,6 +163,122 @@ class FolderSidebarTests(unittest.TestCase):
                     [os.path.abspath(p) for p in paths],
                     msg=f"expected mount {child} in sidebar {paths}",
                 )
+
+    def test_path_ready_times_out_on_slow_isdir(self) -> None:
+        """Fake slow mount must not hang the caller past the probe timeout."""
+
+        def slow_isdir(_path: str) -> bool:
+            time.sleep(2.0)
+            return True
+
+        t0 = time.perf_counter()
+        with mock.patch("os.path.isdir", side_effect=slow_isdir):
+            ready = path_ready("/run/media/fake-slow-cloud", timeout=0.15)
+        elapsed = time.perf_counter() - t0
+        self.assertFalse(ready)
+        self.assertLess(elapsed, 1.0)
+
+    def test_discover_skips_unresponsive_mount(self) -> None:
+        """Hung Cloud-style volume is omitted instead of blocking discovery."""
+        proc = (
+            "/dev/sdb1 /run/media/raider/FastUSB vfat rw 0 0\n"
+            "/dev/sdc1 /run/media/raider/CloudSlow ntfs3 rw 0 0\n"
+        )
+
+        def selective_isdir(path: str) -> bool:
+            if "CloudSlow" in path:
+                time.sleep(2.0)
+                return True
+            return path in (
+                "/run/media/raider/FastUSB",
+                "/run/media/raider",
+                "/media/raider",
+                "/mnt",
+            )
+
+        t0 = time.perf_counter()
+        with mock.patch("os.path.isdir", side_effect=selective_isdir), mock.patch(
+            "os.path.ismount", return_value=False
+        ), mock.patch("os.listdir", return_value=[]), mock.patch.dict(
+            os.environ, {"USER": "raider"}, clear=False
+        ):
+            mounts = discover_mount_points(proc_mounts=proc, probe_timeout=0.15)
+        elapsed = time.perf_counter() - t0
+        self.assertIn("/run/media/raider/FastUSB", mounts)
+        self.assertNotIn("/run/media/raider/CloudSlow", mounts)
+        self.assertLess(elapsed, 1.5)
+
+    def test_sidebar_cache_avoids_repeat_discovery(self) -> None:
+        clear_sidebar_cache()
+        with mock.patch(
+            "ytscore.folder_dialog.discover_mount_points", return_value=[]
+        ) as disc:
+            a = volume_sidebar_paths(use_cache=True)
+            b = volume_sidebar_paths(use_cache=True)
+            self.assertEqual(a, b)
+            self.assertEqual(disc.call_count, 1)
+        clear_sidebar_cache()
+
+    def test_safe_start_directory_falls_back_when_start_hangs(self) -> None:
+        home = os.path.abspath(os.path.expanduser("~"))
+        allowed = {home, "/"}
+
+        def isdir_mock(path: str) -> bool:
+            abs_path = os.path.abspath(path)
+            if "HungOut" in abs_path:
+                time.sleep(2.0)
+                return True
+            return abs_path in allowed
+
+        t0 = time.perf_counter()
+        with mock.patch("os.path.isdir", side_effect=isdir_mock):
+            start = safe_start_directory("/run/media/raider/HungOut/Videos")
+        elapsed = time.perf_counter() - t0
+        self.assertEqual(os.path.abspath(start), home)
+        self.assertLess(elapsed, 1.5)
+
+
+class FolderDialogUiGuardTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+
+        cls._app = QApplication.instance() or QApplication([])
+
+    def test_get_existing_directory_rejects_reentrancy(self) -> None:
+        from PyQt6.QtWidgets import QFileDialog
+
+        calls = {"n": 0}
+        nested_result = {"value": "unset"}
+
+        def fake_exec(_dialog) -> int:  # noqa: ANN001
+            calls["n"] += 1
+            # Nested Browse while dialog is "open".
+            nested_result["value"] = get_existing_directory(None, "nested", "/")
+            return 0
+
+        with mock.patch.object(QFileDialog, "exec", fake_exec):
+            result = get_existing_directory(None, "outer", "/")
+        self.assertEqual(result, "")
+        self.assertEqual(nested_result["value"], "")
+        self.assertEqual(calls["n"], 1)
+
+    def test_configure_sets_non_blocking_options(self) -> None:
+        from PyQt6.QtWidgets import QFileDialog
+        from ytscore.folder_dialog import configure_directory_dialog
+
+        clear_sidebar_cache()
+        dialog = QFileDialog(None, "Select output folder", "/")
+        with mock.patch(
+            "ytscore.folder_dialog.volume_sidebar_paths", return_value=["/"]
+        ):
+            configure_directory_dialog(dialog, start_dir="/")
+        self.assertTrue(dialog.testOption(QFileDialog.Option.DontResolveSymlinks))
+        self.assertTrue(
+            dialog.testOption(QFileDialog.Option.DontUseCustomDirectoryIcons)
+        )
+        self.assertEqual(dialog.viewMode(), QFileDialog.ViewMode.List)
 
 
 class QueueRemoveClearForceTests(unittest.TestCase):

@@ -1,10 +1,23 @@
-"""Output-folder picker helpers with Linux volume sidebar URLs."""
+"""Output-folder picker helpers with Linux volume sidebar URLs.
+
+Browse hangs on Linux are almost always Qt ``QFileDialog`` doing synchronous
+stat/icon/listing I/O on the UI thread against slow or stuck mounts (NTFS,
+exFAT, FUSE, NFS). This module:
+
+- Probes candidate sidebar paths with a short timeout (skip hung volumes)
+- Caches sidebar URLs so repeated Browse does not re-scan mounts
+- Configures the non-native dialog to avoid symlink resolution and custom
+  directory-icon lookups that amplify mount I/O
+- Guards against re-entrant dialog opens
+"""
 
 from __future__ import annotations
 
 import os
 import sys
-from typing import List, Optional, Sequence
+import threading
+import time
+from typing import List, Optional, Sequence, Tuple
 
 _SKIP_MOUNT_PREFIXES = (
     "/proc",
@@ -32,6 +45,16 @@ _XDG_SIDEBAR_NAMES = frozenset(
     }
 )
 
+# Soft deadline for isdir / listdir against removable / secondary volumes.
+# Hung NFS/FUSE/NTFS must not block the Qt UI thread while building the sidebar.
+_MOUNT_PROBE_TIMEOUT_S = 0.35
+_SIDEBAR_CACHE_TTL_S = 30.0
+
+_sidebar_cache: Optional[Tuple[float, Tuple[str, ...]]] = None
+_sidebar_cache_lock = threading.Lock()
+_dialog_open = False
+_dialog_open_lock = threading.Lock()
+
 
 def _user_name() -> str:
     return (
@@ -42,12 +65,79 @@ def _user_name() -> str:
     )
 
 
-def _existing_dir(path: str) -> Optional[str]:
+def path_ready(path: str, timeout: float = _MOUNT_PROBE_TIMEOUT_S) -> bool:
+    """
+    Return True if ``path`` is a directory and responds within ``timeout`` seconds.
+
+    Runs ``os.path.isdir`` on a daemon thread so a stuck mount does not block the
+    caller past ``timeout``. Threads blocked in uninterruptible I/O are abandoned
+    (the path is treated as not ready).
+    """
+    if not path:
+        return False
+    if timeout <= 0:
+        try:
+            return os.path.isdir(path)
+        except OSError:
+            return False
+
+    box: List[Optional[bool]] = [None]
+
+    def _probe() -> None:
+        try:
+            box[0] = bool(os.path.isdir(path))
+        except OSError:
+            box[0] = False
+
+    worker = threading.Thread(target=_probe, name="yts-path-ready", daemon=True)
+    worker.start()
+    worker.join(timeout)
+    if worker.is_alive():
+        return False
+    return bool(box[0])
+
+
+def listdir_ready(
+    path: str, timeout: float = _MOUNT_PROBE_TIMEOUT_S
+) -> Optional[List[str]]:
+    """
+    ``os.listdir`` with the same soft timeout as ``path_ready``.
+
+    Returns ``None`` on timeout or OSError so callers can skip the root.
+    """
+    if not path:
+        return None
+    box: List[Optional[List[str]]] = [None]
+    err: List[BaseException] = []
+
+    def _probe() -> None:
+        try:
+            box[0] = sorted(os.listdir(path))
+        except OSError as exc:
+            err.append(exc)
+
+    worker = threading.Thread(target=_probe, name="yts-listdir-ready", daemon=True)
+    worker.start()
+    worker.join(timeout)
+    if worker.is_alive() or err:
+        return None
+    return box[0] if box[0] is not None else []
+
+
+def _existing_dir(path: str, *, timeout: Optional[float] = None) -> Optional[str]:
+    """Absolute directory path if it exists and answers within ``timeout``."""
     try:
-        if path and os.path.isdir(path):
-            return os.path.abspath(path)
+        if not path:
+            return None
+        abs_path = os.path.abspath(path)
     except OSError:
         return None
+    probe_timeout = _MOUNT_PROBE_TIMEOUT_S if timeout is None else timeout
+    # Local system root is always present; skip thread overhead.
+    if abs_path == "/":
+        return abs_path
+    if path_ready(abs_path, timeout=probe_timeout):
+        return abs_path
     return None
 
 
@@ -85,10 +175,14 @@ def primary_system_volume() -> Optional[str]:
     """
     if sys.platform.startswith("win"):
         return None
-    return _existing_dir("/")
+    return _existing_dir("/", timeout=0.0)
 
 
-def discover_mount_points(proc_mounts: Optional[str] = None) -> List[str]:
+def discover_mount_points(
+    proc_mounts: Optional[str] = None,
+    *,
+    probe_timeout: float = _MOUNT_PROBE_TIMEOUT_S,
+) -> List[str]:
     """
     Return absolute mount points for user-visible volumes.
 
@@ -98,6 +192,9 @@ def discover_mount_points(proc_mounts: Optional[str] = None) -> List[str]:
     or the system root (see ``primary_system_volume`` / ``volume_sidebar_paths``).
     Under ``/mnt``, only real mount points are included (empty stubs like
     ``/mnt/test`` are skipped).
+
+    Each candidate is checked with ``path_ready`` so a hung Cloud/USB/NFS volume
+    is omitted from the sidebar instead of freezing Browse.
     """
     text = proc_mounts
     if text is None:
@@ -111,7 +208,7 @@ def discover_mount_points(proc_mounts: Optional[str] = None) -> List[str]:
     seen = set()
 
     def add(path: str) -> None:
-        abs_path = _existing_dir(path)
+        abs_path = _existing_dir(path, timeout=probe_timeout)
         if not abs_path or abs_path in seen:
             return
         if _is_xdg_user_place(abs_path):
@@ -129,7 +226,7 @@ def discover_mount_points(proc_mounts: Optional[str] = None) -> List[str]:
         parts = line.split()
         if len(parts) < 3:
             continue
-        source, target, fstype = parts[0], parts[1], parts[2]
+        _source, target, _fstype = parts[0], parts[1], parts[2]
         # Unescape octal sequences used in /proc/mounts (e.g. \040 for space).
         target = (
             target.replace("\\040", " ")
@@ -152,23 +249,29 @@ def discover_mount_points(proc_mounts: Optional[str] = None) -> List[str]:
 
     # Children of per-user media roots (covers mounts not yet typed in /proc).
     for root in media_user_roots:
-        try:
-            for name in sorted(os.listdir(root)):
-                child = os.path.join(root, name)
-                add(child)
-        except OSError:
-            pass
+        names = listdir_ready(root, timeout=probe_timeout)
+        if names is None:
+            continue
+        for name in names:
+            child = os.path.join(root, name)
+            add(child)
 
     # Under /mnt only real mounts — never empty stubs (e.g. /mnt/test).
-    try:
-        for name in sorted(os.listdir("/mnt")):
+    names = listdir_ready("/mnt", timeout=probe_timeout)
+    if names is not None:
+        for name in names:
             child = os.path.join("/mnt", name)
             if _is_mount_point(child):
                 add(child)
-    except OSError:
-        pass
 
     return found
+
+
+def clear_sidebar_cache() -> None:
+    """Drop the cached sidebar path list (tests / after mount change)."""
+    global _sidebar_cache
+    with _sidebar_cache_lock:
+        _sidebar_cache = None
 
 
 def volume_sidebar_paths(
@@ -177,6 +280,8 @@ def volume_sidebar_paths(
     downloads: Optional[str] = None,
     proc_mounts: Optional[str] = None,
     extra: Optional[Sequence[str]] = None,
+    use_cache: bool = True,
+    probe_timeout: float = _MOUNT_PROBE_TIMEOUT_S,
 ) -> List[str]:
     """
     Ordered sidebar paths: local system root first, then volume/mount roots.
@@ -184,13 +289,29 @@ def volume_sidebar_paths(
     ``home`` / ``downloads`` are accepted for API compatibility but ignored —
     XDG places must not appear in the dialog sidebar. Pure path helper (no Qt)
     so unit tests can run without a display.
+
+    Results are cached briefly when ``proc_mounts`` / ``extra`` are not injected,
+    so opening Browse twice does not re-probe every Cloud volume on the UI thread.
     """
     del home, downloads  # unused; kept for call-site compatibility
+    global _sidebar_cache
+
+    can_cache = use_cache and proc_mounts is None and not extra
+    if can_cache:
+        with _sidebar_cache_lock:
+            cached = _sidebar_cache
+            if cached is not None:
+                ts, paths = cached
+                if (time.monotonic() - ts) < _SIDEBAR_CACHE_TTL_S:
+                    return list(paths)
+
     paths: List[str] = []
     seen = set()
 
     def add(path: str) -> None:
-        abs_path = _existing_dir(path)
+        # ``extra`` paths still need a readiness probe so tests / callers cannot
+        # inject a hung volume into the live sidebar.
+        abs_path = _existing_dir(path, timeout=probe_timeout)
         if not abs_path or abs_path in seen:
             return
         if _is_xdg_user_place(abs_path):
@@ -201,12 +322,33 @@ def volume_sidebar_paths(
     root = primary_system_volume()
     if root:
         add(root)
-    for m in discover_mount_points(proc_mounts=proc_mounts):
+    for m in discover_mount_points(proc_mounts=proc_mounts, probe_timeout=probe_timeout):
         add(m)
     if extra:
         for p in extra:
             add(p)
+
+    if can_cache:
+        with _sidebar_cache_lock:
+            _sidebar_cache = (time.monotonic(), tuple(paths))
     return paths
+
+
+def safe_start_directory(directory: str = "") -> str:
+    """
+    Directory to open the picker at, falling back if ``directory`` is slow/hung.
+
+    Prefer the requested path when it answers quickly; otherwise home, then ``/``.
+    """
+    if directory:
+        ready = _existing_dir(directory, timeout=_MOUNT_PROBE_TIMEOUT_S)
+        if ready:
+            return ready
+    home = os.path.expanduser("~")
+    ready_home = _existing_dir(home, timeout=_MOUNT_PROBE_TIMEOUT_S)
+    if ready_home:
+        return ready_home
+    return "/" if not sys.platform.startswith("win") else home or ""
 
 
 def _label_system_volume_sidebar(dialog) -> None:
@@ -228,17 +370,25 @@ def configure_directory_dialog(dialog, *, start_dir: str = "") -> None:
 
     Native GTK/KDE pickers often hide removable volumes; Qt's dialog plus
     ``setSidebarUrls`` lists the system root (“Computer”) and mount roots
-    (no Desktop/Downloads/Trash).
+    (no Desktop/Downloads/Trash). Options that reduce mount I/O are set
+    **before** directory/sidebar changes (Qt docs requirement).
     """
     from PyQt6.QtCore import QUrl
     from PyQt6.QtWidgets import QFileDialog
 
-    dialog.setFileMode(QFileDialog.FileMode.Directory)
+    # Options first — before setDirectory / setSidebarUrls.
     dialog.setOption(QFileDialog.Option.ShowDirsOnly, True)
-    if start_dir:
-        dialog.setDirectory(start_dir)
+    dialog.setOption(QFileDialog.Option.DontResolveSymlinks, True)
+    dialog.setOption(QFileDialog.Option.DontUseCustomDirectoryIcons, True)
     if sys.platform.startswith("linux"):
         dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+    dialog.setFileMode(QFileDialog.FileMode.Directory)
+    dialog.setViewMode(QFileDialog.ViewMode.List)
+
+    start = safe_start_directory(start_dir)
+    if start:
+        dialog.setDirectory(start)
+
     urls = [QUrl.fromLocalFile(p) for p in volume_sidebar_paths()]
     # Always set (even empty) so Qt default XDG places are replaced.
     dialog.setSidebarUrls(urls)
@@ -251,12 +401,22 @@ def get_existing_directory(
     directory: str = "",
 ) -> str:
     """QFileDialog.getExistingDirectory replacement with volume sidebar."""
+    global _dialog_open
     from PyQt6.QtWidgets import QFileDialog
 
-    start = directory or ""
-    dialog = QFileDialog(parent, caption, start)
-    configure_directory_dialog(dialog, start_dir=start)
-    if dialog.exec():
-        selected = dialog.selectedFiles()
-        return selected[0] if selected else ""
-    return ""
+    with _dialog_open_lock:
+        if _dialog_open:
+            return ""
+        _dialog_open = True
+
+    try:
+        start = safe_start_directory(directory or "")
+        dialog = QFileDialog(parent, caption, start)
+        configure_directory_dialog(dialog, start_dir=start)
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            return selected[0] if selected else ""
+        return ""
+    finally:
+        with _dialog_open_lock:
+            _dialog_open = False
